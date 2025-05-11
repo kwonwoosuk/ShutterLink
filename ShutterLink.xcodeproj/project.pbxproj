@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4DDEB2562DCF4DAD00C8BBEA /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 4DDEB2552DCF4DAD00C8BBEA /* .gitignore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		4DDEB2472DCF4CFC00C8BBEA /* ShutterLink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShutterLink.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4DDEB2552DCF4DAD00C8BBEA /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -32,6 +37,7 @@
 		4DDEB23E2DCF4CFC00C8BBEA = {
 			isa = PBXGroup;
 			children = (
+				4DDEB2552DCF4DAD00C8BBEA /* .gitignore */,
 				4DDEB2492DCF4CFC00C8BBEA /* ShutterLink */,
 				4DDEB2482DCF4CFC00C8BBEA /* Products */,
 			);
@@ -109,6 +115,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4DDEB2562DCF4DAD00C8BBEA /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
