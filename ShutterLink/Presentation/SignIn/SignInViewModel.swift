@@ -28,12 +28,16 @@ class SignInViewModel: ObservableObject {
     
     func signIn() async {
         guard !email.isEmpty && !password.isEmpty else {
-            errorMessage = "이메일과 비밀번호를 입력해주세요."
+            await MainActor.run {
+                errorMessage = "이메일과 비밀번호를 입력해주세요."
+            }
             return
         }
         
-        isLoading = true
-        errorMessage = nil
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
         
         do {
             // 실제 구현에서는 FCM 등에서 얻어온 디바이스 토큰
@@ -45,13 +49,17 @@ class SignInViewModel: ObservableObject {
                 deviceToken: deviceToken
             )
             
-            // 로그인 성공
-            isLoading = false
-            isSignInComplete = true
-            authState.currentUser = user
-            authState.isLoggedIn = true
+            
+            await MainActor.run {
+                isLoading = false
+                isSignInComplete = true
+                authState.currentUser = user
+                authState.isLoggedIn = true
+            }
         } catch {
-            handleError(error)
+            await MainActor.run {
+                handleError(error)
+            }
         }
     }
     
