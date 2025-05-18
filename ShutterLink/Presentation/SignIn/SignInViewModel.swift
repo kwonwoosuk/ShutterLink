@@ -21,12 +21,13 @@ class SignInViewModel: ObservableObject {
     private let authUseCase: AuthUseCase
     private let authState: AuthState
     private let kakaoLoginManager = KakaoLoginManager.shared
+    private let appleLoginManager = AppleLoginManager.shared
     
     init(authUseCase: AuthUseCase = AuthUseCaseImpl(), authState: AuthState = .shared) {
         self.authUseCase = authUseCase
         self.authState = authState
     }
-    
+    // MARK: - 이메일 로그인 
     func signIn() async {
         guard !email.isEmpty && !password.isEmpty else {
             await MainActor.run {
@@ -62,7 +63,7 @@ class SignInViewModel: ObservableObject {
             }
         }
     }
-    
+    // MARK: - 카카오 로그인
     func signInWithKakao() async {
         await MainActor.run {
             isLoading = true
@@ -102,6 +103,37 @@ class SignInViewModel: ObservableObject {
                 } else {
                     errorMessage = error.localizedDescription
                     print("❌ 카카오 로그인에러러러러러: \(error)")
+                }
+            }
+        }
+    }
+    // MARK: - 애플 로그인
+    func signInWithApple() async {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+        
+        do {
+            // 애플 로그인으로 idToken 얻기
+            let idToken = try await AppleLoginManager.shared.handleAppleLogin(nickname: "ShutterLink_User")
+            
+            // SLP 서버로 애플 로그인 요청
+            try await AppleLoginManager.shared.completeLogin(idToken: idToken, nickname: "ShutterLink_User")
+            
+            await MainActor.run {
+                isLoading = false
+                isSignInComplete = true
+            }
+        } catch {
+            await MainActor.run {
+                isLoading = false
+                if let networkError = error as? NetworkError {
+                    errorMessage = networkError.errorMessage
+                    print("❌ 애플 로그인 에러: \(networkError.errorMessage)")
+                } else {
+                    errorMessage = error.localizedDescription
+                    print("❌ 애플 로그인 에러: \(error)")
                 }
             }
         }

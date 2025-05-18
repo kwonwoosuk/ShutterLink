@@ -10,10 +10,12 @@
 		4D857D8D2DD9B09A00496829 /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D8C2DD9B09A00496829 /* KakaoSDKAuth */; };
 		4D857D8F2DD9B09A00496829 /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D8E2DD9B09A00496829 /* KakaoSDKCommon */; };
 		4D857D912DD9B09A00496829 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D902DD9B09A00496829 /* KakaoSDKUser */; };
+		4D857E952DD9DB1C00496829 /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D857E942DD9DB1C00496829 /* AuthenticationServices.framework */; };
 		4DDEB2562DCF4DAD00C8BBEA /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 4DDEB2552DCF4DAD00C8BBEA /* .gitignore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		4D857E942DD9DB1C00496829 /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
 		4DDEB2472DCF4CFC00C8BBEA /* ShutterLink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShutterLink.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DDEB2552DCF4DAD00C8BBEA /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -44,6 +46,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D857E952DD9DB1C00496829 /* AuthenticationServices.framework in Frameworks */,
 				4D857D8F2DD9B09A00496829 /* KakaoSDKCommon in Frameworks */,
 				4D857D8D2DD9B09A00496829 /* KakaoSDKAuth in Frameworks */,
 				4D857D912DD9B09A00496829 /* KakaoSDKUser in Frameworks */,
@@ -53,11 +56,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		4D857E932DD9DB1B00496829 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4D857E942DD9DB1C00496829 /* AuthenticationServices.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		4DDEB23E2DCF4CFC00C8BBEA = {
 			isa = PBXGroup;
 			children = (
 				4DDEB2552DCF4DAD00C8BBEA /* .gitignore */,
 				4DDEB2492DCF4CFC00C8BBEA /* ShutterLink */,
+				4D857E932DD9DB1B00496829 /* Frameworks */,
 				4DDEB2482DCF4CFC00C8BBEA /* Products */,
 			);
 			sourceTree = "<group>";
@@ -283,6 +295,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ShutterLink/ShutterLink.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Z388Z4UCTV;
@@ -318,6 +331,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ShutterLink/ShutterLink.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Z388Z4UCTV;

@@ -13,6 +13,7 @@ enum AuthRouter: APIRouter {
     case login(email: String, password: String, deviceToken: String)
     case refreshToken(refreshToken: String)
     case kakaoLogin(oauthToken: String, deviceToken: String)
+    case appleLogin(idToken: String, deviceToken: String, nickname: String?)
     
     var path: String {
         switch self {
@@ -26,6 +27,8 @@ enum AuthRouter: APIRouter {
             return APIConstants.Path.refresh
         case .kakaoLogin:
             return APIConstants.Path.kakaoLogin
+        case .appleLogin:
+            return APIConstants.Path.appleLogin
         }
     }
     
@@ -37,6 +40,9 @@ enum AuthRouter: APIRouter {
             return .get
         case .kakaoLogin:
             return .post
+        case .appleLogin:
+            return .post
+            
         }
     }
     
@@ -66,6 +72,26 @@ enum AuthRouter: APIRouter {
             print("oauthToken: \(oauthToken)")
             print("deviceToken: \(deviceToken)")
             return try? JSONEncoder().encode(params)
+            
+        case .appleLogin(let idToken, let deviceToken, let nickname):
+            var params: [String: Any] = [
+                "idToken": idToken,
+                "deviceToken": deviceToken
+            ]
+            
+            if let nickname = nickname {
+                params["nick"] = nickname
+            }
+            
+            print("📱 애플 로그인 요청 파라미터:")
+            print("idToken: \(idToken)")
+            print("deviceToken: \(deviceToken)")
+            if let nickname = nickname {
+                print("nickname: \(nickname)")
+            }
+            
+            return try? JSONSerialization.data(withJSONObject: params)
+
         case .refreshToken:
             return nil
         }
@@ -80,6 +106,8 @@ enum AuthRouter: APIRouter {
         case .refreshToken:
             return .refreshToken
         case .kakaoLogin:
+            return .sesacKey
+        case .appleLogin:
             return .sesacKey
         }
     }

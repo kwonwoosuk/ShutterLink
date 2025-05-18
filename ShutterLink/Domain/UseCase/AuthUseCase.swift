@@ -12,6 +12,8 @@ protocol AuthUseCase {
     func register(email: String, password: String, nickname: String, name: String, introduction: String, phoneNum: String, hashTags: [String], deviceToken: String) async throws -> User
     func login(email: String, password: String, deviceToken: String) async throws -> User
     func loginWithKakao(oauthToken: String, deviceToken: String) async throws -> User
+    func loginWithApple(idToken: String, deviceToken: String, nickname: String?) async throws -> User
+
     func refreshToken() async throws -> TokenResponse
 }
 
@@ -73,6 +75,18 @@ class AuthUseCaseImpl: AuthUseCase {
            let user = User(from: response)
            return user
        }
+    
+    func loginWithApple(idToken: String, deviceToken: String, nickname: String?) async throws -> User {
+        let router = AuthRouter.appleLogin(idToken: idToken, deviceToken: deviceToken, nickname: nickname)
+        let response = try await networkManager.request(router, type: LoginResponse.self)
+        
+        // 토큰 저장
+        tokenManager.saveTokens(accessToken: response.accessToken, refreshToken: response.refreshToken)
+        
+        // 사용자 모델 반환
+        let user = User(from: response)
+        return user
+    }
     
     func refreshToken() async throws -> TokenResponse {
         guard let refreshToken = tokenManager.refreshToken else {

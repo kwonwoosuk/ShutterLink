@@ -108,7 +108,9 @@ struct SignInView: View {
                     
                     // 애플 로그인
                     Button {
-                        
+                        Task {
+                            await viewModel.signInWithApple()
+                        }
                     } label: {
                         HStack {
                             Image(systemName: "apple.logo")
