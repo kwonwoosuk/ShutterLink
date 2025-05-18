@@ -25,6 +25,7 @@ class NetworkManager {
         self.tokenManager = tokenManager
     }
     
+    
     func request<T: Decodable>(_ router: APIRouter, type: T.Type) async throws -> T {
         var urlRequest = try router.asURLRequest()
         middleware.prepare(request: &urlRequest, authorizationType: router.authorizationType)
@@ -45,12 +46,22 @@ class NetworkManager {
             
             if let dataString = String(data: data, encoding: .utf8) {
                 print("📄 응답 데이터: \(dataString)")
+                // 추가 - 세부 응답 구조 확인
+                if let json = try? JSONSerialization.jsonObject(with: data) {
+                    print("📊 응답 JSON 구조: \(json)")
+                }
             }
             
             let processedData = try middleware.handleResponse(data: data, response: response)
             return try JSONDecoder().decode(T.self, from: processedData)
         } catch let error as NetworkError {
             print("⚠️ 네트워크 에러: \(error.errorMessage)")
+            print("⚠️ 원본 에러: \(error)")
+            
+            // 추가 에러 정보
+            if case .invalidCredentials = error {
+                print("🔑 인증 실패: 카카오 계정이 SLP 서버에 등록되어 있지 않을 수 있습니다")
+            }
             
             if case .accessTokenExpired = error {
                 return try await handleTokenRefresh(router: router, type: type)
@@ -58,6 +69,7 @@ class NetworkManager {
             throw error
         } catch {
             print("❓ 알 수 없는 에러: \(error.localizedDescription)")
+            print("❓ 원본 에러 객체: \(error)")
             throw NetworkError.unknownError
         }
     }

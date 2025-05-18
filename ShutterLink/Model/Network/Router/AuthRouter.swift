@@ -12,6 +12,7 @@ enum AuthRouter: APIRouter {
     case join(user: JoinRequest)
     case login(email: String, password: String, deviceToken: String)
     case refreshToken(refreshToken: String)
+    case kakaoLogin(oauthToken: String, deviceToken: String)
     
     var path: String {
         switch self {
@@ -23,6 +24,8 @@ enum AuthRouter: APIRouter {
             return APIConstants.Path.login
         case .refreshToken:
             return APIConstants.Path.refresh
+        case .kakaoLogin:
+            return APIConstants.Path.kakaoLogin
         }
     }
     
@@ -32,6 +35,8 @@ enum AuthRouter: APIRouter {
             return .post
         case .refreshToken:
             return .get
+        case .kakaoLogin:
+            return .post
         }
     }
     
@@ -52,6 +57,15 @@ enum AuthRouter: APIRouter {
             ]
             return try? JSONEncoder().encode(params)
             
+        case .kakaoLogin(let oauthToken, let deviceToken):
+            let params = [
+                "oauthToken": oauthToken,
+                "deviceToken": deviceToken
+            ]
+            print("📱 카카오 로그인 요청 파라미터:")
+            print("oauthToken: \(oauthToken)")
+            print("deviceToken: \(deviceToken)")
+            return try? JSONEncoder().encode(params)
         case .refreshToken:
             return nil
         }
@@ -65,6 +79,8 @@ enum AuthRouter: APIRouter {
             return .sesacKey
         case .refreshToken:
             return .refreshToken
+        case .kakaoLogin:
+            return .sesacKey
         }
     }
 }

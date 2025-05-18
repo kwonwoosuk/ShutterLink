@@ -11,27 +11,34 @@ import KakaoSDKAuth
 
 @main
 struct ShutterLinkApp: App {
-    @StateObject private var authState = AuthState.shared
-    
-    init() {
-        KakaoSDK.initSDK(appKey: "6673881ea6a5986552bce8d37739b5e2")
-    }
-    
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environmentObject(authState)
-                .fullScreenCover(isPresented: $authState.showLoginModal) {
-                    SignInView()
-                }
-                .onOpenURL { url in
-                    // 카카오 로그인 콜백 처리
-                    if AuthApi.isKakaoTalkLoginUrl(url) {
-                        _ = AuthController.handleOpenUrl(url: url)
-                    }
-                }
+    @StateObject private var notificationHandler = NotificationHandler.shared
+        @StateObject private var authState = AuthState.shared
+        
+        init() {
+            // KakaoSDK 초기화
+            KakaoSDK.initSDK(appKey: "6673881ea6a5986552bce8d37739b5e2")
+            
+            // 디바이스 토큰 및 알림 설정
+            let _ = DeviceTokenManager.shared.getCurrentToken()
+            DeviceTokenManager.shared.requestNotificationPermission()
         }
-    }
+        
+        var body: some Scene {
+            WindowGroup {
+                ContentView()
+                    .environmentObject(authState)
+                    .environmentObject(notificationHandler)
+                    .fullScreenCover(isPresented: $authState.showLoginModal) {
+                        SignInView()
+                    }
+                    .onOpenURL { url in
+                        // 카카오 로그인 콜백 처리
+                        if AuthApi.isKakaoTalkLoginUrl(url) {
+                            _ = AuthController.handleOpenUrl(url: url)
+                        }
+                    }
+            }
+        }
 }
 
 struct HomeView: View {

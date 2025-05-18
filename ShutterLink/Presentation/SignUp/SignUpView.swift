@@ -13,7 +13,7 @@ struct SignUpView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 20) {
                     // 이메일 입력
                     VStack(alignment: .leading, spacing: 8) {
@@ -182,7 +182,7 @@ struct SignUpView: View {
                     }
                 }
             }
-            .onChange(of: viewModel.isSignUpComplete) { _, newValue in
+            .applyOnChange(to: viewModel.isSignUpComplete) { newValue in
                 if newValue {
                     dismiss()
                 }
@@ -192,10 +192,26 @@ struct SignUpView: View {
     
     private var isFormValid: Bool {
         return viewModel.isEmailValid &&
-               viewModel.isEmailAvailable &&
-               viewModel.isPasswordValid &&
-               viewModel.isPasswordMatching &&
-               viewModel.isNicknameValid &&
-               viewModel.isNameValid
+        viewModel.isEmailAvailable &&
+        viewModel.isPasswordValid &&
+        viewModel.isPasswordMatching &&
+        viewModel.isNicknameValid &&
+        viewModel.isNameValid
+    }
+}
+
+
+extension View {
+    @ViewBuilder
+    func applyOnChange<Value: Equatable>(to value: Value, perform action: @escaping (Value) -> Void) -> some View {
+        if #available(iOS 17.0, *) {
+            self.onChange(of: value) { _, newValue in
+                action(newValue)
+            }
+        } else {
+            self.onChange(of: value) { newValue in
+                action(newValue)
+            }
+        }
     }
 }

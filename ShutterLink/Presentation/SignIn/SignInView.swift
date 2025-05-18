@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+import KakaoSDKUser
+import KakaoSDKAuth
+import KakaoSDKCommon
 
 struct SignInView: View {
     @StateObject private var viewModel = SignInViewModel()
@@ -13,7 +16,7 @@ struct SignInView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        NavigationStack {
+        let mainView = NavigationStack {
             VStack(spacing: 24) {
                 Spacer()
                 
@@ -86,7 +89,9 @@ struct SignInView: View {
                     
                     // 카카오 로그인
                     Button {
-                        // 카카오 로그인 구현 예정
+                        Task {
+                            await viewModel.signInWithKakao()
+                        }
                     } label: {
                         HStack {
                             Image(systemName: "message.fill")
@@ -103,7 +108,7 @@ struct SignInView: View {
                     
                     // 애플 로그인
                     Button {
-                        // 애플 로그인 구현 예정
+                        
                     } label: {
                         HStack {
                             Image(systemName: "apple.logo")
@@ -133,13 +138,23 @@ struct SignInView: View {
                 }
                 .padding(.bottom)
             }
-            .onChange(of: viewModel.isSignInComplete) { _, newValue in
+            .sheet(isPresented: $showSignUp) {
+                SignUpView()
+            }
+        }
+        
+        // iOS 버전에 따른 분기 처리
+        if #available(iOS 17.0, *) {
+            mainView.onChange(of: viewModel.isSignInComplete) { _, newValue in
                 if newValue {
                     dismiss()
                 }
             }
-            .sheet(isPresented: $showSignUp) {
-                SignUpView()
+        } else {
+            mainView.onChange(of: viewModel.isSignInComplete) { newValue in
+                if newValue {
+                    dismiss()
+                }
             }
         }
     }
