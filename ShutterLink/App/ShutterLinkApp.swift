@@ -6,10 +6,16 @@
 //
 
 import SwiftUI
+import KakaoSDKCommon
+import KakaoSDKAuth
 
 @main
 struct ShutterLinkApp: App {
     @StateObject private var authState = AuthState.shared
+    
+    init() {
+        KakaoSDK.initSDK(appKey: "6673881ea6a5986552bce8d37739b5e2")
+    }
     
     var body: some Scene {
         WindowGroup {
@@ -18,18 +24,12 @@ struct ShutterLinkApp: App {
                 .fullScreenCover(isPresented: $authState.showLoginModal) {
                     SignInView()
                 }
-        }
-    }
-}
-
-struct ContentView: View {
-    @EnvironmentObject private var authState: AuthState
-    
-    var body: some View {
-        if authState.isLoggedIn {
-            HomeView()
-        } else {
-            SignInView()
+                .onOpenURL { url in
+                    // 카카오 로그인 콜백 처리
+                    if AuthApi.isKakaoTalkLoginUrl(url) {
+                        _ = AuthController.handleOpenUrl(url: url)
+                    }
+                }
         }
     }
 }

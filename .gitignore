@@ -136,8 +136,8 @@ Release.xcconfig
 Staging.xcconfig
 
 ### API Keys and Sensitive Info ###
-APIConstants.swift
-APIKeys.swift
+*.APIConstants.swift
+*.APIKeys.swift
 
 ### Property List Files ###
 # Uncomment these if you want to exclude all plists (be careful, this includes important project files)
