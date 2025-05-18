@@ -146,7 +146,7 @@ APIKeys.swift
 GoogleService-Info.plist
 Firebase-Info.plist
 # If info.plist contains sensitive data, uncomment the next line
-info.plist
+*.info.plist
 
 ### Environment Files ###
 .env

@@ -29,17 +29,35 @@ class NetworkManager {
         var urlRequest = try router.asURLRequest()
         middleware.prepare(request: &urlRequest, authorizationType: router.authorizationType)
         
+        print("🌐 API 요청: \(urlRequest.url?.absoluteString ?? "")")
+        print("🧠 요청 헤더: \(urlRequest.allHTTPHeaderFields ?? [:])")
+        if let body = urlRequest.httpBody, let bodyString = String(data: body, encoding: .utf8) {
+            print("📦 요청 바디: \(bodyString)")
+        }
+        
         do {
             let (data, response) = try await session.data(for: urlRequest)
+            print("📨 API 응답: \(response)")
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🔢 상태 코드: \(httpResponse.statusCode)")
+            }
+            
+            if let dataString = String(data: data, encoding: .utf8) {
+                print("📄 응답 데이터: \(dataString)")
+            }
+            
             let processedData = try middleware.handleResponse(data: data, response: response)
             return try JSONDecoder().decode(T.self, from: processedData)
         } catch let error as NetworkError {
+            print("⚠️ 네트워크 에러: \(error.errorMessage)")
+            
             if case .accessTokenExpired = error {
-                // Access Token이 만료된 경우 갱신 시도
                 return try await handleTokenRefresh(router: router, type: type)
             }
             throw error
         } catch {
+            print("❓ 알 수 없는 에러: \(error.localizedDescription)")
             throw NetworkError.unknownError
         }
     }

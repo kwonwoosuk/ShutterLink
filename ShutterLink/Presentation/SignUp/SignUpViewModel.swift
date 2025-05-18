@@ -91,10 +91,24 @@ class SignUpViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            isEmailAvailable = try await authUseCase.validateEmail(email: email)
-            isLoading = false
+            let isAvailable = try await authUseCase.validateEmail(email: email)
+            await MainActor.run {
+                self.isEmailAvailable = isAvailable
+                self.isLoading = false
+            }
         } catch {
-            handleError(error)
+            await MainActor.run {
+                self.handleError(error)
+            }
+        }
+    }
+
+    private func handleError(_ error: Error) {
+        isLoading = false
+        if let networkError = error as? NetworkError {
+            errorMessage = networkError.errorMessage
+        } else {
+            errorMessage = error.localizedDescription
         }
     }
     
@@ -140,12 +154,4 @@ class SignUpViewModel: ObservableObject {
                isPasswordMatching && isNicknameValid && isNameValid
     }
     
-    private func handleError(_ error: Error) {
-        isLoading = false
-        if let networkError = error as? NetworkError {
-            errorMessage = networkError.errorMessage
-        } else {
-            errorMessage = error.localizedDescription
-        }
-    }
 }
