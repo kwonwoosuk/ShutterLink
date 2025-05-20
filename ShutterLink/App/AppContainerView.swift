@@ -7,12 +7,12 @@
 
 import SwiftUI
 
-struct ContentView: View {
+struct AppContainerView: View {
     @EnvironmentObject private var authState: AuthState
     
     var body: some View {
         if authState.isLoggedIn {
-            HomeView()
+            MainTabView()
         } else {
             SignInView()
         }

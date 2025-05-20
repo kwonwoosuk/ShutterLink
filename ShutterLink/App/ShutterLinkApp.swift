@@ -25,7 +25,7 @@ struct ShutterLinkApp: App {
         
         var body: some Scene {
             WindowGroup {
-                ContentView()
+                AppContainerView()
                     .environmentObject(authState)
                     .environmentObject(notificationHandler)
                     .fullScreenCover(isPresented: $authState.showLoginModal) {
@@ -41,25 +41,25 @@ struct ShutterLinkApp: App {
         }
 }
 
-struct HomeView: View {
-    @EnvironmentObject private var authState: AuthState
-    
-    var body: some View {
-        NavigationStack {
-            VStack {
-                Text("환영합니다, \(authState.currentUser?.nickname ?? "사용자")님!")
-                    .font(.title)
-                    .padding()
-                
-                Button("로그아웃") {
-                    authState.logout()
-                }
-                .padding()
-                .background(Color.red)
-                .foregroundColor(.white)
-                .cornerRadius(10)
-            }
-            .navigationTitle("ShutterLink")
-        }
-    }
-}
+//struct HomeView: View {
+//    @EnvironmentObject private var authState: AuthState
+//    
+//    var body: some View {
+//        NavigationStack {
+//            VStack {
+//                Text("환영합니다, \(authState.currentUser?.nickname ?? "사용자")님!")
+//                    .font(.title)
+//                    .padding()
+//                
+//                Button("로그아웃") {
+//                    authState.logout()
+//                }
+//                .padding()
+//                .background(Color.red)
+//                .foregroundColor(.white)
+//                .cornerRadius(10)
+//            }
+//            .navigationTitle("ShutterLink")
+//        }
+//    }
+//}
