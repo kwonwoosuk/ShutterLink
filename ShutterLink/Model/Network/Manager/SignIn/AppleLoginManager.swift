@@ -53,7 +53,7 @@ class AppleLoginManager: NSObject, ObservableObject, ASAuthorizationControllerDe
         
         // 서버에 애플 토큰 전달하여 로그인
         let user = try await authUseCase.loginWithApple(idToken: idToken, deviceToken: deviceToken, nickname: nickname)
-        
+        print("아아디토큰:\(idToken)","디바이스 토큰 :\(deviceToken)","닉네임: \(nickname)")
         // 로그인 성공 시 알림 보내기
         DeviceTokenManager.shared.sendLocalNotification(
             title: "로그인 성공",

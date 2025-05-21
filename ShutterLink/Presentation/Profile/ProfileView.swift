@@ -10,6 +10,7 @@ struct ProfileView: View {
     @EnvironmentObject var authState: AuthState
     @StateObject private var viewModel = ProfileViewModel()
     @State private var showEditProfile = false
+    @State private var showLogoutAlert = false // 로그아웃 확인 알림창 표시 여부
     
     var body: some View {
         ZStack {
@@ -96,6 +97,28 @@ struct ProfileView: View {
                     .padding(.horizontal)
                     .padding(.top, 10)
                     
+                    // 로그아웃 버튼 추가
+                    Button {
+                        showLogoutAlert = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("로그아웃")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.red)
+                            Spacer()
+                        }
+                        .padding(.vertical, 12)
+                        .background(Color.black)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.red.opacity(0.5), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 10)
+                    
                     // 사진 그리드
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
                         ForEach(1...6, id: \.self) { _ in
@@ -136,6 +159,16 @@ struct ProfileView: View {
                     await viewModel.loadProfile()
                 }
             }
+        }
+        // 로그아웃 확인 알림창
+        .alert("로그아웃", isPresented: $showLogoutAlert) {
+            Button("취소", role: .cancel) { }
+            Button("로그아웃", role: .destructive) {
+                // 로그아웃 처리
+                authState.logout()
+            }
+        } message: {
+            Text("정말 로그아웃 하시겠습니까?")
         }
     }
 }

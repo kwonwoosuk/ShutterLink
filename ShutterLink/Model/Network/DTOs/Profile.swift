@@ -14,7 +14,7 @@ struct ProfileResponse: Decodable {
     let nick: String
     let name: String?          // 옵셔널로 변경
     let introduction: String?  // 옵셔널로 변경
-    let profileImage: String?
+    var profileImage: String?
     let phoneNum: String?      // 옵셔널로 변경
     let hashTags: [String]
     

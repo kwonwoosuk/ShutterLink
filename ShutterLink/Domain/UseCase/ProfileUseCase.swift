@@ -29,7 +29,15 @@ class ProfileUseCaseImpl: ProfileUseCase {
     func uploadProfileImage(imageData: Data) async throws -> String {
         let router = ProfileRouter.uploadProfileImage(imageData: imageData)
         let response = try await networkManager.uploadImage(router, imageData: imageData, fieldName: "profile")
+        
+        // 응답 디코딩 로그 추가
+        print("🔍 이미지 업로드 응답 디코딩 시작")
+        if let responseString = String(data: response, encoding: .utf8) {
+            print("📄 응답 데이터 문자열: \(responseString)")
+        }
+        
         let imageResponse = try JSONDecoder().decode(ProfileImageResponse.self, from: response)
+        print("✅ 응답 디코딩 성공: \(imageResponse.profileImage)")
         return imageResponse.profileImage
     }
 }

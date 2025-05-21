@@ -31,7 +31,7 @@ class NetworkManager {
         var urlRequest = try router.asURLRequest()
         middleware.prepare(request: &urlRequest, authorizationType: router.authorizationType)
         
-        print("🌐 API 요청: \(urlRequest.url?.absoluteString ?? "")")
+        print("🌐 [\(urlRequest.httpMethod ?? "UNKNOWN")] API 요청: \(urlRequest.url?.absoluteString ?? "")")
         print("🧠 요청 헤더: \(urlRequest.allHTTPHeaderFields ?? [:])")
         if let body = urlRequest.httpBody, let bodyString = String(data: body, encoding: .utf8) {
             print("📦 요청 바디: \(bodyString)")
@@ -181,16 +181,37 @@ class NetworkManager {
     func uploadImage(_ router: APIRouter, imageData: Data, fieldName: String) async throws -> Data {
         var urlRequest = try router.asURLRequest()
         middleware.prepare(request: &urlRequest, authorizationType: router.authorizationType)
-        
+        print("🌐 [\(urlRequest.httpMethod ?? "UNKNOWN")] 이미지 업로드 요청: \(urlRequest.url?.absoluteString ?? "")")
+        print("🧠 요청 헤더: \(urlRequest.allHTTPHeaderFields ?? [:])")
+
+        // UUID로 고유한 경계값 생성
         let boundary = "Boundary-\(UUID().uuidString)"
         urlRequest.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: APIConstants.Header.contentType)
         
+        // 데이터 크기 확인
+        guard imageData.count > 0 else {
+            throw NetworkError.customError("이미지 데이터가 비어 있습니다")
+        }
+        
+        print("📤 이미지 업로드 시작 - 크기: \(imageData.count) 바이트")
+        
+        // 멀티파트 형식으로 바디 구성
         var body = Data()
-        body.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"image.jpg\"\r\n".data(using: .utf8)!)
+        
+        // 시작 경계
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        
+        // 필드 설정 - API 명세에 따라 'profile'로 설정
+        body.append("Content-Disposition: form-data; name=\"profile\"; filename=\"image.jpg\"\r\n".data(using: .utf8)!)
         body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        
+        // 이미지 데이터 추가
         body.append(imageData)
+        
+        // 종료 경계
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        // 요청 본문 설정
         urlRequest.httpBody = body
         
         print("🌐 이미지 업로드 요청: \(urlRequest.url?.absoluteString ?? "")")
@@ -203,18 +224,14 @@ class NetworkManager {
                 print("🔢 상태 코드: \(httpResponse.statusCode)")
             }
             
+            // 응답 데이터 로그
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("📄 이미지 업로드 응답: \(responseString)")
+            }
+            
             return try middleware.handleResponse(data: data, response: response)
         } catch let error as NetworkError {
             print("⚠️ 이미지 업로드 에러: \(error)")
-            if case .accessTokenExpired = error {
-                let _ = try await handleTokenRefresh(router: router, type: Data.self)
-                return try await uploadImage(router, imageData: imageData, fieldName: fieldName)
-            }
-            if case .invalidAccessToken = error {
-                print("🔄 401 에러 발생, 토큰 갱신 시도 (이미지 업로드)")
-                let _ = try await handleTokenRefresh(router: router, type: Data.self)
-                return try await uploadImage(router, imageData: imageData, fieldName: fieldName)
-            }
             throw error
         } catch {
             print("⚠️ 이미지 업로드 알 수 없는 에러: \(error)")

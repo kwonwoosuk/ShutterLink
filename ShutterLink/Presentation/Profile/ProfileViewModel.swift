@@ -112,7 +112,9 @@ class ProfileViewModel: ObservableObject {
         }
         
         do {
+            print("🔄 프로필 이미지 업로드 시작 - 크기: \(imageData.count) 바이트")
             let profileImagePath = try await profileUseCase.uploadProfileImage(imageData: imageData)
+            print("✅ 프로필 이미지 업로드 성공: \(profileImagePath)")
             
             await MainActor.run {
                 isImageUploading = false
@@ -127,6 +129,13 @@ class ProfileViewModel: ObservableObject {
                     )
                     self.authState.currentUser = updatedUser
                 }
+                
+                // 중요: profile 객체도 업데이트
+                if var updatedProfile = self.profile {
+                    updatedProfile.profileImage = profileImagePath
+                    self.profile = updatedProfile
+                    print("✅ 프로필 객체 이미지 경로 업데이트: \(profileImagePath)")
+                }
             }
             
             return true
@@ -134,6 +143,7 @@ class ProfileViewModel: ObservableObject {
             await MainActor.run {
                 isImageUploading = false
                 errorMessage = "이미지 업로드에 실패했습니다: \(error.localizedDescription)"
+                print("📥 프로필 이미지 업로드 실패: \(error)")
             }
             return false
         }
