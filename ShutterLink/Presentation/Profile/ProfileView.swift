@@ -129,5 +129,13 @@ struct ProfileView: View {
         .sheet(isPresented: $showEditProfile) {
             ProfileEditView()
         }
+        .onChange(of: showEditProfile) { newValue in
+            if newValue == false {
+                // 프로필 수정 화면이 닫힌 후 프로필 다시 로드
+                Task {
+                    await viewModel.loadProfile()
+                }
+            }
+        }
     }
 }

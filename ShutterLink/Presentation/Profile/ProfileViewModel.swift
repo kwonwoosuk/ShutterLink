@@ -65,6 +65,10 @@ class ProfileViewModel: ObservableObject {
                 self.profile = updatedProfile
                 self.isLoading = false
                 
+                // 프로필 업데이트 성공 시 닉네임 저장
+                UserDefaults.standard.set(nick, forKey: "lastUserNickname")
+                print("✅ 닉네임 업데이트 및 저장 완료: \(nick)")
+                
                 // 사용자 정보 업데이트
                 let user = User(
                     id: updatedProfile.user_id,

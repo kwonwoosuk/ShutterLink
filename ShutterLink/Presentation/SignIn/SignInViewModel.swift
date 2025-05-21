@@ -115,11 +115,24 @@ class SignInViewModel: ObservableObject {
         }
         
         do {
-            // 애플 로그인으로 idToken 얻기
-            let idToken = try await AppleLoginManager.shared.handleAppleLogin(nickname: "ShutterLink_User")
+            // 이전에 저장된 닉네임이 있는지 확인
+            let savedNickname = UserDefaults.standard.string(forKey: "lastUserNickname")
             
-            // SLP 서버로 애플 로그인 요청
-            try await AppleLoginManager.shared.completeLogin(idToken: idToken, nickname: "ShutterLink_User")
+            // 닉네임 결정 로직
+            let userNickname: String
+            if let savedNick = savedNickname, !savedNick.isEmpty {
+                // 이전에 설정한 닉네임 사용
+                userNickname = savedNick
+                print("🔄 저장된 닉네임으로 로그인: \(userNickname)")
+            } else {
+                // 첫 로그인 시 기본값 사용
+                userNickname = "ShutterLink_User"
+                print("✨ 기본 닉네임으로 로그인: \(userNickname)")
+            }
+            
+            // 애플 로그인 진행
+            let idToken = try await AppleLoginManager.shared.handleAppleLogin(nickname: userNickname)
+            try await AppleLoginManager.shared.completeLogin(idToken: idToken, nickname: userNickname)
             
             await MainActor.run {
                 isLoading = false
@@ -127,14 +140,7 @@ class SignInViewModel: ObservableObject {
             }
         } catch {
             await MainActor.run {
-                isLoading = false
-                if let networkError = error as? NetworkError {
-                    errorMessage = networkError.errorMessage
-                    print("❌ 애플 로그인 에러: \(networkError.errorMessage)")
-                } else {
-                    errorMessage = error.localizedDescription
-                    print("❌ 애플 로그인 에러: \(error)")
-                }
+                handleError(error)
             }
         }
     }

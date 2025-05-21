@@ -206,9 +206,9 @@ struct ProfileEditView: View {
                     // 프로필 데이터 로드 후 입력 필드 초기화
                     if let profile = viewModel.profile {
                         nickname = profile.nick
-                        name = profile.name
-                        introduction = profile.introduction
-                        phoneNumber = profile.phoneNum
+                        name = profile.name ?? ""
+                        introduction = profile.introduction ?? ""
+                        phoneNumber = profile.phoneNum ?? ""
                         hashtags = profile.hashTags.map { $0.replacingOccurrences(of: "#", with: "") }.joined(separator: ",")
                     }
                 }

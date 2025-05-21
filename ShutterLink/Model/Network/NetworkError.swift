@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum NetworkError: Error {
+enum NetworkError: Error, Equatable {
     case invalidURL
     case requestFailed
     case invalidResponse
@@ -16,6 +16,8 @@ enum NetworkError: Error {
     case emptyData
     case unknownError
     case customError(String)
+    case refreshTokenInvalid
+    case userSessionInvalid
     
     // 서버 에러 코드에 따른 처리
     case invalidAccessToken        // 401
@@ -60,6 +62,10 @@ enum NetworkError: Error {
             return "유효하지 않은 SeSAC 키입니다."
         case .refreshTokenExpired:
             return "리프레시 토큰이 만료되었습니다. 다시 로그인 해주세요."
+        case .refreshTokenInvalid:
+                    return "세션이 만료되었습니다. 다시 로그인해주세요."
+        case .userSessionInvalid:
+                    return "사용자 세션이 변경되었습니다. 다시 로그인해주세요."                
         case .tooManyRequests:
             return "과도한 요청이 발생했습니다. 잠시 후 다시 시도해주세요."
         case .invalidAPICall:
