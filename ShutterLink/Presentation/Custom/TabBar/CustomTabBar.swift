@@ -12,26 +12,53 @@ struct CustomTabBar: View {
     @Namespace private var tabAnimation
     
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(0..<5) { index in
-                TabBarButton(
-                    selected: selectedTab == index,
-                    iconName: getIconName(for: index, isSelected: selectedTab == index),
-                    namespace: tabAnimation
-                ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        selectedTab = index
+        ZStack(alignment: .top) {
+            // 배경
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .frame(height: 64)
+                .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+            
+            // 인디케이터 바 (상단에 위치)
+            HStack(spacing: 0) {
+                ForEach(0..<5) { index in
+                    if selectedTab == index {
+                        Rectangle()
+                            .fill(Color.white)
+                            .frame(width: 32, height: 3)
+                            .matchedGeometryEffect(id: "selectedTab", in: tabAnimation)
+                    } else {
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(width: 32, height: 3)
+                    }
+                    
+                    if index < 4 {
+                        Spacer()
                     }
                 }
-                .frame(maxWidth: .infinity)
             }
+            .padding(.horizontal, 35)
+            
+            // 아이콘 버튼들
+            HStack(spacing: 0) {
+                ForEach(0..<5) { index in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedTab = index
+                        }
+                    } label: {
+                        Image(getIconName(for: index, isSelected: selectedTab == index))
+                            .renderingMode(.template)
+                            .foregroundColor(selectedTab == index ? DesignSystem.Colors.Gray.gray15 : DesignSystem.Colors.Gray.gray45)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+            }
+            .frame(height: 64)
         }
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
-        .clipShape(Capsule())
         .padding(.horizontal, 20)
         .padding(.bottom, 20)
-        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
     }
     
     func getIconName(for index: Int, isSelected: Bool) -> String {
@@ -71,7 +98,7 @@ struct TabBarButton: View {
                 
                 Image(iconName)
                     .renderingMode(.template)
-                    .foregroundColor(selected ? .white : DesignSystem.Colors.Gray.gray45)
+                    .foregroundColor(selected ? .gray15 : .gray45)
             }
         }
     }

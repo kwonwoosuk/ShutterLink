@@ -103,6 +103,45 @@ class NetworkManager {
             throw error
         }
     }
+    
+    func uploadImage(_ router: APIRouter, imageData: Data, fieldName: String) async throws -> Data {
+        var urlRequest = try router.asURLRequest()
+        middleware.prepare(request: &urlRequest, authorizationType: router.authorizationType)
+        
+        // multipart/form-data
+        let boundary = "Boundary-\(UUID().uuidString)"
+        urlRequest.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: APIConstants.Header.contentType)
+        
+        // 멀티파트 본문 생성
+        var body = Data()
+        
+        // 이미지 파트 추가
+        body.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"image.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        urlRequest.httpBody = body
+        
+        print("🌐 이미지 업로드 요청: \(urlRequest.url?.absoluteString ?? "")")
+        
+        do {
+            let (data, response) = try await session.data(for: urlRequest)
+            print("📨 API 응답: \(response)")
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🔢 상태 코드: \(httpResponse.statusCode)")
+            }
+            
+            return try middleware.handleResponse(data: data, response: response)
+        } catch {
+            print("⚠️ 이미지 업로드 에러: \(error)")
+            throw error
+        }
+    }
+    
+    
 }
 
 struct TokenResponse: Decodable {
