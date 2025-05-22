@@ -23,7 +23,8 @@ struct ProfileView: View {
                     HStack {
                         Spacer()
                         if let profileImageURL = viewModel.profile?.profileImage, !profileImageURL.isEmpty {
-                            AsyncImage(url: URL(string: APIConstants.baseURL + profileImageURL)) { image in
+                            AsyncImage(url: URL(string: APIConstants.baseURL + "/v1" + profileImageURL)) { image in
+                    // 이미지를 불러올떄도 새싹키와 헤더가 필요 
                                 image
                                     .resizable()
                                     .scaledToFill()

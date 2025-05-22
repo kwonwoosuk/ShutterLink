@@ -33,6 +33,8 @@ class ProfileViewModel: ObservableObject {
             
             await MainActor.run {
                 self.profile = profileResponse
+                print("✅ 프로필 로드 성공: \(profileResponse)")
+                print("🖼️ 프로필 이미지 경로: \(profileResponse.profileImage ?? "없음")")
                 self.isLoading = false
             }
         } catch {
