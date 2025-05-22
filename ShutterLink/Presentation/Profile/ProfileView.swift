@@ -23,13 +23,12 @@ struct ProfileView: View {
                     HStack {
                         Spacer()
                         if let profileImageURL = viewModel.profile?.profileImage, !profileImageURL.isEmpty {
-                            AsyncImage(url: URL(string: APIConstants.baseURL + "/v1" + profileImageURL)) { image in
-                    // 이미지를 불러올떄도 새싹키와 헤더가 필요 
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            } placeholder: {
+                            AuthenticatedImageView(
+                                imagePath: profileImageURL,
+                                contentMode: .fill
+                            ) {
                                 ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             }
                             .frame(width: 100, height: 100)
                             .clipShape(Circle())

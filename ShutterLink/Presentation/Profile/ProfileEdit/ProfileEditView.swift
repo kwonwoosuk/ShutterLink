@@ -33,12 +33,12 @@ struct ProfileEditView: View {
                                     .frame(width: 100, height: 100)
                                     .clipShape(Circle())
                             } else if let profileImageURL = viewModel.profile?.profileImage, !profileImageURL.isEmpty {
-                                AsyncImage(url: URL(string: APIConstants.baseURL + profileImageURL)) { image in
-                                    image
-                                        .resizable()
-                                        .scaledToFill()
-                                } placeholder: {
+                                AuthenticatedImageView(
+                                    imagePath: profileImageURL,
+                                    contentMode: .fill
+                                ) {
                                     ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 }
                                 .frame(width: 100, height: 100)
                                 .clipShape(Circle())

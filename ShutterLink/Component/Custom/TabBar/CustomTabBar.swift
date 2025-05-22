@@ -25,12 +25,12 @@ struct CustomTabBar: View {
                     if selectedTab == index {
                         Rectangle()
                             .fill(Color.white)
-                            .frame(width: 32, height: 3)
+                            .frame(width: 30, height: 3)
                             .matchedGeometryEffect(id: "selectedTab", in: tabAnimation)
                     } else {
                         Rectangle()
                             .fill(Color.clear)
-                            .frame(width: 32, height: 3)
+                            .frame(width: 30, height: 3)
                     }
                     
                     if index < 4 {
@@ -38,7 +38,7 @@ struct CustomTabBar: View {
                     }
                 }
             }
-            .padding(.horizontal, 35)
+            .padding(.horizontal, 25)
             
             // 아이콘 버튼들
             HStack(spacing: 0) {
@@ -57,8 +57,8 @@ struct CustomTabBar: View {
             }
             .frame(height: 64)
         }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 20)
+        .padding(.horizontal, 11)
+        .padding(.bottom, 40) // Safe Area 고려한 패딩
     }
     
     func getIconName(for index: Int, isSelected: Bool) -> String {
@@ -74,32 +74,13 @@ struct CustomTabBar: View {
     }
 }
 
-struct TabBarButton: View {
-    var selected: Bool
-    var iconName: String
-    var namespace: Namespace.ID
-    var action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                if selected {
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(width: 32, height: 3)
-                        .matchedGeometryEffect(id: "selectedTab", in: namespace)
-                        .padding(.bottom, 7)
-                } else {
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(width: 32, height: 3)
-                        .padding(.bottom, 7)
-                }
-                
-                Image(iconName)
-                    .renderingMode(.template)
-                    .foregroundColor(selected ? .gray15 : .gray45)
-            }
+#Preview {
+    ZStack {
+        Color.black.ignoresSafeArea()
+        
+        VStack {
+            Spacer()
+            CustomTabBar(selectedTab: .constant(0))
         }
     }
 }

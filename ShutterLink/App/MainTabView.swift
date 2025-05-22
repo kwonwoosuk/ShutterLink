@@ -14,7 +14,7 @@ struct MainTabView: View {
         ZStack(alignment: .bottom) {
             // 콘텐츠 영역
             TabView(selection: $selectedTab) {
-                Text("홈 화면")
+                HomeView()
                     .tag(0)
                 
                 Text("피드 화면")
@@ -29,6 +29,7 @@ struct MainTabView: View {
                 ProfileView()
                     .tag(4)
             }
+            .toolbar(.hidden, for: .tabBar)
             
             // 커스텀 탭바
             CustomTabBar(selectedTab: $selectedTab)
