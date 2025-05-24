@@ -210,119 +210,215 @@ struct TodayFilterIntroSection: View {
     }
 }
 
-// MARK: - 섹션 2: 광고 배너 (독립 섹션)
 struct AdBannerSection: View {
-    // 광고 배너 데이터
+    @State private var currentIndex = 0
+    
     private let bannerData = [
         BannerMockData(id: 1, title: "새싹을 담은 필터", subtitle: "자연 시장", imageColor: .green),
         BannerMockData(id: 2, title: "도시의 감성", subtitle: "도시 필터", imageColor: .blue),
         BannerMockData(id: 3, title: "따뜻한 햇살", subtitle: "빈티지 필터", imageColor: .orange),
-        BannerMockData(id: 4, title: "차가운 밤", subtitle: "블루 필터", imageColor: .indigo),
-        BannerMockData(id: 5, title: "꽃잎의 춤", subtitle: "핑크 필터", imageColor: .pink)
+        BannerMockData(id: 4, title: "차가운 밤", subtitle: "블루 필터", imageColor: .indigo)
     ]
     
     var body: some View {
-        // 광고 배너 (Fade 페이징)
-        AdBannerCarousel(banners: bannerData)
+        VStack(spacing: 12) {
+            TabView(selection: $currentIndex) {
+                ForEach(Array(bannerData.enumerated()), id: \.element.id) { index, banner in
+                    Button {
+                        handleBannerTap(banner: banner)
+                    } label: {
+                        TabViewBannerCard(banner: banner)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .tag(index)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 120)
+            .padding(.horizontal, 20)
+            
+            BannerPageIndicator(
+                currentIndex: currentIndex,
+                totalCount: bannerData.count
+            )
+        }
+    }
+    
+    private func handleBannerTap(banner: BannerMockData) {
+        print("배너 탭됨: \(banner.title)")
+        // 여기에 배너 탭 시 액션 구현
+        // 상세 화면 표시
+    }
+}
+
+struct TabViewBannerCard: View {
+    let banner: BannerMockData
+    
+    var body: some View {
+        ZStack {
+            // 배경 그라데이션
+            RoundedRectangle(cornerRadius: 16)
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            banner.imageColor,
+                            banner.imageColor.opacity(0.7)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: banner.imageColor.opacity(0.3), radius: 8, x: 0, y: 4)
+            
+            // 텍스트 콘텐츠
+            HStack {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(banner.subtitle)
+                        .font(.pretendard(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+                    
+                    Text(banner.title)
+                        .font(.pretendard(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                }
+                
+                Spacer()
+                
+                
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+        }
+        .frame(height: 100)
     }
 }
 
 // MARK: - 광고 배너 캐러셀 (수평 스크롤 - iOS 16 호환, 한 셀씩 페이징)
-struct AdBannerCarousel: View {
-    let banners: [BannerMockData]
-    @State private var currentIndex = 0
-    @State private var offset: CGFloat = 0
+//struct AdBannerCarousel: View {
+//    let banners: [BannerMockData]
+//        @State private var currentIndex = 0
+//        @State private var timer: Timer?
+//        
+//        var body: some View {
+//            TabView(selection: $currentIndex) {
+//                ForEach(Array(banners.enumerated()), id: \.element.id) { index, banner in
+//                    ScreenshotStyleBannerCard(
+//                        banner: banner,
+//                        currentPage: index + 1,
+//                        totalPages: banners.count
+//                    )
+//                    .tag(index)
+//                }
+//            }
+//            .tabViewStyle(.page(indexDisplayMode: .never))
+//            .frame(height: 120)
+//            .padding(.horizontal, 20)
+//            .onAppear {
+//                startAutoScroll()
+//            }
+//            .onDisappear {
+//                stopAutoScroll()
+//            }
+//        }
+//        
+//        private func startAutoScroll() {
+//            timer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
+//                withAnimation(.easeInOut(duration: 0.5)) {
+//                    currentIndex = (currentIndex + 1) % banners.count
+//                }
+//            }
+//        }
+//        
+//        private func stopAutoScroll() {
+//            timer?.invalidate()
+//            timer = nil
+//        }
+//    }
+//
+//struct ScreenshotStyleBannerCard: View {
+//    let banner: BannerMockData
+//    let currentPage: Int
+//    let totalPages: Int
+//    
+//    var body: some View {
+//        ZStack {
+//            // 배경 그라데이션
+//            RoundedRectangle(cornerRadius: 16)
+//                .fill(
+//                    LinearGradient(
+//                        gradient: Gradient(colors: [
+//                            banner.imageColor,
+//                            banner.imageColor.opacity(0.7)
+//                        ]),
+//                        startPoint: .topLeading,
+//                        endPoint: .bottomTrailing
+//                    )
+//                )
+//                .shadow(color: banner.imageColor.opacity(0.3), radius: 8, x: 0, y: 4)
+//            
+//            // 콘텐츠 레이아웃
+//            HStack {
+//                // 왼쪽 텍스트 영역
+//                VStack(alignment: .leading, spacing: 8) {
+//                    Text(banner.subtitle)
+//                        .font(.pretendard(size: 12, weight: .medium))
+//                        .foregroundColor(.white.opacity(0.9))
+//                    
+//                    Text(banner.title)
+//                        .font(.pretendard(size: 18, weight: .bold))
+//                        .foregroundColor(.white)
+//                        .lineLimit(2)
+//                }
+//                
+//                Spacer()
+//            }
+//            .padding(.horizontal, 20)
+//            .padding(.vertical, 16)
+//            
+//            // 우측 상단 페이지 인디케이터 (스크린샷 스타일)
+//            VStack {
+//                HStack {
+//                    Spacer()
+//                    Text("\(currentPage)/\(totalPages)")
+//                        .font(.pretendard(size: 12, weight: .medium))
+//                        .foregroundColor(.white.opacity(0.8))
+//                        .padding(.horizontal, 8)
+//                        .padding(.vertical, 4)
+//                        .background(
+//                            Capsule()
+//                                .fill(Color.black.opacity(0.3))
+//                        )
+//                        .padding(.trailing, 16)
+//                        .padding(.top, 12)
+//                }
+//                Spacer()
+//            }
+//        }
+//        .frame(height: 100)
+//    }
+//}
 
+struct BannerPageIndicator: View {
+    let currentIndex: Int
+    let totalCount: Int
+    
     var body: some View {
-        GeometryReader { geometry in
-            let screenWidth = geometry.size.width - 40 // 패딩 고려
-            let adjustedWidth = screenWidth // 셀 너비를 스크롤 뷰의 페이징 너비와 일치시킴
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
-                    ForEach(Array(banners.enumerated()), id: \.element.id) { index, banner in
-                        AdBannerCard(banner: banner)
-                            .frame(width: adjustedWidth, height: 100)
-                            .id(index)
-                    }
-                }
-                .offset(x: offset)
-                .background(
-                    GeometryReader { scrollGeometry in
-                        Color.clear.preference(
-                            key: ScrollOffsetPreferenceKey.self,
-                            value: scrollGeometry.frame(in: .named("bannerScrollView")).minX
-                        )
-                    }
-                )
-            }
-            .coordinateSpace(name: "bannerScrollView")
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        offset = value.translation.width - CGFloat(currentIndex) * adjustedWidth
-                    }
-                    .onEnded { value in
-                        let dragOffset = value.translation.width
-                        let velocity = value.predictedEndTranslation.width
-                        let threshold = adjustedWidth * 0.5
-                        var newIndex = currentIndex
-
-                        if dragOffset < -threshold || velocity < -100 {
-                            newIndex = min(currentIndex + 1, banners.count - 1)
-                        } else if dragOffset > threshold || velocity > 100 {
-                            newIndex = max(currentIndex - 1, 0)
-                        }
-
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            currentIndex = newIndex
-                            offset = -CGFloat(newIndex) * adjustedWidth
-                        }
-                    }
-            )
-            .onAppear {
-                offset = -CGFloat(currentIndex) * adjustedWidth
+        HStack(spacing: 8) {
+            ForEach(0..<totalCount, id: \.self) { index in
+                Capsule()
+                    .fill(index == currentIndex ? Color.white : Color.white.opacity(0.4))
+                    .frame(
+                        width: index == currentIndex ? 20 : 8,
+                        height: 4
+                    )
+                    .animation(.easeInOut(duration: 0.3), value: currentIndex)
             }
         }
-        .frame(height: 120)
         .padding(.horizontal, 20)
     }
 }
 
-
-struct AdBannerCard: View {
-    let banner: BannerMockData
-
-    var body: some View {
-        ZStack {
-            // 배경 이미지 (가로로 긴 형태)
-            RoundedRectangle(cornerRadius: 12)
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [banner.imageColor, banner.imageColor.opacity(0.6)]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-
-            // 텍스트 콘텐츠
-            HStack {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(banner.subtitle)
-                        .font(.pretendard(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-
-                    Text(banner.title)
-                        .font(.pretendard(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-}
 
 // MARK: - 섹션 3: 핫트랜드 (무한 스크롤 + 중앙 페이징)
 struct HotTrendSection: View {
@@ -343,7 +439,7 @@ struct HotTrendSection: View {
             if !filters.isEmpty {
                 // 10개 셀만 사용하도록 제한
                 let limitedFilters = Array(filters.prefix(10))
-                InfiniteCarouselView(filters: limitedFilters)
+                HotTrendCarouselView(filters: limitedFilters)
             } else {
                 // 로딩 상태
                 HStack {
@@ -359,7 +455,7 @@ struct HotTrendSection: View {
 }
 
 // MARK: - 무한 스크롤 캐러셀 뷰 (수평 스크롤만)
-struct InfiniteCarouselView: View {
+struct HotTrendCarouselView: View {
     let filters: [FilterItem]
         @State private var dragOffset: CGFloat = 0
         @State private var currentIndex: Int = 0
@@ -420,14 +516,6 @@ struct InfiniteCarouselView: View {
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 20)
         }
-}
-
-// 스크롤 오프셋을 감지하기 위한 PreferenceKey
-struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
 }
 
 struct CarouselCard: View {
