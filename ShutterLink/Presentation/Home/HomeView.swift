@@ -10,6 +10,7 @@ import SwiftUI
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     @State private var hasAppeared = false
+    
     var body: some View {
         ZStack {
             // 다크 모드 배경
@@ -40,7 +41,7 @@ struct HomeView: View {
             }
             .opacity(viewModel.isLoading ? 0.7 : 1.0)
             
-            // 로딩 인디케이터
+            // 로딩 인디케이터 - 중앙 작은 크기로 변경
             if viewModel.isLoading {
                 VStack {
                     ProgressView()
@@ -58,36 +59,18 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            // 핵심 수정: 탭 전환 완료 후 로딩 시작
+            // 탭 전환 완료 후 로딩 시작
             if !hasAppeared {
                 hasAppeared = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    Task {
-                        await viewModel.loadHomeData()
-                    }
+                    print("🔵 HomeView: 홈 데이터 로딩 시작")
+                    viewModel.loadHomeData()
                 }
             }
         }
         .refreshable {
-            await viewModel.loadHomeData()
+            // refreshable은 자동으로 메인스레드에서 실행됨
+            viewModel.loadHomeData()
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -182,7 +182,8 @@ struct SignUpView: View {
                     }
                 }
             }
-            .applyOnChange(to: viewModel.isSignUpComplete) { newValue in
+            // iOS 16 호환성을 위한 onChange 수정
+            .compatibleOnChange(of: viewModel.isSignUpComplete) { newValue in
                 if newValue {
                     dismiss()
                 }
@@ -197,21 +198,5 @@ struct SignUpView: View {
         viewModel.isPasswordMatching &&
         viewModel.isNicknameValid &&
         viewModel.isNameValid
-    }
-}
-
-
-extension View {
-    @ViewBuilder
-    func applyOnChange<Value: Equatable>(to value: Value, perform action: @escaping (Value) -> Void) -> some View {
-        if #available(iOS 17.0, *) {
-            self.onChange(of: value) { _, newValue in
-                action(newValue)
-            }
-        } else {
-            self.onChange(of: value) { newValue in
-                action(newValue)
-            }
-        }
     }
 }

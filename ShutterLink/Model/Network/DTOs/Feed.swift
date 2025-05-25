@@ -25,7 +25,6 @@ struct LikeResponse: Decodable {
 
 // MARK: - 카테고리 enum
 enum FilterCategory: String, CaseIterable {
-    case all = ""
     case food = "푸드"
     case people = "인물"
     case landscape = "풍경"
@@ -34,7 +33,6 @@ enum FilterCategory: String, CaseIterable {
     
     var title: String {
         switch self {
-        case .all: return "전체"
         case .food: return "푸드"
         case .people: return "인물"
         case .landscape: return "풍경"
@@ -45,7 +43,6 @@ enum FilterCategory: String, CaseIterable {
     
     var icon: String {
         switch self {
-        case .all: return "square.grid.2x2"
         case .food: return "fork.knife"
         case .people: return "person.2"
         case .landscape: return "photo"

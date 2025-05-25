@@ -145,19 +145,12 @@ struct SignInView: View {
             }
         }
         
-        // iOS 버전에 따른 분기 처리
-        if #available(iOS 17.0, *) {
-            mainView.onChange(of: viewModel.isSignInComplete) { _, newValue in
+        // iOS 16 호환성을 위한 onChange 수정
+        return mainView
+            .compatibleOnChange(of: viewModel.isSignInComplete) { newValue in
                 if newValue {
                     dismiss()
                 }
             }
-        } else {
-            mainView.onChange(of: viewModel.isSignInComplete) { newValue in
-                if newValue {
-                    dismiss()
-                }
-            }
-        }
     }
 }

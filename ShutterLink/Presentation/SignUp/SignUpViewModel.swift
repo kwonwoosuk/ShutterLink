@@ -140,10 +140,12 @@ class SignUpViewModel: ObservableObject {
             )
             
             // 회원가입 성공
-            isLoading = false
-            isSignUpComplete = true
-            authState.currentUser = user
-            authState.isLoggedIn = true
+            await MainActor.run {
+                isLoading = false
+                isSignUpComplete = true
+                authState.currentUser = user
+                authState.isLoggedIn = true
+            }
         } catch {
             handleError(error)
         }

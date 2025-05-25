@@ -10,6 +10,13 @@ import SwiftUI
 struct VerticalOvalCard: View {
     let filter: FilterItem
     let rank: Int
+    let onLike: ((String, Bool) -> Void)?
+    
+    init(filter: FilterItem, rank: Int, onLike: ((String, Bool) -> Void)? = nil) {
+        self.filter = filter
+        self.rank = rank
+        self.onLike = onLike
+    }
     
     var body: some View {
         ZStack {
@@ -53,6 +60,36 @@ struct VerticalOvalCard: View {
                     Circle()
                         .stroke(DesignSystem.Colors.Brand.brightTurquoise, lineWidth: 3)
                         .frame(width: 200, height: 200)
+                    
+                    // 좋아요 버튼 (오른쪽 하단)
+                    if let onLike = onLike {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                Button {
+                                    onLike(filter.filter_id, !filter.is_liked)
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: filter.is_liked ? "heart.fill" : "heart")
+                                            .foregroundColor(filter.is_liked ? .red : .white)
+                                            .font(.system(size: 16))
+                                        Text("\(filter.like_count)")
+                                            .font(.pretendard(size: 12, weight: .medium))
+                                            .foregroundColor(.white)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.black.opacity(0.7))
+                                    )
+                                }
+                                .padding(.trailing, 20)
+                                .padding(.bottom, 10)
+                            }
+                        }
+                    }
                 }
                 .padding(.top, 30)
                 
@@ -91,6 +128,13 @@ struct VerticalOvalCard: View {
 struct MiniVerticalOvalCard: View {
     let filter: FilterItem
     let rank: Int
+    let onLike: ((String, Bool) -> Void)?
+    
+    init(filter: FilterItem, rank: Int, onLike: ((String, Bool) -> Void)? = nil) {
+        self.filter = filter
+        self.rank = rank
+        self.onLike = onLike
+    }
     
     var body: some View {
         ZStack {
@@ -116,6 +160,36 @@ struct MiniVerticalOvalCard: View {
                         }
                         .frame(width: 140, height: 140)
                         .clipShape(Circle())
+                    }
+                    
+                    // 좋아요 버튼 (미니 버전용)
+                    if let onLike = onLike {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                Button {
+                                    onLike(filter.filter_id, !filter.is_liked)
+                                } label: {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: filter.is_liked ? "heart.fill" : "heart")
+                                            .foregroundColor(filter.is_liked ? .red : .white.opacity(0.8))
+                                            .font(.system(size: 12))
+                                        Text("\(filter.like_count)")
+                                            .font(.pretendard(size: 10, weight: .medium))
+                                            .foregroundColor(.white.opacity(0.8))
+                                    }
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.black.opacity(0.6))
+                                    )
+                                }
+                                .padding(.trailing, 15)
+                                .padding(.bottom, 8)
+                            }
+                        }
                     }
                 }
                 .padding(.top, 25)

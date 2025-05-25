@@ -6,11 +6,13 @@
 //
 
 import SwiftUI
+
 struct ProfileView: View {
     @EnvironmentObject var authState: AuthState
     @StateObject private var viewModel = ProfileViewModel()
     @State private var showEditProfile = false
     @State private var showLogoutAlert = false // 로그아웃 확인 알림창 표시 여부
+    @State private var hasAppeared = false
     
     var body: some View {
         ZStack {
@@ -137,34 +139,51 @@ struct ProfileView: View {
                 }
                 .padding(.bottom, 100) // 탭바 높이만큼 하단 패딩
             }
+            .opacity(viewModel.isLoading ? 0.7 : 1.0)
             
+            // 로딩 인디케이터 - 중앙 작은 크기로 변경
             if viewModel.isLoading {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .scaleEffect(1.5)
+                VStack {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.2)
+                    
+                    Text("로딩 중...")
+                        .font(.pretendard(size: 12, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.top, 8)
+                }
+                .padding(20)
+                .background(Color.black.opacity(0.8))
+                .cornerRadius(12)
             }
         }
         .onAppear {
-            Task {
-                await viewModel.loadProfile()
+            // 탭 전환 완료 후 로딩 시작
+            if !hasAppeared {
+                hasAppeared = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    print("🔵 ProfileView: 프로필 로딩 시작")
+                    viewModel.loadProfile()
+                }
             }
         }
         .sheet(isPresented: $showEditProfile) {
             ProfileEditView()
         }
-        .onChange(of: showEditProfile) { newValue in
+        // iOS 16 호환성을 위한 onChange 수정
+        .compatibleOnChange(of: showEditProfile) { newValue in
             if newValue == false {
                 // 프로필 수정 화면이 닫힌 후 프로필 다시 로드
-                Task {
-                    await viewModel.loadProfile()
-                }
+                print("🔵 ProfileView: 프로필 수정 완료, 다시 로드")
+                viewModel.loadProfile()
             }
         }
         // 로그아웃 확인 알림창
         .alert("로그아웃", isPresented: $showLogoutAlert) {
             Button("취소", role: .cancel) { }
             Button("로그아웃", role: .destructive) {
-                // 로그아웃 처리
+                // 로그아웃 처리 (메인스레드에서 실행됨)
                 authState.logout()
             }
         } message: {
