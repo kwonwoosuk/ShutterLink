@@ -134,7 +134,7 @@ struct TodayAuthorSection: View {
 }
 
 
-
+// MARK: - 아래 코드는 정보를 서버로 부터 받지 못했을때 갈아 끼워줄 View
 struct MockFilterCard: View {
     let index: Int
     private let mockTitles = ["자연 필터", "도시 필터", "빈티지 필터", "모던 필터"]

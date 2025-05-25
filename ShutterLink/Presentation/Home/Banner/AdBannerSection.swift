@@ -24,7 +24,7 @@ struct AdBannerSection: View {
                     Button {
                         handleBannerTap(banner: banner)
                     } label: {
-                        TabViewBannerCard(banner: banner)
+                        BannerCard(banner: banner)
                     }
                     .buttonStyle(PlainButtonStyle())
                     .tag(index)

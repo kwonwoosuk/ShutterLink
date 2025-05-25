@@ -9,7 +9,7 @@ import SwiftUI
 
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
-    
+    @State private var hasAppeared = false
     var body: some View {
         ZStack {
             // 다크 모드 배경
@@ -38,26 +38,34 @@ struct HomeView: View {
                     .padding(.bottom, 120) // 탭바와 여유 공간
                 }
             }
+            .opacity(viewModel.isLoading ? 0.7 : 1.0)
             
             // 로딩 인디케이터
             if viewModel.isLoading {
-                Color.black.opacity(0.5)
-                    .ignoresSafeArea()
                 VStack {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(1.5)
+                        .scaleEffect(1.2)
                     
                     Text("로딩 중...")
-                        .font(.pretendard(size: 14, weight: .medium))
+                        .font(.pretendard(size: 12, weight: .medium))
                         .foregroundColor(.white)
-                        .padding(.top, 16)
+                        .padding(.top, 8)
                 }
+                .padding(20)
+                .background(Color.black.opacity(0.8))
+                .cornerRadius(12)
             }
         }
         .onAppear {
-            Task {
-                await viewModel.loadHomeData()
+            // 핵심 수정: 탭 전환 완료 후 로딩 시작
+            if !hasAppeared {
+                hasAppeared = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    Task {
+                        await viewModel.loadHomeData()
+                    }
+                }
             }
         }
         .refreshable {
