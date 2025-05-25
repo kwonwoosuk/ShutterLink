@@ -13,7 +13,7 @@ struct HeaderView: View {
         HStack {
             Text("ShutterLink")
                 .font(.hakgyoansim(size: 20, weight: .regular))
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.gray45)
             
             Spacer()
             
@@ -23,7 +23,7 @@ struct HeaderView: View {
                     .font(.system(size: 20))
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal)
         .padding(.top, 10)
     }
 }

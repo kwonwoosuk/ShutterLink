@@ -102,7 +102,7 @@ struct VerticalOvalCard: View {
                         .foregroundColor(.white.opacity(0.7))
                     
                     Text(filter.title)
-                        .font(.pretendard(size: 20, weight: .bold))
+                        .font(.hakgyoansim(size: 20, weight: .bold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
@@ -116,7 +116,7 @@ struct VerticalOvalCard: View {
                 
                 // 순위 표시
                 Text("\(rank)")
-                    .font(.pretendard(size: 20, weight: .bold))
+                    .font(.hakgyoansim(size: 20, weight: .bold))
                     .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
                     .padding(.bottom, 15)
             }
