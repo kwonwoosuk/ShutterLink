@@ -37,8 +37,8 @@ struct FilterItem: Decodable, Identifiable {
     let description: String
     let files: [String]
     let creator: CreatorInfo
-    let is_liked: Bool
-    let like_count: Int
+    var is_liked: Bool
+    var like_count: Int
     let buyer_count: Int
     let createdAt: String
     let updatedAt: String

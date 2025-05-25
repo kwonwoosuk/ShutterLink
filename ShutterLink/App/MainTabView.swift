@@ -17,7 +17,7 @@ struct MainTabView: View {
                 HomeView()
                     .tag(0)
                 
-                Text("피드 화면")
+                FeedView()
                     .tag(1)
                 
                 Text("필터 화면")
