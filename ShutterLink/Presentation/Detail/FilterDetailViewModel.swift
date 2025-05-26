@@ -73,10 +73,8 @@ class FilterDetailViewModel: ObservableObject {
             errorMessage = nil
             
             do {
-                // 네트워크 작업 (백그라운드)
-                let detail = try await Task.detached { [filterUseCase] in
-                    return try await filterUseCase.getFilterDetail(filterId: filterId)
-                }.value
+                // 네트워크 작업 - Task.detached 제거
+                let detail = try await filterUseCase.getFilterDetail(filterId: filterId)
                 
                 // Task가 취소되었는지 확인
                 try Task.checkCancellation()
@@ -98,6 +96,8 @@ class FilterDetailViewModel: ObservableObject {
                 case .invalidStatusCode(404):
                     errorMessage = "필터를 찾을 수 없습니다."
                 case .accessTokenExpired, .invalidAccessToken:
+                    // 토큰 갱신이 실패한 경우에만 여기에 도달
+                    print("⚠️ FilterDetailViewModel: 토큰 갱신 실패로 인한 에러")
                     errorMessage = "로그인이 만료되었습니다. 다시 로그인해주세요."
                 default:
                     errorMessage = error.errorMessage
@@ -121,10 +121,8 @@ class FilterDetailViewModel: ObservableObject {
             updateFilterLikeStatus(isLiked: newLikeStatus)
             
             do {
-                // 네트워크 작업 (백그라운드)
-                let serverResponse = try await Task.detached { [filterUseCase] in
-                    return try await filterUseCase.likeFilter(filterId: filterId, likeStatus: newLikeStatus)
-                }.value
+                // 네트워크 작업 - Task.detached 제거
+                let serverResponse = try await filterUseCase.likeFilter(filterId: filterId, likeStatus: newLikeStatus)
                 
                 // Task가 취소되었는지 확인
                 try Task.checkCancellation()
