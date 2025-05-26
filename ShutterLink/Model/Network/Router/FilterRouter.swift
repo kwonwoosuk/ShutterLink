@@ -12,23 +12,26 @@ enum FilterRouter: APIRouter {
     case getHotTrendFilters
     case getFilters(next: String, limit: Int, category: String?, orderBy: String)
     case likeFilter(filterId: String, likeStatus: Bool)
+    case getFilterDetail(filterId: String)
     
     var path: String {
         switch self {
         case .getTodayFilter:
-            return "/v1/filters/today-filter"
+            return APIConstants.Path.todayFilter
         case .getHotTrendFilters:
-            return "/v1/filters/hot-trend"
+            return APIConstants.Path.hotTrendFilters
         case .getFilters:
-            return "/v1/filters"
+            return APIConstants.Path.filters
         case .likeFilter(let filterId, _):
-            return "/v1/filters/\(filterId)/like"
+            return APIConstants.Path.filterLike(filterId)
+        case .getFilterDetail(let filterId):
+            return APIConstants.Path.filterDetail(filterId)
         }
     }
     
     var method: HTTPMethod {
         switch self {
-        case .getTodayFilter, .getHotTrendFilters, .getFilters:
+        case .getTodayFilter, .getHotTrendFilters, .getFilters, .getFilterDetail:
             return .get
         case .likeFilter:
             return .post

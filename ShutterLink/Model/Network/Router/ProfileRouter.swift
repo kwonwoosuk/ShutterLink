@@ -14,12 +14,10 @@ enum ProfileRouter: APIRouter {
     
     var path: String {
         switch self {
-        case .getMyProfile:
-            return "/v1/users/me/profile"
-        case .updateProfile:
-            return "/v1/users/me/profile"
+        case .getMyProfile, .updateProfile:
+            return APIConstants.Path.myProfile
         case .uploadProfileImage:
-            return "/v1/users/profile/image"
+            return APIConstants.Path.profileImage
         }
     }
     
@@ -37,7 +35,7 @@ enum ProfileRouter: APIRouter {
     var contentType: String {
         switch self {
         case .uploadProfileImage:
-            return "multipart/form-data"
+            return APIConstants.ContentType.multipartFormData
         default:
             return APIConstants.ContentType.json
         }
@@ -50,7 +48,7 @@ enum ProfileRouter: APIRouter {
         case .updateProfile(let request):
             return try? JSONEncoder().encode(request)
         case .uploadProfileImage:
-            return nil  // multipart/form-data는 별도 처리
+            return nil
         }
     }
     

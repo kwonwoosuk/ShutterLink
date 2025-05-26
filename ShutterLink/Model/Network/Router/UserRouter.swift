@@ -13,7 +13,7 @@ enum UserRouter: APIRouter {
     var path: String {
         switch self {
         case .getTodayAuthor:
-            return "/v1/users/today-author"
+            return APIConstants.Path.todayAuthor
         }
     }
     
