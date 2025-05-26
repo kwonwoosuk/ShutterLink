@@ -146,7 +146,7 @@ class NetworkManager {
             
             return try await request(router, type: type)
         } catch let error as NetworkError {
-            if error == .refreshTokenExpired || error == .refreshTokenInvalid || error == .forbidden {
+            if error == .refreshTokenExpired || error == .forbidden {
                 print("🚫 리프레시 토큰 문제, 로그아웃 처리")
                 await MainActor.run {
                     authState.logout()

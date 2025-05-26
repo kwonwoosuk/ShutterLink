@@ -72,7 +72,7 @@ class AuthState: ObservableObject {
             print("❌ 프로필 로드 에러: \(error)")
             
             switch error {
-            case .userSessionInvalid, .refreshTokenExpired, .refreshTokenInvalid, .forbidden:
+            case  .refreshTokenExpired, .forbidden:
                 // 리프레시 토큰에 문제가 있는 경우 로그아웃 처리
                 print("🚫 세션 만료 - 로그아웃 처리")
                 await MainActor.run {
@@ -142,7 +142,7 @@ class AuthState: ObservableObject {
             print("❌ 토큰 갱신 에러: \(error)")
             
             // 403 오류(refreshTokenInvalid) 또는 리프레시 토큰 만료 시 로그아웃
-            if error == .refreshTokenInvalid || error == .refreshTokenExpired || error == .forbidden {
+            if error == .refreshTokenExpired || error == .forbidden {
                 print("🚫 리프레시 토큰 만료 - 즉시 로그아웃")
                 await MainActor.run {
                     // 중요: 여기서 logout()을 호출하면 isLoading도 false로 설정됨

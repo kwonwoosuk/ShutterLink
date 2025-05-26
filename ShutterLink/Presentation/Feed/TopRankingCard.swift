@@ -19,6 +19,24 @@ struct VerticalOvalCard: View {
     }
     
     var body: some View {
+        Group {
+            // NavigationLink로 카드 감싸기
+            if #available(iOS 16.0, *) {
+                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
+                    cardContent
+                }
+                .buttonStyle(PlainButtonStyle())
+            } else {
+                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
+                    cardContent
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var cardContent: some View {
         ZStack {
             // 세로로 긴 타원형 배경
             Capsule()
@@ -61,7 +79,7 @@ struct VerticalOvalCard: View {
                         .stroke(DesignSystem.Colors.Brand.brightTurquoise, lineWidth: 3)
                         .frame(width: 200, height: 200)
                     
-                    // 좋아요 버튼 (오른쪽 하단)
+                    // 좋아요 버튼 (오른쪽 하단) - 별도 처리
                     if let onLike = onLike {
                         VStack {
                             Spacer()
@@ -84,6 +102,9 @@ struct VerticalOvalCard: View {
                                         Capsule()
                                             .fill(Color.black.opacity(0.7))
                                     )
+                                }
+                                .onTapGesture {
+                                    // 탭 제스처를 사용하여 네비게이션 방지
                                 }
                                 .padding(.trailing, 20)
                                 .padding(.bottom, 10)
@@ -137,6 +158,24 @@ struct MiniVerticalOvalCard: View {
     }
     
     var body: some View {
+        Group {
+            // NavigationLink로 카드 감싸기
+            if #available(iOS 16.0, *) {
+                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
+                    miniCardContent
+                }
+                .buttonStyle(PlainButtonStyle())
+            } else {
+                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
+                    miniCardContent
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var miniCardContent: some View {
         ZStack {
             // 세로로 긴 타원형 배경
             Capsule()
@@ -162,7 +201,7 @@ struct MiniVerticalOvalCard: View {
                         .clipShape(Circle())
                     }
                     
-                    // 좋아요 버튼 (미니 버전용)
+                    // 좋아요 버튼 (미니 버전용) - 별도 처리
                     if let onLike = onLike {
                         VStack {
                             Spacer()
@@ -185,6 +224,9 @@ struct MiniVerticalOvalCard: View {
                                         Capsule()
                                             .fill(Color.black.opacity(0.6))
                                     )
+                                }
+                                .onTapGesture {
+                                    // 탭 제스처를 사용하여 네비게이션 방지
                                 }
                                 .padding(.trailing, 15)
                                 .padding(.bottom, 8)

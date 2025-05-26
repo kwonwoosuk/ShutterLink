@@ -25,57 +25,18 @@ struct TodayFilterIntroSection: View {
             // 오늘의 필터 상세 정보
             if let filter = filter {
                 VStack(alignment: .leading, spacing: 16) {
-                    // 메인 이미지
-                    ZStack {
-                        if let firstImagePath = filter.files.first {
-                            AuthenticatedImageView(
-                                imagePath: firstImagePath,
-                                contentMode: .fill
-                            ) {
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.3))
-                                    .overlay(
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                    )
-                            }
-                            .frame(height: 240)
-                            .clipped()
+                    // 메인 이미지 - NavigationLink로 감싸기
+                    if #available(iOS 16.0, *) {
+                        NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
+                            filterImageView(filter: filter)
                         }
-                        
-                        // 그라데이션 오버레이
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.black.opacity(0.2),
-                                Color.black.opacity(0.6)
-                            ]),
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        
-                        // 텍스트 콘텐츠
-                        VStack(alignment: .leading, spacing: 8) {
-                            Spacer()
-                            
-                            HStack {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text(filter.title)
-                                        .font(.hakgyoansim(size: 24, weight: .bold))
-                                        .foregroundColor(.white)
-                                    
-                                    Text(filter.introduction)
-                                        .font(.pretendard(size: 16, weight: .medium))
-                                        .foregroundColor(.white.opacity(0.9))
-                                }
-                                
-                                Spacer()
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 20)
+                        .buttonStyle(PlainButtonStyle())
+                    } else {
+                        NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
+                            filterImageView(filter: filter)
                         }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .cornerRadius(16)
-                    .padding(.horizontal, 20)
                     
                     // 필터 상세 설명
                     VStack(alignment: .leading, spacing: 12) {
@@ -115,6 +76,72 @@ struct TodayFilterIntroSection: View {
                     .padding(.horizontal, 20)
             }
         }
+    }
+    
+    // 필터 이미지 뷰를 별도 메서드로 분리
+    @ViewBuilder
+    private func filterImageView(filter: TodayFilterResponse) -> some View {
+        ZStack {
+            if let firstImagePath = filter.files.first {
+                AuthenticatedImageView(
+                    imagePath: firstImagePath,
+                    contentMode: .fill
+                ) {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .overlay(
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        )
+                }
+                .frame(height: 240)
+                .clipped()
+            }
+            
+            // 그라데이션 오버레이
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.black.opacity(0.2),
+                    Color.black.opacity(0.6)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            
+            // 텍스트 콘텐츠
+            VStack(alignment: .leading, spacing: 8) {
+                Spacer()
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(filter.title)
+                            .font(.hakgyoansim(size: 24, weight: .bold))
+                            .foregroundColor(.white)
+                        
+                        Text(filter.introduction)
+                            .font(.pretendard(size: 16, weight: .medium))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                    
+                    Spacer()
+                    
+                    // 탭 인디케이터
+                    VStack {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white.opacity(0.8))
+                        
+                        Text("자세히 보기")
+                            .font(.pretendard(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            }
+        }
+        .cornerRadius(16)
+        .padding(.horizontal, 20)
     }
     
     private func formatDate(_ dateString: String) -> String {

@@ -12,6 +12,7 @@ protocol FilterUseCase {
     func getHotTrendFilters() async throws -> [FilterItem]
     func getFilters(next: String, limit: Int, category: String?, orderBy: String) async throws -> FilterListResponse
     func likeFilter(filterId: String, likeStatus: Bool) async throws -> Bool
+    func getFilterDetail(filterId: String) async throws -> FilterDetailResponse
 }
 
 class FilterUseCaseImpl: FilterUseCase {
@@ -37,5 +38,10 @@ class FilterUseCaseImpl: FilterUseCase {
         let router = FilterRouter.likeFilter(filterId: filterId, likeStatus: likeStatus)
         let response = try await networkManager.request(router, type: LikeResponse.self)
         return response.like_status
+    }
+    
+    func getFilterDetail(filterId: String) async throws -> FilterDetailResponse {
+        let router = FilterRouter.getFilterDetail(filterId: filterId)
+        return try await networkManager.request(router, type: FilterDetailResponse.self)
     }
 }

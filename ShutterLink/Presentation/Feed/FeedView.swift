@@ -397,6 +397,22 @@ struct FeedView: View {
         let onLike: (String, Bool) -> Void
         
         var body: some View {
+            // NavigationLink로 전체 아이템 감싸기
+            if #available(iOS 16.0, *) {
+                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
+                    listItemContent
+                }
+                .buttonStyle(PlainButtonStyle())
+            } else {
+                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
+                    listItemContent
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        
+        @ViewBuilder
+        private var listItemContent: some View {
             HStack(spacing: 12) {
                 // 썸네일
                 if let firstImagePath = filter.files.first {
@@ -434,7 +450,7 @@ struct FeedView: View {
                 
                 Spacer()
                 
-                // 수정된 좋아요 버튼
+                // 좋아요 버튼 - 별도 처리하여 네비게이션과 분리
                 VStack(spacing: 4) {
                     Button {
                         // 반대 상태를 전달 (핵심 수정 부분)
@@ -443,6 +459,9 @@ struct FeedView: View {
                         Image(systemName: filter.is_liked ? "heart.fill" : "heart")
                             .foregroundColor(filter.is_liked ? .red : .gray)
                             .font(.system(size: 20))
+                    }
+                    .onTapGesture {
+                        // 탭 제스처를 사용하여 네비게이션 방지
                     }
                     
                     // 좋아요 개수 표시
@@ -497,6 +516,22 @@ struct FeedView: View {
         let onLike: (String, Bool) -> Void
         
         var body: some View {
+            // NavigationLink로 전체 아이템 감싸기
+            if #available(iOS 16.0, *) {
+                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
+                    blockItemContent
+                }
+                .buttonStyle(PlainButtonStyle())
+            } else {
+                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
+                    blockItemContent
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        
+        @ViewBuilder
+        private var blockItemContent: some View {
             VStack(spacing: 8) {
                 // 썸네일
                 ZStack(alignment: .bottomTrailing) {
@@ -533,6 +568,9 @@ struct FeedView: View {
                                 .padding(.vertical, 4)
                                 .background(Color.black.opacity(0.6))
                                 .cornerRadius(12)
+                            }
+                            .onTapGesture {
+                                // 탭 제스처를 사용하여 네비게이션 방지
                             }
                             .padding(8)
                         }
