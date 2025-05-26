@@ -12,173 +12,227 @@ struct FeedView: View {
     @State private var currentTopRankingIndex = 0
     @State private var selectedCategory: FilterCategory? = nil // nil = 전체 상태
     @State private var hasAppeared = false
+    @State private var selectedFilterId: String? = nil
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                // 다크 모드 배경
-                Color.black.ignoresSafeArea()
-                
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        // 카테고리 버튼들 - 5개 고정
-                        CategoryButtonsView(
-                            selectedCategory: $selectedCategory,
-                            onSelectCategory: { category in
-                                print("🔵 카테고리 선택: \(category?.title ?? "전체")")
-                                selectedCategory = category
-                                viewModel.input.selectCategory.send(category)
+        Group {
+            if #available(iOS 17.0, *) {
+                NavigationStack {
+                    feedContent
+                        .navigationDestination(item: Binding<FilterNavigationItemCompat?>(
+                            get: { selectedFilterId.map { FilterNavigationItemCompat(filterId: $0) } },
+                            set: { selectedFilterId = $0?.filterId }
+                        )) { item in
+                            FilterDetailView(filterId: item.filterId)
+                        }
+                }
+            } else if #available(iOS 16.0, *) {
+                NavigationStack {
+                    feedContent
+                        .background(
+                            NavigationLink(
+                                destination: Group {
+                                    if let filterId = selectedFilterId {
+                                        FilterDetailView(filterId: filterId)
+                                    } else {
+                                        EmptyView()
+                                    }
+                                },
+                                isActive: Binding<Bool>(
+                                    get: { selectedFilterId != nil },
+                                    set: { if !$0 { selectedFilterId = nil } }
+                                )
+                            ) {
+                                EmptyView()
+                            }
+                            .opacity(0)
+                        )
+                }
+            } else {
+                NavigationView {
+                    feedContent
+                        .background(
+                            NavigationLink(
+                                destination: Group {
+                                    if let filterId = selectedFilterId {
+                                        FilterDetailView(filterId: filterId)
+                                    } else {
+                                        EmptyView()
+                                    }
+                                },
+                                isActive: Binding<Bool>(
+                                    get: { selectedFilterId != nil },
+                                    set: { if !$0 { selectedFilterId = nil } }
+                                )
+                            ) {
+                                EmptyView()
+                            }
+                            .opacity(0)
+                        )
+                }
+                .navigationViewStyle(StackNavigationViewStyle())
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var feedContent: some View {
+        ZStack {
+            // 다크 모드 배경
+            Color.black.ignoresSafeArea()
+            
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // 카테고리 버튼들 - 5개 고정
+                    CategoryButtonsView(
+                        selectedCategory: $selectedCategory,
+                        onSelectCategory: { category in
+                            print("🔵 카테고리 선택: \(category?.title ?? "전체")")
+                            selectedCategory = category
+                            viewModel.input.selectCategory.send(category)
+                        }
+                    )
+                    .padding(.top, 20)
+                    .opacity(viewModel.isLoading ? 0.7 : 1.0)
+                    
+                    // Top Ranking 섹션
+                    if !viewModel.allFilters.isEmpty {
+                        TopRankingSection(
+                            filters: Array(viewModel.allFilters.prefix(5)),
+                            currentIndex: $currentTopRankingIndex,
+                            onFilterTap: { filterId in
+                                selectedFilterId = filterId
                             }
                         )
-                        .padding(.top, 20)
-                        .opacity(viewModel.isLoading ? 0.7 : 1.0)
-                        
-                        // Top Ranking 섹션
-                        if !viewModel.allFilters.isEmpty {
-                            TopRankingSection(
-                                filters: Array(viewModel.allFilters.prefix(5)),
-                                currentIndex: $currentTopRankingIndex,
-                                onLike: { filterId, shouldLike in
-                                    // Top Ranking에서도 좋아요 처리
-                                    viewModel.input.likeFilter.send((filterId, shouldLike))
-                                }
-                            )
-                            .padding(.top, 24)
-                        }
-                        
-                        // 정렬 옵션과 Filter Feed 타이틀
-                        VStack(spacing: 20) {
-                            // 정렬 옵션 탭
-                            SortOptionTabs(
-                                selectedOption: $viewModel.selectedSortOption,
-                                onSelectOption: { option in
-                                    viewModel.input.selectSortOption.send(option)
-                                }
-                            )
-                            
-                            // Filter Feed 헤더
-                            HStack {
-                                Text("Filter Feed")
-                                    .font(.pretendard(size: 20, weight: .regular))
-                                    .foregroundColor(.white)
-                                
-                                Spacer()
-                                
-                                // View Mode 토글
-                                Button {
-                                    viewModel.input.toggleViewMode.send()
-                                } label: {
-                                    Text(viewModel.viewMode == .list ? "List Mode" : "Block Mode")
-                                        .font(.pretendard(size: 14, weight: .regular))
-                                        .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
-                                }
+                        .padding(.top, 24)
+                    }
+                    
+                    // 정렬 옵션과 Filter Feed 타이틀
+                    VStack(spacing: 20) {
+                        // 정렬 옵션 탭
+                        SortOptionTabs(
+                            selectedOption: $viewModel.selectedSortOption,
+                            onSelectOption: { option in
+                                viewModel.input.selectSortOption.send(option)
                             }
-                            .padding(.horizontal, 20)
-                        }
-                        .padding(.top, 30)
+                        )
                         
-                        // 현재 선택된 카테고리 표시 (디버깅용)
-                        if let selectedCategory = selectedCategory {
-                            Text("선택된 카테고리: \(selectedCategory.title)")
-                                .font(.pretendard(size: 12, weight: .medium))
-                                .foregroundColor(.gray)
-                                .padding(.horizontal, 20)
-                        } else {
-                            Text("전체 카테고리")
-                                .font(.pretendard(size: 12, weight: .medium))
-                                .foregroundColor(.gray)
-                                .padding(.horizontal, 20)
+                        // Filter Feed 헤더
+                        HStack {
+                            Text("Filter Feed")
+                                .font(.pretendard(size: 20, weight: .regular))
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                            
+                            // View Mode 토글
+                            Button {
+                                viewModel.input.toggleViewMode.send()
+                            } label: {
+                                Text(viewModel.viewMode == .list ? "List Mode" : "Block Mode")
+                                    .font(.pretendard(size: 14, weight: .regular))
+                                    .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
+                            }
                         }
-                        
-                        // Filter Feed 리스트
-                        if viewModel.viewMode == .list {
-                            FilterListView(
-                                filters: viewModel.displayedFilters,
-                                onLike: { filterId, shouldLike in
-                                    // 수정된 부분: 좋아요 토글 상태를 전달
-                                    viewModel.input.likeFilter.send((filterId, shouldLike))
-                                },
-                                onLoadMore: {
-                                    viewModel.input.loadMoreData.send()
-                                },
-                                isLoadingMore: viewModel.isLoadingMore
-                            )
-                        } else {
-                            FilterBlockView(
-                                filters: viewModel.displayedFilters,
-                                onLike: { filterId, shouldLike in
-                                    // Block 모드에서도 좋아요 처리 추가
-                                    viewModel.input.likeFilter.send((filterId, shouldLike))
-                                },
-                                onLoadMore: {
-                                    viewModel.input.loadMoreData.send()
-                                },
-                                isLoadingMore: viewModel.isLoadingMore
-                            )
-                        }
-                        
-                        // 하단 여백
-                        Color.clear.frame(height: 100)
+                        .padding(.horizontal, 20)
                     }
-                }
-                
-                // 로딩 인디케이터
-                if viewModel.isLoading {
-                    VStack {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(1.2)
-                        
-                        Text("로딩 중...")
+                    .padding(.top, 30)
+                    
+                    // 현재 선택된 카테고리 표시 (디버깅용)
+                    if let selectedCategory = selectedCategory {
+                        Text("선택된 카테고리: \(selectedCategory.title)")
                             .font(.pretendard(size: 12, weight: .medium))
-                            .foregroundColor(.white)
-                            .padding(.top, 8)
+                            .foregroundColor(.gray)
+                            .padding(.horizontal, 20)
+                    } else {
+                        Text("전체 카테고리")
+                            .font(.pretendard(size: 12, weight: .medium))
+                            .foregroundColor(.gray)
+                            .padding(.horizontal, 20)
                     }
-                    .padding(20)
-                    .background(Color.black.opacity(0.8))
-                    .cornerRadius(12)
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("FEED")
-                        .font(.hakgyoansim(size: 18, weight: DesignSystem.Typography.FontFamily.HakgyoansimWeight.bold))
-                        .foregroundColor(.gray45)
-                }
-                //            .toolbar {
-                //                ToolbarItem(placement: .principal) {
-                //                    Text("FEED")
-                //                        .font(.pretendard(size: 18, weight: .medium))
-                //                        .foregroundColor(.white)
-                //                }
-                //
-                //                ToolbarItem(placement: .navigationBarLeading) {
-                //                    Button {
-                //                        // 뒤로가기
-                //                    } label: {
-                //                        Image(systemName: "chevron.left")
-                //                            .foregroundColor(.white)
-                //                    }
-                //                }
-                //            }
-            }
-            .onAppear {
-                if !hasAppeared {
-                    hasAppeared = true
-                    // 메인스레드에서 약간의 지연 후 초기화 신호 전송
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        print("🔵 Feed 초기 로딩 시작")
-                        viewModel.input.loadInitialData.send()
-                        // 초기 상태: 아무 카테고리도 선택하지 않음 (전체 표시)
-                        viewModel.input.selectCategory.send(nil)
+                    
+                    // Filter Feed 리스트
+                    if viewModel.viewMode == .list {
+                        FilterListView(
+                            filters: viewModel.displayedFilters,
+                            onLike: { filterId, shouldLike in
+                                // 수정된 부분: 좋아요 토글 상태를 전달
+                                viewModel.input.likeFilter.send((filterId, shouldLike))
+                            },
+                            onFilterTap: { filterId in
+                                selectedFilterId = filterId
+                            },
+                            onLoadMore: {
+                                viewModel.input.loadMoreData.send()
+                            },
+                            isLoadingMore: viewModel.isLoadingMore
+                        )
+                    } else {
+                        FilterBlockView(
+                            filters: viewModel.displayedFilters,
+                            onLike: { filterId, shouldLike in
+                                // Block 모드에서도 좋아요 처리 추가
+                                viewModel.input.likeFilter.send((filterId, shouldLike))
+                            },
+                            onFilterTap: { filterId in
+                                selectedFilterId = filterId
+                            },
+                            onLoadMore: {
+                                viewModel.input.loadMoreData.send()
+                            },
+                            isLoadingMore: viewModel.isLoadingMore
+                        )
                     }
+                    
+                    // 하단 여백
+                    Color.clear.frame(height: 100)
                 }
             }
-            .refreshable {
-                // refreshable은 자동으로 메인스레드에서 실행됨
+            
+            // 로딩 인디케이터
+            if viewModel.isLoading {
+                VStack {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.2)
+                    
+                    Text("로딩 중...")
+                        .font(.pretendard(size: 12, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.top, 8)
+                }
+                .padding(20)
+                .background(Color.black.opacity(0.8))
+                .cornerRadius(12)
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("FEED")
+                    .font(.hakgyoansim(size: 18, weight: DesignSystem.Typography.FontFamily.HakgyoansimWeight.bold))
+                    .foregroundColor(.gray45)
+            }
+        }
+        .onAppear {
+            if !hasAppeared {
+                hasAppeared = true
+                // 메인스레드에서 약간의 지연 후 초기화 신호 전송
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    print("🔵 Feed 초기 로딩 시작")
+                    viewModel.input.loadInitialData.send()
+                    // 초기 상태: 아무 카테고리도 선택하지 않음 (전체 표시)
+                    viewModel.input.selectCategory.send(nil)
+                }
+            } else {
+                // 화면 복귀 시 데이터 새로고침
+                print("🔵 Feed 화면 복귀 - 데이터 새로고침")
                 viewModel.input.refreshData.send()
             }
+        }
+        .refreshable {
+            // refreshable은 자동으로 메인스레드에서 실행됨
+            viewModel.input.refreshData.send()
         }
     }
     
@@ -265,11 +319,11 @@ struct FeedView: View {
         }
     }
     
-    // MARK: - Top Ranking 섹션 (좋아요 기능 추가)
+    // MARK: - Top Ranking 섹션
     struct TopRankingSection: View {
         let filters: [FilterItem]
         @Binding var currentIndex: Int
-        let onLike: (String, Bool) -> Void
+        let onFilterTap: (String) -> Void
         
         var body: some View {
             VStack(alignment: .leading, spacing: 20) {
@@ -297,7 +351,7 @@ struct FeedView: View {
                                                 VerticalOvalCard(
                                                     filter: filter,
                                                     rank: index + 1,
-                                                    onLike: onLike
+                                                    onFilterTap: onFilterTap
                                                 )
                                                 .scaleEffect(scale)
                                                 .id(index)
@@ -305,7 +359,7 @@ struct FeedView: View {
                                                 MiniVerticalOvalCard(
                                                     filter: filter,
                                                     rank: index + 1,
-                                                    onLike: onLike
+                                                    onFilterTap: onFilterTap
                                                 )
                                                 .scaleEffect(scale)
                                                 .id(index)
@@ -366,13 +420,18 @@ struct FeedView: View {
     struct FilterListView: View {
         let filters: [FilterItem]
         let onLike: (String, Bool) -> Void
+        let onFilterTap: (String) -> Void
         let onLoadMore: () -> Void
         let isLoadingMore: Bool
         
         var body: some View {
             LazyVStack(spacing: 16) {
                 ForEach(filters) { filter in
-                    FilterListItem(filter: filter, onLike: onLike)
+                    FilterListItem(
+                        filter: filter,
+                        onLike: onLike,
+                        onFilterTap: onFilterTap
+                    )
                         .onAppear {
                             if filter.id == filters.last?.id {
                                 onLoadMore()
@@ -395,91 +454,78 @@ struct FeedView: View {
     struct FilterListItem: View {
         let filter: FilterItem
         let onLike: (String, Bool) -> Void
+        let onFilterTap: (String) -> Void
         
         var body: some View {
-            // NavigationLink로 전체 아이템 감싸기
-            if #available(iOS 16.0, *) {
-                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                    listItemContent
+            Button {
+                onFilterTap(filter.filter_id)
+            } label: {
+                HStack(spacing: 12) {
+                    // 썸네일
+                    if let firstImagePath = filter.files.first {
+                        AuthenticatedImageView(
+                            imagePath: firstImagePath,
+                            contentMode: .fill
+                        ) {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.gray.opacity(0.3))
+                        }
+                        .frame(width: 80, height: 80)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    
+                    // 필터 정보
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(filter.title)
+                            .font(.pretendard(size: 16, weight: .semiBold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        
+                        Text("#\(filter.category ?? "인물")")
+                            .font(.pretendard(size: 12, weight: .medium))
+                            .foregroundColor(.gray)
+                        
+                        Text(filter.creator.nick)
+                            .font(.pretendard(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.8))
+                        
+                        Text(filter.description)
+                            .font(.pretendard(size: 12, weight: .regular))
+                            .foregroundColor(.white.opacity(0.6))
+                            .lineLimit(2)
+                    }
+                    
+                    Spacer()
+                    
+                    // 좋아요 버튼
+                    VStack(spacing: 4) {
+                        Button {
+                            onLike(filter.filter_id, !filter.is_liked)
+                        } label: {
+                            Image(systemName: filter.is_liked ? "heart.fill" : "heart")
+                                .foregroundColor(filter.is_liked ? .red : .gray)
+                                .font(.system(size: 20))
+                        }
+                        
+                        // 좋아요 개수 표시
+                        Text("\(filter.like_count)")
+                            .font(.pretendard(size: 12, weight: .medium))
+                            .foregroundColor(.gray)
+                    }
                 }
-                .buttonStyle(PlainButtonStyle())
-            } else {
-                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                    listItemContent
-                }
-                .buttonStyle(PlainButtonStyle())
+                .padding(16)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(12)
             }
-        }
-        
-        @ViewBuilder
-        private var listItemContent: some View {
-            HStack(spacing: 12) {
-                // 썸네일
-                if let firstImagePath = filter.files.first {
-                    AuthenticatedImageView(
-                        imagePath: firstImagePath,
-                        contentMode: .fill
-                    ) {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.gray.opacity(0.3))
-                    }
-                    .frame(width: 80, height: 80)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                
-                // 필터 정보
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(filter.title)
-                        .font(.pretendard(size: 16, weight: .semiBold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                    
-                    Text("#\(filter.category ?? "인물")")
-                        .font(.pretendard(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                    
-                    Text(filter.creator.nick)
-                        .font(.pretendard(size: 14, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-                    
-                    Text(filter.description)
-                        .font(.pretendard(size: 12, weight: .regular))
-                        .foregroundColor(.white.opacity(0.6))
-                        .lineLimit(2)
-                }
-                
-                Spacer()
-                
-                // 좋아요 버튼 - 별도 처리하여 네비게이션과 분리
-                VStack(spacing: 4) {
-                    Button {
-                        // 반대 상태를 전달 (핵심 수정 부분)
-                        onLike(filter.filter_id, !filter.is_liked)
-                    } label: {
-                        Image(systemName: filter.is_liked ? "heart.fill" : "heart")
-                            .foregroundColor(filter.is_liked ? .red : .gray)
-                            .font(.system(size: 20))
-                    }
-                    .onTapGesture {
-                        // 탭 제스처를 사용하여 네비게이션 방지
-                    }
-                    
-                    // 좋아요 개수 표시
-                    Text("\(filter.like_count)")
-                        .font(.pretendard(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                }
-            }
-            .padding(16)
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(12)
+            .buttonStyle(PlainButtonStyle())
         }
     }
     
-    // MARK: - 필터 블럭 뷰 (Block Mode) - 좋아요 기능 추가
+    // MARK: - 필터 블럭 뷰 (Block Mode)
     struct FilterBlockView: View {
         let filters: [FilterItem]
         let onLike: (String, Bool) -> Void
+        let onFilterTap: (String) -> Void
         let onLoadMore: () -> Void
         let isLoadingMore: Bool
         
@@ -491,7 +537,11 @@ struct FeedView: View {
         var body: some View {
             LazyVGrid(columns: columns, spacing: 16) {
                 ForEach(filters) { filter in
-                    FilterBlockItem(filter: filter, onLike: onLike)
+                    FilterBlockItem(
+                        filter: filter,
+                        onLike: onLike,
+                        onFilterTap: onFilterTap
+                    )
                         .onAppear {
                             if filter.id == filters.last?.id {
                                 onLoadMore()
@@ -514,83 +564,69 @@ struct FeedView: View {
     struct FilterBlockItem: View {
         let filter: FilterItem
         let onLike: (String, Bool) -> Void
+        let onFilterTap: (String) -> Void
         
         var body: some View {
-            // NavigationLink로 전체 아이템 감싸기
-            if #available(iOS 16.0, *) {
-                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                    blockItemContent
-                }
-                .buttonStyle(PlainButtonStyle())
-            } else {
-                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                    blockItemContent
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-        }
-        
-        @ViewBuilder
-        private var blockItemContent: some View {
-            VStack(spacing: 8) {
-                // 썸네일
-                ZStack(alignment: .bottomTrailing) {
-                    if let firstImagePath = filter.files.first {
-                        AuthenticatedImageView(
-                            imagePath: firstImagePath,
-                            contentMode: .fill
-                        ) {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.gray.opacity(0.3))
+            Button {
+                onFilterTap(filter.filter_id)
+            } label: {
+                VStack(spacing: 8) {
+                    // 썸네일
+                    ZStack(alignment: .bottomTrailing) {
+                        if let firstImagePath = filter.files.first {
+                            AuthenticatedImageView(
+                                imagePath: firstImagePath,
+                                contentMode: .fill
+                            ) {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.gray.opacity(0.3))
+                            }
+                            .frame(height: 160)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
-                        .frame(height: 160)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-                    
-                    // 좋아요 카운트와 버튼
-                    VStack {
-                        Spacer()
-                        HStack {
+                        
+                        // 좋아요 카운트와 버튼
+                        VStack {
                             Spacer()
-                            Button {
-                                // 반대 상태를 전달
-                                onLike(filter.filter_id, !filter.is_liked)
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: filter.is_liked ? "heart.fill" : "heart")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(filter.is_liked ? .red : .white)
-                                    Text("\(filter.like_count)")
-                                        .font(.pretendard(size: 12, weight: .medium))
-                                        .foregroundColor(.white)
+                            HStack {
+                                Spacer()
+                                Button {
+                                    onLike(filter.filter_id, !filter.is_liked)
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: filter.is_liked ? "heart.fill" : "heart")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(filter.is_liked ? .red : .white)
+                                        Text("\(filter.like_count)")
+                                            .font(.pretendard(size: 12, weight: .medium))
+                                            .foregroundColor(.white)
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.black.opacity(0.6))
+                                    .cornerRadius(12)
                                 }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.black.opacity(0.6))
-                                .cornerRadius(12)
+                                .padding(8)
                             }
-                            .onTapGesture {
-                                // 탭 제스처를 사용하여 네비게이션 방지
-                            }
-                            .padding(8)
                         }
                     }
-                }
-                
-                // 필터 정보
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(filter.title)
-                        .font(.pretendard(size: 14, weight: .semiBold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
                     
-                    Text(filter.creator.nick)
-                        .font(.pretendard(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                        .lineLimit(1)
+                    // 필터 정보
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(filter.title)
+                            .font(.pretendard(size: 14, weight: .semiBold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        
+                        Text(filter.creator.nick)
+                            .font(.pretendard(size: 12, weight: .medium))
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(PlainButtonStyle())
         }
     }
 }

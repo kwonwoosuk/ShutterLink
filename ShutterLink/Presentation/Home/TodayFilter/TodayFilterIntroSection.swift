@@ -9,6 +9,12 @@ import SwiftUI
 // MARK: - 섹션 1: 오늘의 필터 소개 (필터 정보만)
 struct TodayFilterIntroSection: View {
     let filter: TodayFilterResponse?
+    let onFilterTap: ((String) -> Void)?
+    
+    init(filter: TodayFilterResponse?, onFilterTap: ((String) -> Void)? = nil) {
+        self.filter = filter
+        self.onFilterTap = onFilterTap
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -25,18 +31,11 @@ struct TodayFilterIntroSection: View {
             // 오늘의 필터 상세 정보
             if let filter = filter {
                 VStack(alignment: .leading, spacing: 16) {
-                    // 메인 이미지 - NavigationLink로 감싸기
-                    if #available(iOS 16.0, *) {
-                        NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                            filterImageView(filter: filter)
+                    // 메인 이미지 - 탭 제스처 적용
+                    filterImageView(filter: filter)
+                        .onTapGesture {
+                            onFilterTap?(filter.filter_id)
                         }
-                        .buttonStyle(PlainButtonStyle())
-                    } else {
-                        NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                            filterImageView(filter: filter)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
                     
                     // 필터 상세 설명
                     VStack(alignment: .leading, spacing: 12) {

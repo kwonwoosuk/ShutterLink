@@ -9,6 +9,12 @@ import SwiftUI
 // MARK: - 섹션 3: 핫트랜드 (무한 스크롤 + 중앙 페이징)
 struct HotTrendSection: View {
     let filters: [FilterItem]
+    let onFilterTap: ((String) -> Void)?
+    
+    init(filters: [FilterItem], onFilterTap: ((String) -> Void)? = nil) {
+        self.filters = filters
+        self.onFilterTap = onFilterTap
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -25,7 +31,7 @@ struct HotTrendSection: View {
             if !filters.isEmpty {
                 // 10개 셀만 사용하도록 제한
                 let limitedFilters = Array(filters.prefix(10))
-                HotTrendCarouselView(filters: limitedFilters)
+                HotTrendCarouselView(filters: limitedFilters, onFilterTap: onFilterTap)
             } else {
                 // 로딩 상태
                 HStack {

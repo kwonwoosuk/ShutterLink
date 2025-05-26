@@ -13,20 +13,22 @@ struct CarouselCard: View {
     let scale: CGFloat
     let cardWidth: CGFloat
     let cardHeight: CGFloat
+    let onFilterTap: ((String) -> Void)?
+    
+    init(filter: FilterItem, isCenter: Bool, scale: CGFloat, cardWidth: CGFloat, cardHeight: CGFloat, onFilterTap: ((String) -> Void)? = nil) {
+        self.filter = filter
+        self.isCenter = isCenter
+        self.scale = scale
+        self.cardWidth = cardWidth
+        self.cardHeight = cardHeight
+        self.onFilterTap = onFilterTap
+    }
     
     var body: some View {
-        // NavigationLink로 전체 카드 감싸기
-        if #available(iOS 16.0, *) {
-            NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                cardContent
+        cardContent
+            .onTapGesture {
+                onFilterTap?(filter.filter_id)
             }
-            .buttonStyle(PlainButtonStyle())
-        } else {
-            NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                cardContent
-            }
-            .buttonStyle(PlainButtonStyle())
-        }
     }
     
     @ViewBuilder
@@ -69,7 +71,7 @@ struct CarouselCard: View {
                         .cornerRadius(20)
                 }
                 
-                // 좋아요 카운트 (오른쪽 하단)
+                // 좋아요 카운트 (오른쪽 하단) - 표시만, 버튼 없음
                 VStack {
                     Spacer()
                     HStack {
@@ -89,36 +91,6 @@ struct CarouselCard: View {
                                 .fill(Color.black.opacity(0.7))
                         )
                         .padding(8)
-                    }
-                }
-                
-                // 중앙 카드에 탭 인디케이터 추가
-                if isCenter {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            VStack {
-                                Image(systemName: "eye.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(.white.opacity(0.8))
-                                
-                                Text("보기")
-                                    .font(.pretendard(size: 10, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.8))
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color.black.opacity(0.6))
-                            )
-                            .padding(.leading, 8)
-                            .padding(.bottom, 8)
-                            
-                            Spacer()
-                        }
-                        
-                        Spacer()
                     }
                 }
             }

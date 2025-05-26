@@ -10,29 +10,19 @@ import SwiftUI
 struct VerticalOvalCard: View {
     let filter: FilterItem
     let rank: Int
-    let onLike: ((String, Bool) -> Void)?
+    let onFilterTap: ((String) -> Void)?
     
-    init(filter: FilterItem, rank: Int, onLike: ((String, Bool) -> Void)? = nil) {
+    init(filter: FilterItem, rank: Int, onFilterTap: ((String) -> Void)? = nil) {
         self.filter = filter
         self.rank = rank
-        self.onLike = onLike
+        self.onFilterTap = onFilterTap
     }
     
     var body: some View {
-        Group {
-            // NavigationLink로 카드 감싸기
-            if #available(iOS 16.0, *) {
-                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                    cardContent
-                }
-                .buttonStyle(PlainButtonStyle())
-            } else {
-                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                    cardContent
-                }
-                .buttonStyle(PlainButtonStyle())
+        cardContent
+            .onTapGesture {
+                onFilterTap?(filter.filter_id)
             }
-        }
     }
     
     @ViewBuilder
@@ -78,39 +68,6 @@ struct VerticalOvalCard: View {
                     Circle()
                         .stroke(DesignSystem.Colors.Brand.brightTurquoise, lineWidth: 3)
                         .frame(width: 200, height: 200)
-                    
-                    // 좋아요 버튼 (오른쪽 하단) - 별도 처리
-                    if let onLike = onLike {
-                        VStack {
-                            Spacer()
-                            HStack {
-                                Spacer()
-                                Button {
-                                    onLike(filter.filter_id, !filter.is_liked)
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: filter.is_liked ? "heart.fill" : "heart")
-                                            .foregroundColor(filter.is_liked ? .red : .white)
-                                            .font(.system(size: 16))
-                                        Text("\(filter.like_count)")
-                                            .font(.pretendard(size: 12, weight: .medium))
-                                            .foregroundColor(.white)
-                                    }
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.black.opacity(0.7))
-                                    )
-                                }
-                                .onTapGesture {
-                                    // 탭 제스처를 사용하여 네비게이션 방지
-                                }
-                                .padding(.trailing, 20)
-                                .padding(.bottom, 10)
-                            }
-                        }
-                    }
                 }
                 .padding(.top, 30)
                 
@@ -149,29 +106,19 @@ struct VerticalOvalCard: View {
 struct MiniVerticalOvalCard: View {
     let filter: FilterItem
     let rank: Int
-    let onLike: ((String, Bool) -> Void)?
+    let onFilterTap: ((String) -> Void)?
     
-    init(filter: FilterItem, rank: Int, onLike: ((String, Bool) -> Void)? = nil) {
+    init(filter: FilterItem, rank: Int, onFilterTap: ((String) -> Void)? = nil) {
         self.filter = filter
         self.rank = rank
-        self.onLike = onLike
+        self.onFilterTap = onFilterTap
     }
     
     var body: some View {
-        Group {
-            // NavigationLink로 카드 감싸기
-            if #available(iOS 16.0, *) {
-                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                    miniCardContent
-                }
-                .buttonStyle(PlainButtonStyle())
-            } else {
-                NavigationLink(destination: FilterDetailView(filterId: filter.filter_id)) {
-                    miniCardContent
-                }
-                .buttonStyle(PlainButtonStyle())
+        miniCardContent
+            .onTapGesture {
+                onFilterTap?(filter.filter_id)
             }
-        }
     }
     
     @ViewBuilder
@@ -200,39 +147,6 @@ struct MiniVerticalOvalCard: View {
                         .frame(width: 140, height: 140)
                         .clipShape(Circle())
                     }
-                    
-                    // 좋아요 버튼 (미니 버전용) - 별도 처리
-                    if let onLike = onLike {
-                        VStack {
-                            Spacer()
-                            HStack {
-                                Spacer()
-                                Button {
-                                    onLike(filter.filter_id, !filter.is_liked)
-                                } label: {
-                                    HStack(spacing: 3) {
-                                        Image(systemName: filter.is_liked ? "heart.fill" : "heart")
-                                            .foregroundColor(filter.is_liked ? .red : .white.opacity(0.8))
-                                            .font(.system(size: 12))
-                                        Text("\(filter.like_count)")
-                                            .font(.pretendard(size: 10, weight: .medium))
-                                            .foregroundColor(.white.opacity(0.8))
-                                    }
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.black.opacity(0.6))
-                                    )
-                                }
-                                .onTapGesture {
-                                    // 탭 제스처를 사용하여 네비게이션 방지
-                                }
-                                .padding(.trailing, 15)
-                                .padding(.bottom, 8)
-                            }
-                        }
-                    }
                 }
                 .padding(.top, 25)
                 
@@ -245,7 +159,7 @@ struct MiniVerticalOvalCard: View {
                         .foregroundColor(.white.opacity(0.5))
                     
                     Text(filter.title)
-                        .font(.pretendard(size: 16, weight: .semiBold))
+                        .font(.hakgyoansim(size: 16, weight: .bold))
                         .foregroundColor(.white.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
@@ -259,7 +173,7 @@ struct MiniVerticalOvalCard: View {
                 
                 // 순위 표시
                 Text("\(rank)")
-                    .font(.pretendard(size: 16, weight: .semiBold))
+                    .font(.hakgyoansim(size: 16, weight: .bold))
                     .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise.opacity(0.7))
                     .padding(.bottom, 12)
             }
