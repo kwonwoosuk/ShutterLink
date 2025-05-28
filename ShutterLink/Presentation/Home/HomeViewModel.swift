@@ -8,9 +8,8 @@
 import SwiftUI
 import Combine
 
-@MainActor
 class HomeViewModel: ObservableObject {
-    // Output
+    // @Published 프로퍼티들은 자동으로 메인스레드에서 UI 업데이트
     @Published var todayFilter: TodayFilterResponse?
     @Published var hotTrendFilters: [FilterItem] = []
     @Published var todayAuthor: TodayAuthorResponse?
@@ -39,10 +38,12 @@ class HomeViewModel: ObservableObject {
             print("🔵 HomeViewModel: 홈 데이터 로딩 시작")
             
             // UI 상태 업데이트 (메인스레드)
-            isLoading = true
-            errorMessage = nil
+            await MainActor.run {
+                self.isLoading = true
+                self.errorMessage = nil
+            }
             
-            // 병렬로 모든 데이터 로드
+            // 병렬로 모든 데이터 로드 (백그라운드에서 실행)
             await withTaskGroup(of: Void.self) { group in
                 // 오늘의 필터 로드
                 group.addTask { [weak self] in
@@ -61,23 +62,25 @@ class HomeViewModel: ObservableObject {
             }
             
             // 모든 작업 완료 후 UI 업데이트 (메인스레드)
-            isLoading = false
+            await MainActor.run {
+                self.isLoading = false
+            }
             print("🔵 HomeViewModel: 홈 데이터 로딩 완료")
         }
     }
     
     private func loadTodayFilter() async {
         do {
-            // 네트워크 작업 (백그라운드)
-            let filter = try await Task.detached { [filterUseCase] in
-                return try await filterUseCase.getTodayFilter()
-            }.value
+            // 네트워킹 작업 (백그라운드에서 실행)
+            let filter = try await filterUseCase.getTodayFilter()
             
             // Task가 취소되었는지 확인
             try Task.checkCancellation()
             
-            // UI 업데이트 (메인스레드에서 실행됨 - @MainActor 클래스이므로)
-            todayFilter = filter
+            // UI 업데이트만 메인스레드에서 실행
+            await MainActor.run {
+                self.todayFilter = filter
+            }
             print("✅ HomeViewModel: 오늘의 필터 로드 성공 - \(filter.title)")
             
         } catch is CancellationError {
@@ -85,35 +88,37 @@ class HomeViewModel: ObservableObject {
         } catch {
             print("❌ HomeViewModel: 오늘의 필터 로드 실패 - \(error)")
             
-            // Mock 데이터로 대체 (메인스레드)
-            todayFilter = TodayFilterResponse(
-                filter_id: "mock_filter_1",
-                title: "새싹을 담은 필터",
-                introduction: "자연의 섬세함을 담아내는 감성 필터",
-                description: "새싹이 돋아나는 계절의 따뜻함과 생명력을 표현한 필터입니다.",
-                files: ["/mock/today_filter.jpg"],
-                createdAt: "2025-05-22T00:00:00.000Z",
-                updatedAt: "2025-05-22T00:00:00.000Z"
-            )
-            
-            if errorMessage == nil {
-                errorMessage = "오늘의 필터를 불러오는데 실패했습니다"
+            // Mock 데이터로 대체 (메인스레드에서 UI 업데이트)
+            await MainActor.run {
+                self.todayFilter = TodayFilterResponse(
+                    filter_id: "mock_filter_1",
+                    title: "새싹을 담은 필터",
+                    introduction: "자연의 섬세함을 담아내는 감성 필터",
+                    description: "새싹이 돋아나는 계절의 따뜻함과 생명력을 표현한 필터입니다.",
+                    files: ["/mock/today_filter.jpg"],
+                    createdAt: "2025-05-22T00:00:00.000Z",
+                    updatedAt: "2025-05-22T00:00:00.000Z"
+                )
+                
+                if self.errorMessage == nil {
+                    self.errorMessage = "오늘의 필터를 불러오는데 실패했습니다"
+                }
             }
         }
     }
     
     private func loadHotTrendFilters() async {
         do {
-            // 네트워크 작업 (백그라운드)
-            let filters = try await Task.detached { [filterUseCase] in
-                return try await filterUseCase.getHotTrendFilters()
-            }.value
+            // 네트워킹 작업 (백그라운드에서 실행)
+            let filters = try await filterUseCase.getHotTrendFilters()
             
             // Task가 취소되었는지 확인
             try Task.checkCancellation()
             
-            // UI 업데이트 (메인스레드에서 실행됨 - @MainActor 클래스이므로)
-            hotTrendFilters = filters
+            // UI 업데이트만 메인스레드에서 실행
+            await MainActor.run {
+                self.hotTrendFilters = filters
+            }
             print("✅ HomeViewModel: 핫트랜드 필터 로드 성공 - \(filters.count)개")
             
         } catch is CancellationError {
@@ -121,27 +126,29 @@ class HomeViewModel: ObservableObject {
         } catch {
             print("❌ HomeViewModel: 핫트랜드 필터 로드 실패 - \(error)")
             
-            // Mock 데이터로 대체 (메인스레드)
-            hotTrendFilters = createMockHotTrendFilters()
-            
-            if errorMessage == nil {
-                errorMessage = "핫트랜드 필터를 불러오는데 실패했습니다"
+            // Mock 데이터로 대체 (메인스레드에서 UI 업데이트)
+            await MainActor.run {
+                self.hotTrendFilters = self.createMockHotTrendFilters()
+                
+                if self.errorMessage == nil {
+                    self.errorMessage = "핫트랜드 필터를 불러오는데 실패했습니다"
+                }
             }
         }
     }
     
     private func loadTodayAuthor() async {
         do {
-            // 네트워크 작업 (백그라운드)
-            let author = try await Task.detached { [userUseCase] in
-                return try await userUseCase.getTodayAuthor()
-            }.value
+            // 네트워킹 작업 (백그라운드에서 실행)
+            let author = try await userUseCase.getTodayAuthor()
             
             // Task가 취소되었는지 확인
             try Task.checkCancellation()
             
-            // UI 업데이트 (메인스레드에서 실행됨 - @MainActor 클래스이므로)
-            todayAuthor = author
+            // UI 업데이트만 메인스레드에서 실행
+            await MainActor.run {
+                self.todayAuthor = author
+            }
             print("✅ HomeViewModel: 오늘의 작가 로드 성공 - \(author.author.name)")
             
         } catch is CancellationError {
@@ -150,15 +157,17 @@ class HomeViewModel: ObservableObject {
             print("❌ HomeViewModel: 오늘의 작가 로드 실패 - \(error)")
             
             // Mock 데이터로 대체하지 않고 nil로 유지 (AuthorMockView가 표시됨)
-            todayAuthor = nil
-            
-            if errorMessage == nil {
-                errorMessage = "오늘의 작가를 불러오는데 실패했습니다"
+            await MainActor.run {
+                self.todayAuthor = nil
+                
+                if self.errorMessage == nil {
+                    self.errorMessage = "오늘의 작가를 불러오는데 실패했습니다"
+                }
             }
         }
     }
     
-    // MARK: - Mock 데이터 생성
+    // MARK: - Mock 데이터 생성 (백그라운드에서 실행 가능)
     private func createMockHotTrendFilters() -> [FilterItem] {
         return [
             FilterItem(

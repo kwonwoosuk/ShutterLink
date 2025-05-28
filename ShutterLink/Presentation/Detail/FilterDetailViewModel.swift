@@ -8,7 +8,6 @@
 import SwiftUI
 import Combine
 
-@MainActor
 class FilterDetailViewModel: ObservableObject {
     // MARK: - Input
     struct Input {
@@ -17,7 +16,7 @@ class FilterDetailViewModel: ObservableObject {
         let refreshData = PassthroughSubject<String, Never>()
     }
     
-    // MARK: - Output
+    // MARK: - Output (@Published 프로퍼티들은 자동으로 메인스레드에서 UI 업데이트)
     @Published var filterDetail: FilterDetailResponse?
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -69,11 +68,13 @@ class FilterDetailViewModel: ObservableObject {
             print("🔵 FilterDetailViewModel: 필터 상세 로드 시작 - \(filterId)")
             
             // UI 상태 업데이트 (메인스레드)
-            isLoading = true
-            errorMessage = nil
+            await MainActor.run {
+                self.isLoading = true
+                self.errorMessage = nil
+            }
             
             do {
-                // 네트워크 작업 - Task.detached 제거
+                // 네트워킹 작업 (백그라운드에서 실행)
                 let detail = try await filterUseCase.getFilterDetail(filterId: filterId)
                 
                 // Task가 취소되었는지 확인
@@ -81,31 +82,40 @@ class FilterDetailViewModel: ObservableObject {
                 
                 print("✅ FilterDetailViewModel: 필터 상세 로드 성공 - \(detail.title)")
                 
-                // UI 업데이트 (메인스레드에서 실행됨 - @MainActor 클래스이므로)
-                filterDetail = detail
-                isLoading = false
+                // UI 업데이트 (메인스레드에서 실행)
+                await MainActor.run {
+                    self.filterDetail = detail
+                    self.isLoading = false
+                }
                 
             } catch is CancellationError {
                 print("🔵 FilterDetailViewModel: 필터 상세 로드 작업 취소됨")
-                isLoading = false
+                await MainActor.run {
+                    self.isLoading = false
+                }
             } catch let error as NetworkError {
                 print("❌ FilterDetailViewModel: 필터 상세 로드 실패 - \(error)")
-                isLoading = false
                 
-                switch error {
-                case .invalidStatusCode(404):
-                    errorMessage = "필터를 찾을 수 없습니다."
-                case .accessTokenExpired, .invalidAccessToken:
-                    // 토큰 갱신이 실패한 경우에만 여기에 도달
-                    print("⚠️ FilterDetailViewModel: 토큰 갱신 실패로 인한 에러")
-                    errorMessage = "로그인이 만료되었습니다. 다시 로그인해주세요."
-                default:
-                    errorMessage = error.errorMessage
+                await MainActor.run {
+                    self.isLoading = false
+                    
+                    switch error {
+                    case .invalidStatusCode(404):
+                        self.errorMessage = "필터를 찾을 수 없습니다."
+                    case .accessTokenExpired, .invalidAccessToken:
+                        // 토큰 갱신이 실패한 경우에만 여기에 도달
+                        print("⚠️ FilterDetailViewModel: 토큰 갱신 실패로 인한 에러")
+                        self.errorMessage = "로그인이 만료되었습니다. 다시 로그인해주세요."
+                    default:
+                        self.errorMessage = error.errorMessage
+                    }
                 }
             } catch {
                 print("❌ FilterDetailViewModel: 알 수 없는 에러 - \(error)")
-                isLoading = false
-                errorMessage = "필터 정보를 불러오는데 실패했습니다."
+                await MainActor.run {
+                    self.isLoading = false
+                    self.errorMessage = "필터 정보를 불러오는데 실패했습니다."
+                }
             }
         }
     }
@@ -117,11 +127,13 @@ class FilterDetailViewModel: ObservableObject {
         likeTask = Task {
             print("🔵 FilterDetailViewModel: 좋아요 처리 시작 - \(filterId), 새 상태: \(newLikeStatus)")
             
-            // 즉시 UI 업데이트 (낙관적 업데이트)
-            updateFilterLikeStatus(isLiked: newLikeStatus)
+            // 즉시 UI 업데이트 (낙관적 업데이트) - 메인스레드에서 실행
+            await MainActor.run {
+                self.updateFilterLikeStatus(isLiked: newLikeStatus)
+            }
             
             do {
-                // 네트워크 작업 - Task.detached 제거
+                // 네트워킹 작업 (백그라운드에서 실행)
                 let serverResponse = try await filterUseCase.likeFilter(filterId: filterId, likeStatus: newLikeStatus)
                 
                 // Task가 취소되었는지 확인
@@ -132,32 +144,40 @@ class FilterDetailViewModel: ObservableObject {
                 // 서버 응답과 UI 상태가 다르면 서버 응답에 맞춰 수정
                 if serverResponse != newLikeStatus {
                     print("⚠️ FilterDetailViewModel: 서버 응답과 UI 상태 불일치, 서버 상태로 수정")
-                    updateFilterLikeStatus(isLiked: serverResponse)
+                    await MainActor.run {
+                        self.updateFilterLikeStatus(isLiked: serverResponse)
+                    }
                 }
                 
             } catch is CancellationError {
                 print("🔵 FilterDetailViewModel: 좋아요 처리 작업 취소됨")
                 // 취소된 경우 원래 상태로 롤백
-                updateFilterLikeStatus(isLiked: !newLikeStatus)
+                await MainActor.run {
+                    self.updateFilterLikeStatus(isLiked: !newLikeStatus)
+                }
             } catch {
                 print("❌ FilterDetailViewModel: 좋아요 처리 실패 - \(error)")
                 
-                // 실패 시 UI 상태를 원래대로 되돌림 (롤백)
-                updateFilterLikeStatus(isLiked: !newLikeStatus)
-                
-                errorMessage = "좋아요 처리에 실패했습니다."
+                // 실패 시 UI 상태를 원래대로 되돌림 (롤백) - 메인스레드에서 실행
+                await MainActor.run {
+                    self.updateFilterLikeStatus(isLiked: !newLikeStatus)
+                    self.errorMessage = "좋아요 처리에 실패했습니다."
+                }
                 
                 // 에러 메시지를 3초 후 자동으로 제거
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                    if self.errorMessage == "좋아요 처리에 실패했습니다." {
-                        self.errorMessage = nil
+                Task {
+                    try await Task.sleep(nanoseconds: 3_000_000_000) // 3초
+                    await MainActor.run {
+                        if self.errorMessage == "좋아요 처리에 실패했습니다." {
+                            self.errorMessage = nil
+                        }
                     }
                 }
             }
         }
     }
     
-    // MARK: - UI 업데이트를 별도 메서드로 분리
+    // MARK: - UI 업데이트를 별도 메서드로 분리 (메인스레드에서만 호출)
     private func updateFilterLikeStatus(isLiked: Bool) {
         guard var updatedDetail = filterDetail else { return }
         
