@@ -93,15 +93,43 @@ struct FilterDetailView: View {
                 .padding(20)
             }
         }
-        .navigationTitle("필터 상세")
+        .navigationBarHidden(false)
+        .navigationBarBackButtonHidden(true)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // 커스텀 백버튼
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(DesignSystem.Colors.Gray.gray75)
+                }
+            }
+            
+            // 커스텀 타이틀 (필터 이름)
+            ToolbarItem(placement: .principal) {
+                if let filterDetail = viewModel.filterDetail {
+                    Text(filterDetail.title)
+                        .font(.hakgyoansim(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                } else {
+                    Text("")
+                        .font(.hakgyoansim(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            
+            // 공유 버튼
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     // 공유 기능
                 } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .foregroundColor(.white)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(DesignSystem.Colors.Gray.gray75)
                 }
             }
         }

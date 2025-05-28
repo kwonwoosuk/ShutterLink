@@ -26,7 +26,7 @@ struct FeedView: View {
                             FilterDetailView(filterId: item.filterId)
                         }
                 }
-            } else if #available(iOS 16.0, *) {
+             } else if #available(iOS 16.0, *) {
                 NavigationStack {
                     feedContent
                         .background(
