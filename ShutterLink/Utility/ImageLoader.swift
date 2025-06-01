@@ -8,115 +8,28 @@
 import Foundation
 import UIKit
 
-class ImageProcessor {
-    
-    /// 이미지 데이터를 지정된 크기로 다운샘플링
-    static func downsample(imageData: Data, to targetSize: CGSize, scale: CGFloat = UIScreen.main.scale) -> UIImage? {
-        let maxDimensionInPixels = max(targetSize.width, targetSize.height) * scale
-        
-        guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil) else {
-            return nil
-        }
-        
-        // 다운샘플링 옵션 설정
-        let downsampleOptions = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxDimensionInPixels
-        ] as CFDictionary
-        
-        guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions) else {
-            
-            return UIImage(data: imageData)
-        }
-        
-        return UIImage(cgImage: downsampledImage)
-    }
-    
-    /// 메모리에서 이미지 압축 해제
-    static func decompressImage(_ image: UIImage) -> UIImage? {
-        guard let cgImage = image.cgImage else { return image }
-        
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
-        
-        guard let context = CGContext(
-            data: nil,
-            width: cgImage.width,
-            height: cgImage.height,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: colorSpace,
-            bitmapInfo: bitmapInfo.rawValue
-        ) else {
-            return image
-        }
-        
-        let rect = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
-        context.draw(cgImage, in: rect)
-        
-        guard let decompressedImage = context.makeImage() else {
-            return image
-        }
-        
-        return UIImage(cgImage: decompressedImage)
-    }
-}
-
-
 class ImageLoader {
     static let shared = ImageLoader()
     
     private let session: URLSession
     private let tokenManager = TokenManager.shared
     private var cache = NSCache<NSString, NSData>()
-    private let imageLoadQueue = DispatchQueue(label: "com.shutterlink.imageload", qos: .utility, attributes: .concurrent)
-    
-    // 동시 다운로드 제한
-    private let concurrentDownloadLimit = 3
-    private let downloadSemaphore: DispatchSemaphore
     
     private init() {
         let config = URLSessionConfiguration.default
         config.requestCachePolicy = .returnCacheDataElseLoad
-        config.urlCache = URLCache(memoryCapacity: 20 * 1024 * 1024, diskCapacity: 100 * 1024 * 1024)
         self.session = URLSession(configuration: config)
         
-        // 메모리 캐시 설정 (더 보수적으로)
-        cache.countLimit = 50 // 50개 이미지만 캐시
-        cache.totalCostLimit = 20 * 1024 * 1024 // 20MB로 줄임
-        
-        downloadSemaphore = DispatchSemaphore(value: concurrentDownloadLimit)
-        
-        // 메모리 경고 감지
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleMemoryWarning),
-            name: UIApplication.didReceiveMemoryWarningNotification,
-            object: nil
-        )
-        
-        // 앱 백그라운드 진입 시 캐시 정리
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(cleanupCache),
-            name: UIApplication.didEnterBackgroundNotification,
-            object: nil
-        )
+        // 캐시 설정
+        cache.countLimit = 100
+        cache.totalCostLimit = 50 * 1024 * 1024 
     }
     
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-    
-    func loadImage(from imagePath: String) async throws -> Data {
-        // 동시 다운로드 제한
-        downloadSemaphore.wait()
-        defer { downloadSemaphore.signal() }
+    func loadImage(from imagePath: String, targetSize: CGSize? = nil) async throws -> Data {
+        // 캐시 키에 크기 정보 포함
+        let cacheKey = NSString(string: imagePath + (targetSize != nil ? "_\(Int(targetSize!.width))x\(Int(targetSize!.height))" : ""))
         
         // 캐시 확인
-        let cacheKey = NSString(string: imagePath)
         if let cachedData = cache.object(forKey: cacheKey) {
             return cachedData as Data
         }
@@ -129,7 +42,6 @@ class ImageLoader {
         
         // 요청 구성
         var request = URLRequest(url: url)
-        request.cachePolicy = .returnCacheDataElseLoad
         
         // 헤더 추가
         if let accessToken = tokenManager.accessToken {
@@ -146,48 +58,68 @@ class ImageLoader {
             throw URLError(.badServerResponse)
         }
         
-        // 캐시에 저장 (백그라운드에서)
-        Task.detached(priority: .utility) { [weak self] in
-            self?.cache.setObject(NSData(data: data), forKey: cacheKey, cost: data.count)
+        // 다운샘플링 처리
+        let processedData: Data
+        if let targetSize = targetSize {
+            processedData = try await downsampleImage(data: data, to: targetSize)
+        } else {
+            processedData = data
         }
         
-        return data
+        // 캐시에 저장
+        cache.setObject(NSData(data: processedData), forKey: cacheKey)
+        
+        return processedData
     }
     
-    @objc private func handleMemoryWarning() {
-        print("🚨 메모리 경고 - 이미지 캐시 정리")
-        cache.removeAllObjects()
-        
-        // URL 캐시도 정리
-        session.configuration.urlCache?.removeAllCachedResponses()
-    }
-    
-    @objc private func cleanupCache() {
-        print("🧹 백그라운드 진입 - 캐시 정리")
-        
-        // 캐시 크기를 절반으로 줄임
-        let currentCount = cache.countLimit
-        let currentCost = cache.totalCostLimit
-        
-        cache.countLimit = currentCount / 2
-        cache.totalCostLimit = currentCost / 2
-        
-        // 일정 시간 후 원래 크기로 복원
-        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
-            self?.cache.countLimit = currentCount
-            self?.cache.totalCostLimit = currentCost
+    // MARK: - 다운샘플링 로직
+    private func downsampleImage(data: Data, to targetSize: CGSize) async throws -> Data {
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                guard let imageSource = CGImageSourceCreateWithData(data as CFData, nil) else {
+                    continuation.resume(returning: data)
+                    return
+                }
+                
+                // 이미지 프로퍼티 확인
+                guard let imageProperties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+                      let pixelWidth = imageProperties[kCGImagePropertyPixelWidth] as? CGFloat,
+                      let pixelHeight = imageProperties[kCGImagePropertyPixelHeight] as? CGFloat else {
+                    continuation.resume(returning: data)
+                    return
+                }
+                
+                // 다운샘플링이 필요한지 확인
+                let maxDimension = max(targetSize.width, targetSize.height)
+                let imageMaxDimension = max(pixelWidth, pixelHeight)
+                
+                if imageMaxDimension <= maxDimension {
+                    // 다운샘플링 불필요
+                    continuation.resume(returning: data)
+                    return
+                }
+                
+                // 다운샘플링 옵션 설정
+                let downsampleOptions: [CFString: Any] = [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: maxDimension
+                ]
+                
+                guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions as CFDictionary) else {
+                    continuation.resume(returning: data)
+                    return
+                }
+                
+                // UIImage로 변환 후 JPEG 데이터로 변환
+                let uiImage = UIImage(cgImage: downsampledImage)
+                guard let jpegData = uiImage.jpegData(compressionQuality: 0.8) else {
+                    continuation.resume(returning: data)
+                    return
+                }
+                
+                continuation.resume(returning: jpegData)
+            }
         }
-    }
-    
-    /// 수동 캐시 정리
-    func clearCache() {
-        cache.removeAllObjects()
-        session.configuration.urlCache?.removeAllCachedResponses()
-    }
-    
-    /// 특정 이미지 캐시 제거
-    func removeFromCache(imagePath: String) {
-        let cacheKey = NSString(string: imagePath)
-        cache.removeObject(forKey: cacheKey)
     }
 }

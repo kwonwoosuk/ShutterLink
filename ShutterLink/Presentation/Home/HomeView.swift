@@ -79,8 +79,3 @@ struct HomeView: View {
         }
     }
 }
-// 네비게이션을 위한 헬퍼 구조체
-struct FilterNavigationItem: Identifiable, Hashable {
-    let id = UUID()
-    let filterId: String
-}
