@@ -14,12 +14,14 @@ class FilterDetailViewModel: ObservableObject {
         let loadFilterDetail = PassthroughSubject<String, Never>()
         let likeFilter = PassthroughSubject<(String, Bool), Never>()
         let refreshData = PassthroughSubject<String, Never>()
+        let purchaseFilter = PassthroughSubject<String, Never>() // 결제 처리 추가
     }
     
     // MARK: - Output (@Published 프로퍼티들은 자동으로 메인스레드에서 UI 업데이트)
     @Published var filterDetail: FilterDetailResponse?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var isPurchasing = false // 결제 중 상태 추가
     
     let input = Input()
     private var cancellables = Set<AnyCancellable>()
@@ -28,6 +30,7 @@ class FilterDetailViewModel: ObservableObject {
     // Task 관리용
     private var loadDetailTask: Task<Void, Never>?
     private var likeTask: Task<Void, Never>?
+    private var purchaseTask: Task<Void, Never>? // 결제 작업 추가
     
     init(filterUseCase: FilterUseCase = FilterUseCaseImpl()) {
         self.filterUseCase = filterUseCase
@@ -56,6 +59,14 @@ class FilterDetailViewModel: ObservableObject {
             .sink { [weak self] filterId in
                 print("🔵 FilterDetailViewModel: refreshData 신호 수신 - \(filterId)")
                 self?.loadFilterDetail(filterId: filterId)
+            }
+            .store(in: &cancellables)
+        
+        // 결제 처리 추가
+        input.purchaseFilter
+            .sink { [weak self] filterId in
+                print("🔵 FilterDetailViewModel: purchaseFilter 신호 수신 - \(filterId)")
+                self?.purchaseFilter(filterId: filterId)
             }
             .store(in: &cancellables)
     }
@@ -177,6 +188,76 @@ class FilterDetailViewModel: ObservableObject {
         }
     }
     
+    // MARK: - 결제 처리 로직 추가
+    private func purchaseFilter(filterId: String) {
+        // 기존 결제 작업 취소
+        purchaseTask?.cancel()
+        
+        purchaseTask = Task {
+            print("🔵 FilterDetailViewModel: 결제 처리 시작 - \(filterId)")
+            
+            // UI 상태 업데이트 (메인스레드)
+            await MainActor.run {
+                self.isPurchasing = true
+                self.errorMessage = nil
+            }
+            
+            do {
+                // 결제 처리 시뮬레이션 (2초 대기)
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+                
+                // Task가 취소되었는지 확인
+                try Task.checkCancellation()
+                
+                print("✅ FilterDetailViewModel: 결제 처리 완료 - \(filterId)")
+                
+                // 결제 완료 시 필터 정보 업데이트 (메인스레드에서 실행)
+                await MainActor.run {
+                    self.updateFilterPurchaseStatus(isPurchased: true)
+                    self.isPurchasing = false
+                }
+                
+                // 성공 알림 표시
+                await MainActor.run {
+                    self.errorMessage = "결제가 완료되었습니다!"
+                }
+                
+                // 성공 메시지를 3초 후 자동으로 제거
+                Task {
+                    try await Task.sleep(nanoseconds: 3_000_000_000) // 3초
+                    await MainActor.run {
+                        if self.errorMessage == "결제가 완료되었습니다!" {
+                            self.errorMessage = nil
+                        }
+                    }
+                }
+                
+            } catch is CancellationError {
+                print("🔵 FilterDetailViewModel: 결제 처리 작업 취소됨")
+                await MainActor.run {
+                    self.isPurchasing = false
+                }
+            } catch {
+                print("❌ FilterDetailViewModel: 결제 처리 실패 - \(error)")
+                
+                await MainActor.run {
+                    self.isPurchasing = false
+                    self.errorMessage = "결제 처리에 실패했습니다. 다시 시도해주세요."
+                }
+                
+                // 에러 메시지를 5초 후 자동으로 제거
+                Task {
+                    try await Task.sleep(nanoseconds: 5_000_000_000) // 5초
+                    await MainActor.run {
+                        if self.errorMessage == "결제 처리에 실패했습니다. 다시 시도해주세요." {
+                            self.errorMessage = nil
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     // MARK: - UI 업데이트를 별도 메서드로 분리 (메인스레드에서만 호출)
     private func updateFilterLikeStatus(isLiked: Bool) {
         guard var updatedDetail = filterDetail else { return }
@@ -193,11 +274,27 @@ class FilterDetailViewModel: ObservableObject {
         filterDetail = updatedDetail
     }
     
+    // 결제 상태 업데이트 메서드 추가
+    private func updateFilterPurchaseStatus(isPurchased: Bool) {
+        guard var updatedDetail = filterDetail else { return }
+        
+        updatedDetail.is_downloaded = isPurchased
+        
+        // 구매 카운트도 증가 (실제로는 서버에서 관리해야 함)
+        if isPurchased {
+            updatedDetail.buyer_count += 1
+        }
+        
+        filterDetail = updatedDetail
+        print("🔵 FilterDetailViewModel: 결제 상태 업데이트 - 구매완료: \(isPurchased), 구매자수: \(updatedDetail.buyer_count)")
+    }
+    
     // MARK: - Cleanup
     deinit {
         // 모든 진행 중인 작업 취소
         loadDetailTask?.cancel()
         likeTask?.cancel()
+        purchaseTask?.cancel()
         cancellables.removeAll()
     }
 }

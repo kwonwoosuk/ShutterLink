@@ -19,9 +19,9 @@ struct FilterDetailResponse: Decodable {
     let photoMetadata: PhotoMetadata
     let filterValues: FilterValues
     var is_liked: Bool
-    let is_downloaded: Bool
+    var is_downloaded: Bool
     var like_count: Int
-    let buyer_count: Int
+    var buyer_count: Int
     let comments: [Comment]
     let createdAt: String
     let updatedAt: String

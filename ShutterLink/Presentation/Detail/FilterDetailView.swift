@@ -42,13 +42,15 @@ struct FilterDetailView: View {
                             isPurchased: filterDetail.is_downloaded
                         )
                         
-                        // 결제/다운로드 버튼
+                        // 결제/다운로드 버튼 - 결제 처리 로직 연결
                         PurchaseDownloadButton(
                             price: filterDetail.price,
                             isPurchased: filterDetail.is_downloaded,
+                            isPurchasing: viewModel.isPurchasing, // 결제 중 상태 추가
                             onPurchase: {
-                                // 결제 로직 구현
-                                print("결제 처리")
+                                // 결제 처리 로직 - ViewModel에 신호 전달
+                                print("🔵 FilterDetailView: 결제 버튼 탭 - \(filterId)")
+                                viewModel.input.purchaseFilter.send(filterId)
                             }
                         )
                         
@@ -70,6 +72,21 @@ struct FilterDetailView: View {
                 ErrorStateView(errorMessage: errorMessage) {
                     viewModel.input.loadFilterDetail.send(filterId)
                 }
+            }
+            
+            // 성공/에러 메시지 토스트 (상단에 표시)
+            if let errorMessage = viewModel.errorMessage, !viewModel.isLoading {
+                VStack {
+                    ToastMessageView(
+                        message: errorMessage,
+                        isSuccess: errorMessage.contains("완료")
+                    )
+                    .padding(.top, 10) // 네비게이션 바 아래에 표시
+                    .padding(.horizontal, 20)
+                    
+                    Spacer()
+                }
+                .zIndex(1000) // 다른 뷰들 위에 표시
             }
         }
         .navigationBarHidden(false)
@@ -153,6 +170,112 @@ struct FilterDetailView: View {
     }
 }
 
+// MARK: - 토스트 메시지 뷰 추가
+struct ToastMessageView: View {
+    let message: String
+    let isSuccess: Bool
+    @State private var isVisible = true
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundColor(isSuccess ? .green : .red)
+                .font(.system(size: 20))
+            
+            Text(message)
+                .font(.pretendard(size: 14, weight: .medium))
+                .foregroundColor(.white)
+                .lineLimit(2)
+            
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.9))
+                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+        )
+        .scaleEffect(isVisible ? 1.0 : 0.8)
+        .opacity(isVisible ? 1.0 : 0.0)
+        .animation(.easeInOut(duration: 0.3), value: isVisible)
+        .onAppear {
+            // 3초 후 자동으로 사라지는 애니메이션
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.7) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isVisible = false
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 기존 결제/다운로드 버튼 업데이트
+struct PurchaseDownloadButton: View {
+    let price: Int
+    let isPurchased: Bool
+    let isPurchasing: Bool // 결제 중 상태 추가
+    let onPurchase: () -> Void
+    
+    var body: some View {
+        Button {
+            if !isPurchased && !isPurchasing {
+                onPurchase()
+            }
+        } label: {
+            HStack {
+                if isPurchasing {
+                    // 결제 중 상태
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.8)
+                    Text("결제 중...")
+                        .font(.pretendard(size: 16, weight: .semiBold))
+                        .foregroundColor(.white)
+                } else if isPurchased {
+                    // 구매 완료 상태
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("구매완료")
+                        .font(.pretendard(size: 16, weight: .semiBold))
+                        .foregroundColor(.white)
+                } else {
+                    // 결제 전 상태
+                    Text("₩\(formatPrice(price)) 결제하기")
+                        .font(.pretendard(size: 16, weight: .semiBold))
+                        .foregroundColor(.white)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(buttonBackgroundColor)
+            )
+        }
+        .disabled(isPurchased || isPurchasing)
+        .padding(.horizontal, 20)
+    }
+    
+    private var buttonBackgroundColor: Color {
+        if isPurchasing {
+            return Color.gray.opacity(0.6)
+        } else if isPurchased {
+            return Color.green.opacity(0.2)
+        } else {
+            return DesignSystem.Colors.Brand.brightTurquoise
+        }
+    }
+    
+    private func formatPrice(_ price: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: price)) ?? "\(price)"
+    }
+}
+
+// MARK: - 나머지 기존 컴포넌트들은 동일하게 유지...
+
 // MARK: - 드래그 가능한 Before/After 이미지 비교 뷰
 struct InteractiveBeforeAfterView: View {
     let imagePath: String
@@ -180,6 +303,7 @@ struct InteractiveBeforeAfterView: View {
                         }
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .clipped()
+                        .cornerRadius(16)
                     }
                     
                     // After 이미지 (필터 적용) - 디바이더 위치에 따라 표시
@@ -212,10 +336,10 @@ struct InteractiveBeforeAfterView: View {
                                 .frame(width: geometry.size.width * dividerPosition, height: geometry.size.height)
                                 .position(x: geometry.size.width * dividerPosition / 2, y: geometry.size.height / 2)
                         )
+                        .cornerRadius(16)
                     }
                 }
             }
-            .cornerRadius(16)
             .frame(height: 400)
             
             // 통합된 디바이더 컨트롤
@@ -223,7 +347,7 @@ struct InteractiveBeforeAfterView: View {
                 dividerPosition: $dividerPosition,
                 isDragging: $isDragging
             )
-            .padding(.bottom, 20) // Add padding to prevent overlap with content below
+            .padding(.bottom, 20)
         }
         .padding(.horizontal, 20)
     }
@@ -246,7 +370,7 @@ struct ConnectedControlView: View {
                     .frame(width: 60, height: 24)
                     .background(
                         Capsule()
-                            .fill(Color.gray60)
+                            .fill(DesignSystem.Colors.Gray.gray60.opacity(0.7))
                     )
                 
                 // 디바이더 버튼
@@ -262,7 +386,7 @@ struct ConnectedControlView: View {
                         .frame(width: 24, height: 24)
                         .background(
                             Capsule()
-                                .fill(Color.gray60)
+                                .fill(DesignSystem.Colors.Gray.gray60)
                                 .frame(width: 32, height: 32)
                         )
                         .scaleEffect(isDragging ? 1.1 : 1.0)
@@ -277,7 +401,7 @@ struct ConnectedControlView: View {
                     .frame(width: 60, height: 24)
                     .background(
                         Capsule()
-                            .fill(Color.gray60)
+                            .fill(DesignSystem.Colors.Gray.gray60.opacity(0.7))
                     )
             }
             .offset(x: dragOffset)
@@ -488,8 +612,7 @@ struct PhotoMetadataWithLocationSection: View {
                         .fill(Color.gray.opacity(0.3))
                         .frame(width: 60, height: 60)
                         .overlay(
-                            Image("NoLocation")
-                                .renderingMode(.template)
+                            Image(systemName: "location.slash")
                                 .foregroundColor(.gray)
                                 .font(.system(size: 24))
                         )
@@ -543,7 +666,7 @@ struct FilterPresetsSection: View {
             }
             
             if isPurchased {
-                // 결제 완료 시: 실제 필터 값들 표시
+                // 결제 완료 시: 배경 없이 아이콘만 gray0으로 표시
                 LazyVGrid(columns: [
                     GridItem(.flexible()),
                     GridItem(.flexible()),
@@ -552,25 +675,21 @@ struct FilterPresetsSection: View {
                     GridItem(.flexible()),
                     GridItem(.flexible())
                 ], spacing: 16) {
-                    FilterPresetItem(iconName: "Brightness", value: filterValues.brightness, title: "밝기", formatType: .decimal)
-                    FilterPresetItem(iconName: "Exposure", value: filterValues.exposure, title: "노출", formatType: .decimal)
-                    FilterPresetItem(iconName: "Contrast", value: filterValues.contrast, title: "대비", formatType: .decimal)
-                    FilterPresetItem(iconName: "Saturation", value: filterValues.saturation, title: "채도", formatType: .decimal)
-                    FilterPresetItem(iconName: "Sharpness", value: filterValues.sharpness, title: "선명도", formatType: .decimal)
-                    FilterPresetItem(iconName: "Vignette", value: filterValues.vignette, title: "비네팅", formatType: .decimal)
+                    FilterPresetItem(iconName: "sun.max", value: filterValues.brightness, title: "밝기", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "camera.aperture", value: filterValues.exposure, title: "노출", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "circle.lefthalf.filled", value: filterValues.contrast, title: "대비", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "paintpalette", value: filterValues.saturation, title: "채도", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "camera.filters", value: filterValues.sharpness, title: "선명도", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "circle.grid.cross", value: filterValues.vignette, title: "비네팅", formatType: .decimal, isPurchased: true)
                     
-                    FilterPresetItem(iconName: "Blur", value: filterValues.blur, title: "블러", formatType: .decimal)
-                    FilterPresetItem(iconName: "Noise", value: filterValues.noise_reduction, title: "노이즈", formatType: .decimal)
-                    FilterPresetItem(iconName: "Highlights", value: filterValues.highlights, title: "하이라이트", formatType: .decimal)
-                    FilterPresetItem(iconName: "Shadows", value: filterValues.shadows, title: "섀도우", formatType: .decimal)
-                    FilterPresetItem(iconName: "Temperature", value: filterValues.temperature, title: "색온도", formatType: .temperature)
-                    FilterPresetItem(iconName: "BlackPoint", value: filterValues.black_point, title: "블랙포인트", formatType: .decimal)
+                    FilterPresetItem(iconName: "aqi.medium", value: filterValues.blur, title: "블러", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "waveform", value: filterValues.noise_reduction, title: "노이즈", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "sun.min", value: filterValues.highlights, title: "하이라이트", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "moon", value: filterValues.shadows, title: "섀도우", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "thermometer", value: filterValues.temperature, title: "색온도", formatType: .temperature, isPurchased: true)
+                    FilterPresetItem(iconName: "circle.fill", value: filterValues.black_point, title: "블랙포인트", formatType: .decimal, isPurchased: true)
                 }
-                .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.gray.opacity(0.1))
-                )
+                .padding(.vertical, 20)
             } else {
                 // 결제 전: 블러 처리된 상태
                 LazyVGrid(columns: [
@@ -581,7 +700,7 @@ struct FilterPresetsSection: View {
                     GridItem(.flexible()),
                     GridItem(.flexible())
                 ], spacing: 16) {
-                    let presetIcons = ["Brightness", "Exposure", "Contrast", "Saturation", "Sharpness", "Vignette", "Blur", "Noise", "Highlights", "Shadows", "Temperature", "BlackPoint"]
+                    let presetIcons = ["sun.max", "camera.aperture", "circle.lefthalf.filled", "paintpalette", "camera.filters", "circle.grid.cross", "aqi.medium", "waveform", "sun.min", "moon", "thermometer", "circle.fill"]
                     
                     ForEach(Array(presetIcons.enumerated()), id: \.offset) { index, iconName in
                         VStack(spacing: 8) {
@@ -590,16 +709,9 @@ struct FilterPresetsSection: View {
                                     .fill(Color.gray.opacity(0.3))
                                     .frame(width: 40, height: 40)
                                 
-                                if let icon = getIconForName(iconName) {
-                                    icon
-                                        .renderingMode(.template)
-                                        .foregroundColor(.gray)
-                                        .font(.system(size: 16))
-                                } else {
-                                    Image(systemName: "slider.horizontal.3")
-                                        .foregroundColor(.gray)
-                                        .font(.system(size: 16))
-                                }
+                                Image(systemName: iconName)
+                                    .foregroundColor(.gray)
+                                    .font(.system(size: 16))
                             }
                             
                             Text("0.0")
@@ -635,24 +747,6 @@ struct FilterPresetsSection: View {
         }
         .padding(.horizontal, 20)
     }
-    
-    private func getIconForName(_ name: String) -> Image? {
-        switch name {
-        case "Brightness": return DesignSystem.Icons.Editor.brightness
-        case "Exposure": return DesignSystem.Icons.Editor.exposure
-        case "Contrast": return DesignSystem.Icons.Editor.contrast
-        case "Saturation": return DesignSystem.Icons.Editor.saturation
-        case "Sharpness": return DesignSystem.Icons.Editor.sharpness
-        case "Vignette": return DesignSystem.Icons.Editor.vignette
-        case "Blur": return DesignSystem.Icons.Editor.blur
-        case "Noise": return DesignSystem.Icons.Editor.noise
-        case "Highlights": return DesignSystem.Icons.Editor.highlights
-        case "Shadows": return DesignSystem.Icons.Editor.shadows
-        case "Temperature": return DesignSystem.Icons.Editor.temperature
-        case "BlackPoint": return DesignSystem.Icons.UI.blackPoint
-        default: return nil
-        }
-    }
 }
 
 // MARK: - 필터 프리셋 아이템
@@ -661,27 +755,37 @@ struct FilterPresetItem: View {
     let value: Double
     let title: String
     let formatType: ValueFormatType
+    let isPurchased: Bool
     
     enum ValueFormatType {
         case decimal
         case temperature
     }
     
+    init(iconName: String, value: Double, title: String, formatType: ValueFormatType, isPurchased: Bool = false) {
+        self.iconName = iconName
+        self.value = value
+        self.title = title
+        self.formatType = formatType
+        self.isPurchased = isPurchased
+    }
+    
     var body: some View {
         VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(Color.gray.opacity(0.2))
+            if isPurchased {
+                // 결제 완료 시: 배경 없이 gray0 아이콘만 표시
+                Image(systemName: iconName)
+                    .foregroundColor(DesignSystem.Colors.Gray.gray0)
+                    .font(.system(size: 24, weight: .medium))
                     .frame(width: 40, height: 40)
-                
-                // DesignSystem의 아이콘 사용
-                if let icon = getIconForName(iconName) {
-                    icon
-                        .renderingMode(.template)
-                        .foregroundColor(.white)
-                        .font(.system(size: 16))
-                } else {
-                    Image(systemName: "slider.horizontal.3")
+            } else {
+                // 결제 전: 기존 스타일 유지
+                ZStack {
+                    Circle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: iconName)
                         .foregroundColor(.white)
                         .font(.system(size: 16))
                 }
@@ -689,7 +793,7 @@ struct FilterPresetItem: View {
             
             Text(formattedValue)
                 .font(.pretendard(size: 12, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(isPurchased ? DesignSystem.Colors.Gray.gray0 : .white)
         }
     }
     
@@ -700,61 +804,6 @@ struct FilterPresetItem: View {
         case .temperature:
             return String(format: "%.0fK", value)
         }
-    }
-    
-    private func getIconForName(_ name: String) -> Image? {
-        switch name {
-        case "Brightness": return DesignSystem.Icons.Editor.brightness
-        case "Exposure": return DesignSystem.Icons.Editor.exposure
-        case "Contrast": return DesignSystem.Icons.Editor.contrast
-        case "Saturation": return DesignSystem.Icons.Editor.saturation
-        case "Sharpness": return DesignSystem.Icons.Editor.sharpness
-        case "Vignette": return DesignSystem.Icons.Editor.vignette
-        case "Blur": return DesignSystem.Icons.Editor.blur
-        case "Noise": return DesignSystem.Icons.Editor.noise
-        case "Highlights": return DesignSystem.Icons.Editor.highlights
-        case "Shadows": return DesignSystem.Icons.Editor.shadows
-        case "Temperature": return DesignSystem.Icons.Editor.temperature
-        case "BlackPoint": return DesignSystem.Icons.UI.blackPoint
-        default: return nil
-        }
-    }
-}
-
-// MARK: - 결제/다운로드 버튼
-struct PurchaseDownloadButton: View {
-    let price: Int
-    let isPurchased: Bool
-    let onPurchase: () -> Void
-    
-    var body: some View {
-        Button {
-            if !isPurchased {
-                onPurchase()
-            }
-        } label: {
-            HStack {
-                if isPurchased {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("구매완료")
-                        .font(.pretendard(size: 16, weight: .semiBold))
-                        .foregroundColor(.white)
-                } else {
-                    Text("결제하기")
-                        .font(.pretendard(size: 16, weight: .semiBold))
-                        .foregroundColor(.white)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isPurchased ? Color.green.opacity(0.2) : DesignSystem.Colors.Brand.brightTurquoise)
-            )
-        }
-        .disabled(isPurchased)
-        .padding(.horizontal, 20)
     }
 }
 
