@@ -23,7 +23,7 @@ struct MainTabView: View {
                 Text("필터 화면")
                     .tag(2)
                 
-                Text("검색 화면")
+                SearchView()
                     .tag(3)
                 
                 ProfileView()
