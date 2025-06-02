@@ -675,19 +675,19 @@ struct FilterPresetsSection: View {
                     GridItem(.flexible()),
                     GridItem(.flexible())
                 ], spacing: 16) {
-                    FilterPresetItem(iconName: "sun.max", value: filterValues.brightness, title: "밝기", formatType: .decimal, isPurchased: true)
-                    FilterPresetItem(iconName: "camera.aperture", value: filterValues.exposure, title: "노출", formatType: .decimal, isPurchased: true)
-                    FilterPresetItem(iconName: "circle.lefthalf.filled", value: filterValues.contrast, title: "대비", formatType: .decimal, isPurchased: true)
-                    FilterPresetItem(iconName: "paintpalette", value: filterValues.saturation, title: "채도", formatType: .decimal, isPurchased: true)
-                    FilterPresetItem(iconName: "camera.filters", value: filterValues.sharpness, title: "선명도", formatType: .decimal, isPurchased: true)
-                    FilterPresetItem(iconName: "circle.grid.cross", value: filterValues.vignette, title: "비네팅", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "Brightness", value: filterValues.brightness, title: "밝기", formatType: .decimal)
+                    FilterPresetItem(iconName: "Exposure", value: filterValues.exposure, title: "노출", formatType: .decimal)
+                    FilterPresetItem(iconName: "Contrast", value: filterValues.contrast, title: "대비", formatType: .decimal)
+                    FilterPresetItem(iconName: "Saturation", value: filterValues.saturation, title: "채도", formatType: .decimal)
+                    FilterPresetItem(iconName: "Sharpness", value: filterValues.sharpness, title: "선명도", formatType: .decimal)
+                    FilterPresetItem(iconName: "Vignette", value: filterValues.vignette, title: "비네팅", formatType: .decimal)
                     
-                    FilterPresetItem(iconName: "aqi.medium", value: filterValues.blur, title: "블러", formatType: .decimal, isPurchased: true)
-                    FilterPresetItem(iconName: "waveform", value: filterValues.noise_reduction, title: "노이즈", formatType: .decimal, isPurchased: true)
-                    FilterPresetItem(iconName: "sun.min", value: filterValues.highlights, title: "하이라이트", formatType: .decimal, isPurchased: true)
-                    FilterPresetItem(iconName: "moon", value: filterValues.shadows, title: "섀도우", formatType: .decimal, isPurchased: true)
-                    FilterPresetItem(iconName: "thermometer", value: filterValues.temperature, title: "색온도", formatType: .temperature, isPurchased: true)
-                    FilterPresetItem(iconName: "circle.fill", value: filterValues.black_point, title: "블랙포인트", formatType: .decimal, isPurchased: true)
+                    FilterPresetItem(iconName: "Blur", value: filterValues.blur, title: "블러", formatType: .decimal)
+                    FilterPresetItem(iconName: "Noise", value: filterValues.noise_reduction, title: "노이즈", formatType: .decimal)
+                    FilterPresetItem(iconName: "Highlights", value: filterValues.highlights, title: "하이라이트", formatType: .decimal)
+                    FilterPresetItem(iconName: "Shadows", value: filterValues.shadows, title: "섀도우", formatType: .decimal)
+                    FilterPresetItem(iconName: "Temperature", value: filterValues.temperature, title: "색온도", formatType: .temperature)
+                    FilterPresetItem(iconName: "BlackPoint", value: filterValues.black_point, title: "블랙포인트", formatType: .decimal)
                 }
                 .padding(.vertical, 20)
             } else {
@@ -700,7 +700,7 @@ struct FilterPresetsSection: View {
                     GridItem(.flexible()),
                     GridItem(.flexible())
                 ], spacing: 16) {
-                    let presetIcons = ["sun.max", "camera.aperture", "circle.lefthalf.filled", "paintpalette", "camera.filters", "circle.grid.cross", "aqi.medium", "waveform", "sun.min", "moon", "thermometer", "circle.fill"]
+                    let presetIcons = ["Brightness", "Exposure", "Contrast", "Saturation", "Sharpness", "Vignette", "Blur", "Noise", "Highlights", "Shadows", "Temperature", "BlackPoint"]
                     
                     ForEach(Array(presetIcons.enumerated()), id: \.offset) { index, iconName in
                         VStack(spacing: 8) {
@@ -774,18 +774,17 @@ struct FilterPresetItem: View {
         VStack(spacing: 8) {
             if isPurchased {
                 // 결제 완료 시: 배경 없이 gray0 아이콘만 표시
-                Image(systemName: iconName)
+                Image(iconName)
                     .foregroundColor(DesignSystem.Colors.Gray.gray0)
                     .font(.system(size: 24, weight: .medium))
-                    .frame(width: 40, height: 40)
+                    
             } else {
                 // 결제 전: 기존 스타일 유지
                 ZStack {
                     Circle()
-                        .fill(Color.gray.opacity(0.2))
                         .frame(width: 40, height: 40)
                     
-                    Image(systemName: iconName)
+                    Image(iconName)
                         .foregroundColor(.white)
                         .font(.system(size: 16))
                 }
