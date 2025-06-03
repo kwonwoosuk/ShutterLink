@@ -63,7 +63,8 @@ struct TodayFilterIntroSection: View {
                     gradient: Gradient(colors: [
                         Color.black.opacity(0.1),
                         Color.black.opacity(0.4),
-                        Color.black.opacity(0.85),
+                        Color.black.opacity(0.6),
+                        Color.black.opacity(0.8),
                         Color.black
                     ]),
                     startPoint: .top,
