@@ -12,14 +12,14 @@ struct TodayFilterIntroSection: View {
     let geometry: GeometryProxy
     let onFilterTap: ((String) -> Void)?
     
-    private let baseHeaderHeight: CGFloat = 450 // 기본 헤더 높이
+    private let baseHeight: CGFloat = 450
     
     var body: some View {
         GeometryReader { headerGeometry in
             let frame = headerGeometry.frame(in: .named("scroll"))
             let offset = frame.minY
             let safeAreaTop = geometry.safeAreaInsets.top
-            let totalHeaderHeight = baseHeaderHeight + safeAreaTop // SafeArea 포함 총 높이
+            let totalHeaderHeight = baseHeight + safeAreaTop // SafeArea 포함 총 높이
             let height = getStretchHeight(offset: offset, totalHeight: totalHeaderHeight)
             let yOffset = getYOffset(offset: offset)
             
@@ -62,9 +62,9 @@ struct TodayFilterIntroSection: View {
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color.black.opacity(0.1),
+                        Color.black.opacity(0.2),
                         Color.black.opacity(0.4),
                         Color.black.opacity(0.6),
-                        Color.black.opacity(0.8),
                         Color.black
                     ]),
                     startPoint: .top,
@@ -151,7 +151,7 @@ struct TodayFilterIntroSection: View {
                 }
             }
         }
-        .frame(height: baseHeaderHeight + geometry.safeAreaInsets.top)
+        .frame(height: baseHeight + geometry.safeAreaInsets.top)
     }
     
     // Stretch 높이 계산 (아래로 당길 때만)

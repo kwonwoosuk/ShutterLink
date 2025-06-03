@@ -34,18 +34,15 @@ struct HomeView: View {
                 ScrollViewReader { proxy in
                     ScrollView(.vertical, showsIndicators: false) {
                         LazyVStack(spacing: 0) {
-                            // 오늘의 필터 헤더 이미지 (Stretch 효과)
                             TodayFilterIntroSection(
                                 filter: viewModel.todayFilter, geometry: geometry,
                                 onFilterTap: { filterId in
                                     router.pushToFilterDetail(filterId: filterId, from: .home)
                                 }
                             )
-                            .id("top") // 스크롤 참조점
-                            
-                           
-                            // 나머지 콘텐츠
-                            LazyVStack(spacing: 20) { // 32에서 20으로 줄임
+                            .id("top")
+
+                            LazyVStack(spacing: 20) {
                                 AdBannerSection()
                                 
                                 HotTrendSection(
@@ -62,7 +59,7 @@ struct HomeView: View {
                                     }
                                 )
                             }
-                            .padding(.top, 12) // 20에서 12로 줄임
+                            .padding(.top, 12)
                             .padding(.bottom, 120)
                             .background(Color.black)
                         }
