@@ -13,7 +13,7 @@ struct UserDetailView: View {
     
     @StateObject private var viewModel = UserDetailViewModel()
     @Environment(\.dismiss) private var dismiss
-    @State private var showUserFilters = false
+    @EnvironmentObject private var router: NavigationRouter
     @State private var hasAppeared = false
     
     var body: some View {
@@ -40,7 +40,7 @@ struct UserDetailView: View {
                         
                         // 이 작가 필터 보기 버튼
                         UserFiltersButton {
-                            showUserFilters = true
+                            router.presentSheet(.userFilters(userId: userId, userNick: user.nick))
                         }
                         .padding(.top, 40)
                         .padding(.bottom, 60)
@@ -82,9 +82,6 @@ struct UserDetailView: View {
                         .foregroundColor(.white)
                 }
             }
-        }
-        .sheet(isPresented: $showUserFilters) {
-            UserFiltersView(userId: userId, userNick: userInfo?.nick ?? "")
         }
         .onAppear {
             if !hasAppeared {

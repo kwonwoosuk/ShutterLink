@@ -6,55 +6,68 @@
 //
 
 import SwiftUI
+import Combine
 
 struct SearchView: View {
     @StateObject private var viewModel = SearchViewModel()
     @State private var searchText = ""
-    @State private var path: [UserNavigationItem] = []
+    @EnvironmentObject private var router: NavigationRouter
     
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack(path: $router.searchPath) {
             ZStack {
                 Color.black.ignoresSafeArea()
                 
-                VStack(spacing: 0) {
-                    // 검색바
-                    SearchBarView(
-                        searchText: $searchText,
-                        onSearchSubmitted: { query in
-                            viewModel.input.searchUsers.send(query)
-                        }
-                    )
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                    
-                    // 검색 결과
-                    if viewModel.isLoading {
-                        Spacer()
-                        LoadingIndicatorView()
-                        Spacer()
-                    } else if viewModel.searchResults.isEmpty && !searchText.isEmpty && !viewModel.isLoading {
-                        Spacer()
-                        EmptySearchResultView()
-                        Spacer()
-                    } else {
-                        ScrollView(.vertical, showsIndicators: false) {
-                            LazyVStack(spacing: 0) {
-                                ForEach(viewModel.searchResults) { user in
-                                    UserSearchResultItem(
-                                        user: user,
-                                        onTap: {
-                                            path.append(UserNavigationItem(userId: user.user_id, userInfo: user))
-                                        }
-                                    )
-                                    .padding(.horizontal, 20)
-                                }
+                ScrollViewReader { proxy in
+                    VStack(spacing: 0) {
+                        // 검색바
+                        SearchBarView(
+                            searchText: $searchText,
+                            onSearchSubmitted: { query in
+                                viewModel.input.searchUsers.send(query)
                             }
-                            .padding(.top, 20)
+                        )
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                        .id("top") // 스크롤 참조점
+                        
+                        // 검색 결과
+                        if viewModel.isLoading {
+                            Spacer()
+                            LoadingIndicatorView()
+                            Spacer()
+                        } else if viewModel.searchResults.isEmpty && !searchText.isEmpty && !viewModel.isLoading {
+                            Spacer()
+                            EmptySearchResultView()
+                            Spacer()
+                        } else {
+                            ScrollView(.vertical, showsIndicators: false) {
+                                LazyVStack(spacing: 0) {
+                                    ForEach(viewModel.searchResults) { user in
+                                        UserSearchResultItem(
+                                            user: user,
+                                            onTap: {
+                                                router.pushToUserDetail(userId: user.user_id, userInfo: user)
+                                            }
+                                        )
+                                        .padding(.horizontal, 20)
+                                    }
+                                }
+                                .padding(.top, 20)
+                            }
                         }
+                        
+                        Spacer()
                     }
-                    
-                    Spacer()
+                    .onReceive(router.searchScrollToTop) { _ in
+                        print("🔄 SearchView: 상단으로 스크롤 및 초기화")
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            searchText = "" // 검색어 초기화
+                            proxy.scrollTo("top", anchor: .top)
+                        }
+                        // 검색 결과도 초기화
+                        viewModel.input.clearResults.send()
+                    }
                 }
                 
                 // 에러 메시지
@@ -68,8 +81,13 @@ struct SearchView: View {
                     }
                 }
             }
-            .navigationDestination(for: UserNavigationItem.self) { item in
-                UserDetailView(userId: item.userId, userInfo: item.userInfo)
+            .navigationDestination(for: UserRoute.self) { route in
+                switch route {
+                case .userDetail(let userId, let userInfo):
+                    UserDetailView(userId: userId, userInfo: userInfo)
+                case .userFilters(let userId, let userNick):
+                    UserFiltersView(userId: userId, userNick: userNick)
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -222,8 +240,4 @@ struct EmptySearchResultView: View {
         }
         .padding(20)
     }
-}
-
-#Preview {
-    SearchView()
 }

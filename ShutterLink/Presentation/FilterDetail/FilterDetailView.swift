@@ -361,7 +361,9 @@ struct ConnectedControlView: View {
     
     var body: some View {
         GeometryReader { geometry in
-            // 통합된 After-Divider-Before 뷰
+//            // 통합된 After-Divider-Before 뷰
+//            let frame = geometry.frame(in: .local)
+            
             HStack(spacing: 0) {
                 // After 버튼
                 Text("After")

@@ -13,7 +13,8 @@ struct UserFiltersView: View {
     
     @StateObject private var viewModel = UserFiltersViewModel()
     @Environment(\.dismiss) private var dismiss
-    @State private var path: [FilterNavigationItem] = []
+    @EnvironmentObject private var router: NavigationRouter
+    @State private var path: [FilterRoute] = [] // Sheet 내부에서 독립적인 네비게이션
     @State private var hasAppeared = false
     
     var body: some View {
@@ -23,8 +24,10 @@ struct UserFiltersView: View {
                 
                 VStack(spacing: 0) {
                     // 헤더
-                    UserFiltersHeader(userNick: userNick)
-                        .padding(.top, 20)
+                    UserFiltersHeader(userNick: userNick) {
+                        dismiss()
+                    }
+                    .padding(.top, 20)
                     
                     // 필터 목록
                     if viewModel.isLoading && viewModel.filters.isEmpty {
@@ -42,7 +45,7 @@ struct UserFiltersView: View {
                                     UserFilterItem(
                                         filter: filter,
                                         onFilterTap: { filterId in
-                                            path.append(FilterNavigationItem(filterId: filterId))
+                                            path.append(FilterRoute.filterDetail(filterId: filterId))
                                         },
                                         onLike: { filterId, shouldLike in
                                             viewModel.input.likeFilter.send((filterId, shouldLike))
@@ -85,8 +88,11 @@ struct UserFiltersView: View {
                     }
                 }
             }
-            .navigationDestination(for: FilterNavigationItem.self) { item in
-                FilterDetailView(filterId: item.filterId)
+            .navigationDestination(for: FilterRoute.self) { route in
+                switch route {
+                case .filterDetail(let filterId):
+                    FilterDetailView(filterId: filterId)
+                }
             }
             .navigationBarHidden(true)
         }
@@ -101,10 +107,10 @@ struct UserFiltersView: View {
     }
 }
 
-// MARK: - 헤더
+// MARK: - 헤더 (dismiss 콜백 추가)
 struct UserFiltersHeader: View {
     let userNick: String
-    @Environment(\.dismiss) private var dismiss
+    let onDismiss: () -> Void
     
     var body: some View {
         VStack(spacing: 0) {
@@ -129,7 +135,7 @@ struct UserFiltersHeader: View {
                 Spacer()
                 
                 Button {
-                    dismiss()
+                    onDismiss()
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 18, weight: .medium))
@@ -295,4 +301,5 @@ struct EmptyFiltersView: View {
 
 #Preview {
     UserFiltersView(userId: "test_user_id", userNick: "윤새싹")
+        .preferredColorScheme(.dark)
 }

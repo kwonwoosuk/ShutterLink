@@ -13,7 +13,7 @@ struct UserSearchResponse: Decodable {
 }
 
 // MARK: - 유저 정보 모델
-struct UserInfo: Decodable, Identifiable, Hashable {
+struct UserInfo: Decodable, Identifiable, Hashable { //  Dto 옵셔널 처리 요망 
     let user_id: String
     let nick: String
     let name: String

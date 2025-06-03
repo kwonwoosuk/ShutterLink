@@ -6,18 +6,22 @@
 //
 
 import SwiftUI
+import Combine
 
 struct FeedView: View {
     @StateObject private var viewModel = FeedViewModel()
     @State private var currentTopRankingIndex = 0
     @State private var selectedCategory: FilterCategory? = nil
-    @State private var path: [FilterNavigationItem] = []
+    @EnvironmentObject private var router: NavigationRouter
     
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack(path: $router.feedPath) {
             feedContent
-                .navigationDestination(for: FilterNavigationItem.self) { item in
-                    FilterDetailView(filterId: item.filterId)
+                .navigationDestination(for: FilterRoute.self) { route in
+                    switch route {
+                    case .filterDetail(let filterId):
+                        FilterDetailView(filterId: filterId)
+                    }
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -53,7 +57,7 @@ struct FeedView: View {
                             filters: Array(viewModel.allFilters.prefix(5)),
                             currentIndex: $currentTopRankingIndex,
                             onFilterTap: { filterId in
-                                path.append(FilterNavigationItem(filterId: filterId))
+                                router.pushToFilterDetail(filterId: filterId, from: .feed)
                             }
                         )
                         .padding(.top, 24)
@@ -102,7 +106,7 @@ struct FeedView: View {
                                 viewModel.input.likeFilter.send((filterId, shouldLike))
                             },
                             onFilterTap: { filterId in
-                                path.append(FilterNavigationItem(filterId: filterId))
+                                router.pushToFilterDetail(filterId: filterId, from: .feed)
                             },
                             onLoadMore: {
                                 viewModel.input.loadMoreData.send()
@@ -116,7 +120,7 @@ struct FeedView: View {
                                 viewModel.input.likeFilter.send((filterId, shouldLike))
                             },
                             onFilterTap: { filterId in
-                                path.append(FilterNavigationItem(filterId: filterId))
+                                router.pushToFilterDetail(filterId: filterId, from: .feed)
                             },
                             onLoadMore: {
                                 viewModel.input.loadMoreData.send()
@@ -155,8 +159,14 @@ struct FeedView: View {
                 viewModel.input.refreshData.send()
             }
         }
-        .onChange(of: path) { newPath in
-            print("🔵 FeedView Navigation Path: \(newPath.map { $0.filterId })")
+        .compatibleOnChange(of: router.feedPath) { newPath in
+            let filterIds = newPath.map { route in
+                switch route {
+                case .filterDetail(let filterId):
+                    return filterId
+                }
+            }
+            print("🔵 FeedView Navigation Path: \(filterIds)")
         }
     }
 }
@@ -675,10 +685,4 @@ extension FeedView {
             }
         }
     }
-}
-
-// 네비게이션을 위한 헬퍼 구조체
-struct FilterNavigationItem: Identifiable, Hashable {
-    let id = UUID()
-    let filterId: String
 }

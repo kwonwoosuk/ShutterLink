@@ -9,6 +9,7 @@ import SwiftUI
 
 struct CustomTabBar: View {
     @Binding var selectedTab: Int
+    let onTabTapped: (Int) -> Void
     @Namespace private var tabAnimation
     
     var body: some View {
@@ -45,7 +46,7 @@ struct CustomTabBar: View {
                 ForEach(0..<5) { index in
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            selectedTab = index
+                            onTabTapped(index)
                         }
                     } label: {
                         Image(getIconName(for: index, isSelected: selectedTab == index))
@@ -70,17 +71,6 @@ struct CustomTabBar: View {
         case 3: return "Search_\(suffix)"
         case 4: return "Profile_\(suffix)"
         default: return ""
-        }
-    }
-}
-
-#Preview {
-    ZStack {
-        Color.black.ignoresSafeArea()
-        
-        VStack {
-            Spacer()
-            CustomTabBar(selectedTab: .constant(0))
         }
     }
 }
