@@ -58,7 +58,7 @@ struct AuthorInfo: Decodable {
 }
 
 // MARK: - 크리에이터 정보 모델
-struct CreatorInfo: Decodable {
+struct CreatorInfo: Decodable, Equatable, Hashable {
     let user_id: String
     let nick: String
     let name: String

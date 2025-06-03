@@ -6,11 +6,14 @@
 //
 
 import SwiftUI
+import MapKit
+import CoreLocation
 
 struct FilterDetailView: View {
     let filterId: String
     @StateObject private var viewModel = FilterDetailViewModel()
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: NavigationRouter
     @State private var hasAppeared = false
     @State private var showChatOuterView = false
     
@@ -22,7 +25,6 @@ struct FilterDetailView: View {
             if let filterDetail = viewModel.filterDetail {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 24) {
-                        // 이미지 비교 섹션 (사진 아래 디바이더 포함)
                         InteractiveBeforeAfterView(
                             imagePath: filterDetail.files.first ?? "",
                             filterValues: filterDetail.filterValues
@@ -33,30 +35,51 @@ struct FilterDetailView: View {
                         // 필터 정보와 통계
                         FilterInfoWithStatsSection(filterDetail: filterDetail)
                         
-                        // 사진 메타데이터 섹션 (위치 정보 포함)
-                        PhotoMetadataWithLocationSection(metadata: filterDetail.photoMetadata)
+                        // 사진 메타데이터 섹션
+                        PhotoMetadataSection(metadata: filterDetail.photoMetadata)
                         
-                        // 필터 프리셋 섹션 (결제 상태에 따라 다르게 표시)
+                        // 필터 프리셋 섹션
                         FilterPresetsSection(
                             filterValues: filterDetail.filterValues,
                             isPurchased: filterDetail.is_downloaded
                         )
                         
-                        // 결제/다운로드 버튼 - 결제 처리 로직 연결
+                        // 결제/다운로드 버튼
                         PurchaseDownloadButton(
                             price: filterDetail.price,
                             isPurchased: filterDetail.is_downloaded,
-                            isPurchasing: viewModel.isPurchasing, // 결제 중 상태 추가
+                            isPurchasing: viewModel.isPurchasing,
                             onPurchase: {
-                                // 결제 처리 로직 - ViewModel에 신호 전달
                                 print("🔵 FilterDetailView: 결제 버튼 탭 - \(filterId)")
                                 viewModel.input.purchaseFilter.send(filterId)
                             }
                         )
                         
-                        // 크리에이터 프로필 섹션 (채팅 버튼 포함)
-                        CreatorProfileWithChatSection(
+                        // 디바이더 라인
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 1)
+                            .padding(.horizontal, 20)
+                        
+                        // 크리에이터 프로필 섹션 (수정된 버전)
+                        CreatorProfileSection(
                             creator: filterDetail.creator,
+                            onCreatorTap: {
+                                // UserDetailView로 이동
+                                let userInfo = UserInfo(
+                                    user_id: filterDetail.creator.user_id,
+                                    nick: filterDetail.creator.nick,
+                                    name: filterDetail.creator.name,
+                                    introduction: filterDetail.creator.introduction,
+                                    profileImage: filterDetail.creator.profileImage,
+                                    hashTags: filterDetail.creator.hashTags
+                                )
+                                router.pushToUserDetailFromFilter(
+                                    userId: filterDetail.creator.user_id,
+                                    userInfo: filterDetail.creator,
+                                    from: router.selectedTab
+                                )
+                            },
                             onChatTap: {
                                 showChatOuterView = true
                             }
@@ -74,19 +97,18 @@ struct FilterDetailView: View {
                 }
             }
             
-            // 성공/에러 메시지 토스트 (상단에 표시)
+            // 성공/에러 메시지 토스트
             if let errorMessage = viewModel.errorMessage, !viewModel.isLoading {
                 VStack {
                     ToastMessageView(
                         message: errorMessage,
                         isSuccess: errorMessage.contains("완료")
                     )
-                    .padding(.top, 10) // 네비게이션 바 아래에 표시
                     .padding(.horizontal, 20)
                     
                     Spacer()
                 }
-                .zIndex(1000) // 다른 뷰들 위에 표시
+                .zIndex(1000)
             }
         }
         .navigationBarHidden(false)
@@ -118,7 +140,7 @@ struct FilterDetailView: View {
                 }
             }
             
-            // 좋아요 버튼 (우상단으로 이동)
+            // 좋아요 버튼
             ToolbarItem(placement: .navigationBarTrailing) {
                 if let filterDetail = viewModel.filterDetail {
                     Button {
@@ -144,7 +166,7 @@ struct FilterDetailView: View {
             }
         }
         .sheet(isPresented: $showChatOuterView) {
-            // 채팅 뷰 (향후 구현)
+            // 채팅 뷰
             NavigationStack {
                 VStack {
                     Text("채팅 기능")
@@ -170,7 +192,6 @@ struct FilterDetailView: View {
     }
 }
 
-// MARK: - 토스트 메시지 뷰 추가
 struct ToastMessageView: View {
     let message: String
     let isSuccess: Bool
@@ -200,7 +221,6 @@ struct ToastMessageView: View {
         .opacity(isVisible ? 1.0 : 0.0)
         .animation(.easeInOut(duration: 0.3), value: isVisible)
         .onAppear {
-            // 3초 후 자동으로 사라지는 애니메이션
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.7) {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     isVisible = false
@@ -210,11 +230,11 @@ struct ToastMessageView: View {
     }
 }
 
-// MARK: - 기존 결제/다운로드 버튼 업데이트
+// MARK: - 결제/다운로드 버튼 (기존과 동일)
 struct PurchaseDownloadButton: View {
     let price: Int
     let isPurchased: Bool
-    let isPurchasing: Bool // 결제 중 상태 추가
+    let isPurchasing: Bool
     let onPurchase: () -> Void
     
     var body: some View {
@@ -225,7 +245,6 @@ struct PurchaseDownloadButton: View {
         } label: {
             HStack {
                 if isPurchasing {
-                    // 결제 중 상태
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         .scaleEffect(0.8)
@@ -233,14 +252,12 @@ struct PurchaseDownloadButton: View {
                         .font(.pretendard(size: 16, weight: .semiBold))
                         .foregroundColor(.white)
                 } else if isPurchased {
-                    // 구매 완료 상태
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.green)
                     Text("구매완료")
                         .font(.pretendard(size: 16, weight: .semiBold))
                         .foregroundColor(.white)
                 } else {
-                    // 결제 전 상태
                     Text("₩\(formatPrice(price)) 결제하기")
                         .font(.pretendard(size: 16, weight: .semiBold))
                         .foregroundColor(.white)
@@ -274,9 +291,7 @@ struct PurchaseDownloadButton: View {
     }
 }
 
-// MARK: - 나머지 기존 컴포넌트들은 동일하게 유지...
-
-// MARK: - 드래그 가능한 Before/After 이미지 비교 뷰
+// MARK: - 드래그 가능한 Before/After 이미지 비교 뷰 (기존과 동일)
 struct InteractiveBeforeAfterView: View {
     let imagePath: String
     let filterValues: FilterValues
@@ -353,7 +368,7 @@ struct InteractiveBeforeAfterView: View {
     }
 }
 
-// MARK: - 연결된 컨트롤 뷰 (After-Divider-Before 통합)
+// MARK: - 연결된 컨트롤 뷰 (기존과 동일)
 struct ConnectedControlView: View {
     @Binding var dividerPosition: CGFloat
     @Binding var isDragging: Bool
@@ -361,9 +376,6 @@ struct ConnectedControlView: View {
     
     var body: some View {
         GeometryReader { geometry in
-//            // 통합된 After-Divider-Before 뷰
-//            let frame = geometry.frame(in: .local)
-            
             HStack(spacing: 0) {
                 // After 버튼
                 Text("After")
@@ -377,7 +389,6 @@ struct ConnectedControlView: View {
                 
                 // 디바이더 버튼
                 Button {
-                    // 탭하면 중앙으로 리셋
                     withAnimation(.easeInOut(duration: 0.3)) {
                         dividerPosition = 0.5
                     }
@@ -413,16 +424,13 @@ struct ConnectedControlView: View {
                     .onChanged { value in
                         isDragging = true
                         
-                        // 슬라이드 영역 중앙 기준으로 상대 위치 계산
                         let trackWidth = geometry.size.width - 40
                         let relativeX = value.location.x - (trackWidth / 2)
                         
-                        // 슬라이드 범위 제한 (± (trackWidth - 버튼 전체 너비) / 2)
-                        let buttonGroupWidth: CGFloat = 60 + 32 + 60 // After + Divider + Before
+                        let buttonGroupWidth: CGFloat = 60 + 32 + 60
                         let maxOffset = (trackWidth - buttonGroupWidth) / 2
                         dragOffset = max(-maxOffset, min(maxOffset, relativeX))
                         
-                        // dragOffset을 dividerPosition으로 변환 (0.0 ~ 1.0)
                         let normalizedPosition = (dragOffset + maxOffset) / (maxOffset * 2)
                         dividerPosition = normalizedPosition
                     }
@@ -433,11 +441,10 @@ struct ConnectedControlView: View {
         }
         .frame(height: 40)
         .onAppear {
-            // 초기 dragOffset 설정을 dividerPosition 0.5 (중앙)와 동기화
             let trackWidth = (UIScreen.main.bounds.width - 40) - 40
             let buttonGroupWidth: CGFloat = 60 + 32 + 60
             let maxOffset = (trackWidth - buttonGroupWidth) / 2
-            dragOffset = (0.5 * (maxOffset * 2)) - maxOffset // Start at center
+            dragOffset = (0.5 * (maxOffset * 2)) - maxOffset
         }
         .compatibleOnChange(of: dividerPosition) { newValue in
             if !isDragging {
@@ -452,7 +459,7 @@ struct ConnectedControlView: View {
     }
 }
 
-// MARK: - 필터 정보와 통계 섹션
+// MARK: - 필터 정보와 통계 섹션 (기존과 동일)
 struct FilterInfoWithStatsSection: View {
     let filterDetail: FilterDetailResponse
     
@@ -526,132 +533,174 @@ struct FilterInfoWithStatsSection: View {
     }
 }
 
-// MARK: - 위치 정보 포함 메타데이터 섹션
-struct PhotoMetadataWithLocationSection: View {
+
+struct PhotoMetadataSection: View {
     let metadata: PhotoMetadata
+    @State private var address: String = ""
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("촬영 정보")
-                .font(.pretendard(size: 18, weight: .semiBold))
-                .foregroundColor(.white)
-            
-            // 기기 정보
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(metadata.camera)
-                        .font(.pretendard(size: 14, weight: .medium))
-                        .foregroundColor(.white)
-                    
-                    Spacer()
-                    
-                    Text("EXIF")
-                        .font(.pretendard(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(Color.gray, lineWidth: 1)
-                        )
-                }
+        VStack(spacing: 0) {
+            // 상단 헤더 띠
+            HStack {
+                Text(metadata.camera)
+                    .font(.pretendard(size: 14, weight: .medium))
+                    .foregroundColor(.white)
                 
-                Text("\(metadata.lens_info) · \(metadata.focal_length) mm f/\(metadata.aperture) ISO \(metadata.iso)")
-                    .font(.pretendard(size: 12, weight: .regular))
-                    .foregroundColor(.gray)
+                Spacer()
                 
-                Text("\(metadata.pixel_width) × \(metadata.pixel_height) · \(metadata.formattedFileSize)")
-                    .font(.pretendard(size: 12, weight: .regular))
+                Text("EXIF")
+                    .font(.pretendard(size: 12, weight: .medium))
                     .foregroundColor(.gray)
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gray.opacity(0.1))
-            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.gray.opacity(0.2))
             
-            // 위치 정보 (있을 때만 표시)
-            if metadata.hasLocation {
-                HStack(spacing: 12) {
-                    // 미니 지도 표시
+            // 메인 컨텐츠 영역
+            HStack(spacing: 16) {
+                // 왼쪽: 지도 또는 위치 없음 아이콘
+                if metadata.hasLocation {
+                    MapPreviewView(
+                        latitude: metadata.latitude!,
+                        longitude: metadata.longitude!,
+                        address: $address
+                    )
+                    .frame(width: 80, height: 80)
+                    .cornerRadius(8)
+                } else {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color.gray.opacity(0.3))
-                        .frame(width: 60, height: 60)
-                        .overlay(
-                            Image(systemName: "map.fill")
-                                .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
-                                .font(.system(size: 24))
-                        )
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("위치")
-                            .font(.pretendard(size: 12, weight: .medium))
-                            .foregroundColor(.gray)
-                        
-                        Text("서울 영등포구 선유로 9길 30")
-                            .font(.pretendard(size: 14, weight: .medium))
-                            .foregroundColor(.white)
-                            .lineLimit(2)
-                        
-                        if let lat = metadata.latitude, let lon = metadata.longitude {
-                            Text("위도: \(String(format: "%.6f", lat)), 경도: \(String(format: "%.6f", lon))")
-                                .font(.pretendard(size: 10, weight: .regular))
-                                .foregroundColor(.gray)
-                        }
-                    }
-                    
-                    Spacer()
-                }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.gray.opacity(0.1))
-                )
-            } else {
-                // 위치 정보가 없을 때
-                HStack(spacing: 12) {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.gray.opacity(0.3))
-                        .frame(width: 60, height: 60)
+                        .frame(width: 80, height: 80)
                         .overlay(
                             Image(systemName: "location.slash")
                                 .foregroundColor(.gray)
                                 .font(.system(size: 24))
                         )
+                }
+                
+                // 오른쪽: 카메라 정보와 위치 정보
+                VStack(alignment: .leading, spacing: 8) {
                     
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("위치")
-                            .font(.pretendard(size: 12, weight: .medium))
-                            .foregroundColor(.gray)
-                        
+                    Text("\(metadata.lens_info) · \(Int(metadata.focal_length))mm f/\(String(format: "%.1f", metadata.aperture)) ISO \(metadata.iso)")
+                        .font(.pretendard(size: 12, weight: .regular))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                    
+                    Text("\(metadata.pixel_width) × \(metadata.pixel_height) · \(metadata.formattedFileSize)")
+                        .font(.pretendard(size: 12, weight: .regular))
+                        .foregroundColor(.gray)
+                    
+                    // 위치 정보
+                    if metadata.hasLocation {
+                        if !address.isEmpty && address != "주소를 찾을 수 없습니다" {
+                            Text(address)
+                                .font(.pretendard(size: 12, weight: .regular))
+                                .foregroundColor(.white)
+                                .lineLimit(2)
+                        } else if address == "주소를 찾을 수 없습니다" {
+                            Text("주소를 찾을 수 없습니다")
+                                .font(.pretendard(size: 12, weight: .regular))
+                                .foregroundColor(.gray)
+                        } else {
+                            Text("위치 확인 중...")
+                                .font(.pretendard(size: 12, weight: .regular))
+                                .foregroundColor(.gray)
+                        }
+                    } else {
                         Text("위치 정보 없음")
-                            .font(.pretendard(size: 14, weight: .medium))
+                            .font(.pretendard(size: 12, weight: .regular))
                             .foregroundColor(.gray)
                     }
-                    
-                    Spacer()
                 }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.gray.opacity(0.1))
-                )
+                
+                Spacer()
             }
+            .padding(16)
+            .background(Color.gray.opacity(0.1))
         }
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(12)
         .padding(.horizontal, 20)
     }
 }
 
-// MARK: - 필터 프리셋 섹션
+// MARK: - 지도 미리보기 뷰
+struct MapPreviewView: UIViewRepresentable {
+    func updateUIView(_ uiView: MKMapView, context: Context) {
+        //
+    }
+    
+    let latitude: Double
+    let longitude: Double
+    @Binding var address: String
+    
+    func makeUIView(context: Context) -> MKMapView {
+        let mapView = MKMapView()
+        mapView.isUserInteractionEnabled = false
+        mapView.isZoomEnabled = false
+        mapView.isScrollEnabled = false
+        mapView.isPitchEnabled = false
+        mapView.isRotateEnabled = false
+        
+        let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        let region = MKCoordinateRegion(
+            center: coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+        )
+        mapView.setRegion(region, animated: false)
+        
+        reverseGeocode()
+        
+        return mapView
+    }
+    
+    private func reverseGeocode() {
+        let location = CLLocation(latitude: latitude, longitude: longitude)
+        let geocoder = CLGeocoder()
+        
+        geocoder.reverseGeocodeLocation(location) { placemarks, error in
+            if let placemark = placemarks?.first {
+                var addressComponents: [String] = []
+                
+                // 한국 주소 형식에 맞게 순서 조정
+                if let country = placemark.country {
+                    addressComponents.append(country)
+                }
+                if let administrativeArea = placemark.administrativeArea {
+                    addressComponents.append(administrativeArea)
+                }
+                if let locality = placemark.locality {
+                    addressComponents.append(locality)
+                }
+                if let thoroughfare = placemark.thoroughfare {
+                    addressComponents.append(thoroughfare)
+                }
+                if let subThoroughfare = placemark.subThoroughfare {
+                    addressComponents.append(subThoroughfare)
+                }
+                
+                DispatchQueue.main.async {
+                    self.address = addressComponents.joined(separator: " ")
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.address = "주소를 찾을 수 없습니다"
+                }
+            }
+        }
+    }
+}
+
 struct FilterPresetsSection: View {
     let filterValues: FilterValues
     let isPurchased: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
+            // 상단 헤더 띠
             HStack {
                 Text("Filter Presets")
-                    .font(.pretendard(size: 18, weight: .semiBold))
+                    .font(.pretendard(size: 14, weight: .medium))
                     .foregroundColor(.white)
                 
                 Spacer()
@@ -659,16 +708,14 @@ struct FilterPresetsSection: View {
                 Text("LUT")
                     .font(.pretendard(size: 12, weight: .medium))
                     .foregroundColor(.gray)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .stroke(Color.gray, lineWidth: 1)
-                    )
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.gray.opacity(0.2))
             
+            // 메인 컨텐츠 영역
             if isPurchased {
-                // 결제 완료 시: 배경 없이 아이콘만 gray0으로 표시
+                // 결제 완료 시: 실제 필터 값들 표시
                 LazyVGrid(columns: [
                     GridItem(.flexible()),
                     GridItem(.flexible()),
@@ -691,7 +738,7 @@ struct FilterPresetsSection: View {
                     FilterPresetItem(iconName: "Temperature", value: filterValues.temperature, title: "색온도", formatType: .temperature)
                     FilterPresetItem(iconName: "BlackPoint", value: filterValues.black_point, title: "블랙포인트", formatType: .decimal)
                 }
-                .padding(.vertical, 20)
+                .padding(20)
             } else {
                 // 결제 전: 블러 처리된 상태
                 LazyVGrid(columns: [
@@ -711,7 +758,7 @@ struct FilterPresetsSection: View {
                                     .fill(Color.gray.opacity(0.3))
                                     .frame(width: 40, height: 40)
                                 
-                                Image(systemName: iconName)
+                                Image(iconName)
                                     .foregroundColor(.gray)
                                     .font(.system(size: 16))
                             }
@@ -723,10 +770,6 @@ struct FilterPresetsSection: View {
                     }
                 }
                 .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.gray.opacity(0.1))
-                )
                 .blur(radius: 6)
                 .overlay(
                     VStack(spacing: 16) {
@@ -739,62 +782,46 @@ struct FilterPresetsSection: View {
                             .foregroundColor(.white)
                             .multilineTextAlignment(.center)
                     }
-                    .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.black.opacity(0.8))
-                    )
+                        .padding(20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.black.opacity(0.8))
+                        )
                 )
             }
         }
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(12)
         .padding(.horizontal, 20)
     }
 }
 
-// MARK: - 필터 프리셋 아이템
+// MARK: - 필터 프리셋 아이템 (기존과 동일)
 struct FilterPresetItem: View {
     let iconName: String
     let value: Double
     let title: String
     let formatType: ValueFormatType
-    let isPurchased: Bool
     
     enum ValueFormatType {
         case decimal
         case temperature
     }
     
-    init(iconName: String, value: Double, title: String, formatType: ValueFormatType, isPurchased: Bool = false) {
-        self.iconName = iconName
-        self.value = value
-        self.title = title
-        self.formatType = formatType
-        self.isPurchased = isPurchased
-    }
-    
     var body: some View {
         VStack(spacing: 8) {
-            if isPurchased {
-                // 결제 완료 시: 배경 없이 gray0 아이콘만 표시
-                Image(iconName)
-                    .foregroundColor(DesignSystem.Colors.Gray.gray0)
-                    .font(.system(size: 24, weight: .medium))
-                    
-            } else {
-                // 결제 전: 기존 스타일 유지
-                ZStack {
+            Image(iconName)
+                .foregroundColor(.white)
+                .font(.system(size: 16))
+                .frame(width: 40, height: 40)
+                .background(
                     Circle()
-                        .frame(width: 40, height: 40)
-                    
-                    Image(iconName)
-                        .foregroundColor(.white)
-                        .font(.system(size: 16))
-                }
-            }
+                        .fill(Color.gray.opacity(0.3))
+                )
             
             Text(formattedValue)
                 .font(.pretendard(size: 12, weight: .medium))
-                .foregroundColor(isPurchased ? DesignSystem.Colors.Gray.gray0 : .white)
+                .foregroundColor(.white)
         }
     }
     
@@ -808,102 +835,106 @@ struct FilterPresetItem: View {
     }
 }
 
-// MARK: - 채팅 버튼이 있는 크리에이터 프로필 섹션
-struct CreatorProfileWithChatSection: View {
+// MARK: - 수정된 크리에이터 프로필 섹션
+struct CreatorProfileSection: View {
     let creator: CreatorInfo
+    let onCreatorTap: () -> Void
     let onChatTap: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("크리에이터")
-                    .font(.pretendard(size: 18, weight: .semiBold))
-                    .foregroundColor(.white)
+            HStack(alignment: .top, spacing: 12) {
+                // 프로필 이미지 (탭 가능)
+                Button {
+                    onCreatorTap()
+                } label: {
+                    if let profileImagePath = creator.profileImage {
+                        AuthenticatedImageView(
+                            imagePath: profileImagePath,
+                            contentMode: .fill
+                        ) {
+                            Circle()
+                                .fill(Color.gray.opacity(0.3))
+                        }
+                        .frame(width: 60, height: 60)
+                        .clipShape(Circle())
+                    } else {
+                        Circle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 60, height: 60)
+                            .overlay(
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(.gray)
+                            )
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                // 작가 정보 (탭 가능)
+                Button {
+                    onCreatorTap()
+                } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(creator.name)
+                            .font(.pretendard(size: 18, weight: .semiBold))
+                            .foregroundColor(.white)
+                        
+                        Text(creator.nick)
+                            .font(.pretendard(size: 14, weight: .medium))
+                            .foregroundColor(.gray)
+                        
+                        // 해시태그
+                        if !creator.hashTags.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 6) {
+                                    ForEach(creator.hashTags.prefix(3), id: \.self) { tag in
+                                        Text(tag)
+                                            .font(.pretendard(size: 11, weight: .medium))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.black)
+                                            .cornerRadius(12)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                            )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
                 
                 Spacer()
                 
                 Button {
                     onChatTap()
                 } label: {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
-                }
-            }
-            
-            HStack(spacing: 12) {
-                // 프로필 이미지
-                if let profileImagePath = creator.profileImage {
-                    AuthenticatedImageView(
-                        imagePath: profileImagePath,
-                        contentMode: .fill
-                    ) {
-                        Circle()
-                            .fill(Color.gray.opacity(0.3))
-                    }
-                    .frame(width: 60, height: 60)
-                    .clipShape(Circle())
-                } else {
-                    Circle()
-                        .fill(Color.gray.opacity(0.3))
-                        .frame(width: 60, height: 60)
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .foregroundColor(.gray)
-                        )
-                }
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(creator.name)
-                        .font(.pretendard(size: 18, weight: .semiBold))
-                        .foregroundColor(.white)
-                    
-                    Text(creator.nick)
-                        .font(.pretendard(size: 14, weight: .medium))
-                        .foregroundColor(.gray)
-                    
-                    Text(creator.introduction)
-                        .font(.pretendard(size: 13, weight: .regular))
-                        .foregroundColor(.white.opacity(0.8))
-                        .lineLimit(2)
-                }
-                
-                Spacer()
-            }
-            
-            // 해시태그
-            if !creator.hashTags.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(creator.hashTags, id: \.self) { tag in
-                            Text(tag)
-                                .font(.pretendard(size: 12, weight: .medium))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.black)
-                                .cornerRadius(16)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                                )
+                    Rectangle()
+                        .fill(Color.deepTurquoise.opacity(0.5))
+                        .frame(width: 45,height: 45)
+                        .overlay {
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(.gray15)
                         }
-                    }
-                    .padding(.horizontal, 20)
+                        .cornerRadius(8)
                 }
-                .padding(.horizontal, -20)
+                .frame(height: 60, alignment: .center)
+                .padding(.top, 0)
+                .padding(.trailing, 16)
             }
             
-            // 작가 소개 텍스트
-            VStack(alignment: .leading, spacing: 8) {
-                Text("빛이 이끄는 섬세한 세계")
-                    .font(.pretendard(size: 16, weight: .semiBold))
-                    .foregroundColor(.white)
-                
-                Text("맑고 투명한 빛을 담은 자연 감성 필터입니다.\n너무 과하지 않으면서도 분명한 감정을 실어보세요.\n새로운 시선, 순수한 감정을 담아내는 새싹 필터를 사용해보세요.")
-                    .font(.pretendard(size: 14, weight: .regular))
-                    .foregroundColor(.white.opacity(0.8))
-                    .lineSpacing(4)
+            if !creator.introduction.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(creator.introduction)
+                        .font(.pretendard(size: 14, weight: .regular))
+                        .foregroundColor(.white.opacity(0.8))
+                        .lineSpacing(4)
+                        .lineLimit(nil) // 전체 텍스트 표시
+                }
             }
         }
         .padding(.horizontal, 20)

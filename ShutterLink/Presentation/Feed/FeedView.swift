@@ -21,6 +21,18 @@ struct FeedView: View {
                     switch route {
                     case .filterDetail(let filterId):
                         FilterDetailView(filterId: filterId)
+                    case .userDetail(let userId, let userInfo):
+                        UserDetailView(
+                            userId: userId,
+                            userInfo: UserInfo(
+                                user_id: userInfo.user_id,
+                                nick: userInfo.nick,
+                                name: userInfo.name,
+                                introduction: userInfo.introduction,
+                                profileImage: userInfo.profileImage,
+                                hashTags: userInfo.hashTags
+                            )
+                        )
                     }
                 }
                 .navigationBarTitleDisplayMode(.inline)
@@ -163,7 +175,19 @@ struct FeedView: View {
             let filterIds = newPath.map { route in
                 switch route {
                 case .filterDetail(let filterId):
-                    return filterId
+                    FilterDetailView(filterId: filterId)
+                case .userDetail(let userId, let userInfo):
+                    UserDetailView(
+                        userId: userId,
+                        userInfo: UserInfo(
+                            user_id: userInfo.user_id,
+                            nick: userInfo.nick,
+                            name: userInfo.name,
+                            introduction: userInfo.introduction,
+                            profileImage: userInfo.profileImage,
+                            hashTags: userInfo.hashTags
+                        )
+                    )
                 }
             }
             print("🔵 FeedView Navigation Path: \(filterIds)")

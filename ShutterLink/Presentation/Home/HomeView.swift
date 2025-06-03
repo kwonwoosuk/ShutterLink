@@ -19,6 +19,18 @@ struct HomeView: View {
                     switch route {
                     case .filterDetail(let filterId):
                         FilterDetailView(filterId: filterId)
+                    case .userDetail(let userId, let userInfo):
+                        UserDetailView(
+                            userId: userId,
+                            userInfo: UserInfo(
+                                user_id: userInfo.user_id,
+                                nick: userInfo.nick,
+                                name: userInfo.name,
+                                introduction: userInfo.introduction,
+                                profileImage: userInfo.profileImage,
+                                hashTags: userInfo.hashTags
+                            )
+                        )
                     }
                 }
                 .navigationBarHidden(true)

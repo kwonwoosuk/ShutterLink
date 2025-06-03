@@ -92,6 +92,8 @@ struct UserFiltersView: View {
                 switch route {
                 case .filterDetail(let filterId):
                     FilterDetailView(filterId: filterId)
+                case .userDetail(userId: let userId, userInfo: let userInfo):
+                    EmptyView()
                 }
             }
             .navigationBarHidden(true)

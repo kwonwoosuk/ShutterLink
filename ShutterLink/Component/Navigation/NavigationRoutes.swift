@@ -15,11 +15,14 @@ protocol Route: Hashable, Identifiable {
 // MARK: - 홈/피드 탭 라우트 (필터 관련)
 enum FilterRoute: Route {
     case filterDetail(filterId: String)
+    case userDetail(userId: String, userInfo: CreatorInfo) // 추가
     
     var id: String {
         switch self {
         case .filterDetail(let filterId):
             return "filterDetail_\(filterId)"
+        case .userDetail(let userId, _):
+            return "userDetail_\(userId)"
         }
     }
 }

@@ -31,7 +31,7 @@ struct FilterDetailResponse: Decodable {
 struct PhotoMetadata: Decodable {
     let camera: String
     let lens_info: String
-    let focal_length: Int
+    let focal_length: Float
     let aperture: Double
     let iso: Int
     let shutter_speed: String

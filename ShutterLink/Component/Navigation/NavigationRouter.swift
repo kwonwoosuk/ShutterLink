@@ -130,6 +130,21 @@ class NavigationRouter: ObservableObject {
         print("🧭 NavigationRouter: 유저 필터 목록으로 이동 - \(userId)")
     }
     
+    func pushToUserDetailFromFilter(userId: String, userInfo: CreatorInfo, from tab: Tab = .home) {
+        let route = FilterRoute.userDetail(userId: userId, userInfo: userInfo)
+        
+        switch tab {
+        case .home:
+            homePath.append(route)
+        case .feed:
+            feedPath.append(route)
+        default:
+            print("⚠️ NavigationRouter: 잘못된 탭에서 유저 라우트 호출")
+        }
+        
+        print("🧭 NavigationRouter: 유저 상세로 이동 - \(userId)")
+    }
+    
     func popUserRoute() {
         if !searchPath.isEmpty {
             searchPath.removeLast()
