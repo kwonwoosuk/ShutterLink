@@ -6,151 +6,172 @@
 //
 
 import SwiftUI
-// MARK: - 섹션 1: 오늘의 필터 소개 (필터 정보만)
+
 struct TodayFilterIntroSection: View {
     let filter: TodayFilterResponse?
+    let geometry: GeometryProxy
     let onFilterTap: ((String) -> Void)?
     
-    init(filter: TodayFilterResponse?, onFilterTap: ((String) -> Void)? = nil) {
-        self.filter = filter
-        self.onFilterTap = onFilterTap
-    }
+    private let baseHeaderHeight: CGFloat = 450 // 기본 헤더 높이
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            // 타이틀
-            HStack {
-                Text("오늘의 필터")
-                    .font(.hakgyoansim(size: 20, weight: .bold))
-                    .foregroundColor(.white)
-                
-                Spacer()
-            }
-            .padding(.horizontal, 20)
+        GeometryReader { headerGeometry in
+            let frame = headerGeometry.frame(in: .named("scroll"))
+            let offset = frame.minY
+            let safeAreaTop = geometry.safeAreaInsets.top
+            let totalHeaderHeight = baseHeaderHeight + safeAreaTop // SafeArea 포함 총 높이
+            let height = getStretchHeight(offset: offset, totalHeight: totalHeaderHeight)
+            let yOffset = getYOffset(offset: offset)
             
-            // 오늘의 필터 상세 정보
-            if let filter = filter {
-                VStack(alignment: .leading, spacing: 16) {
-                    // 메인 이미지 - 탭 제스처 적용
-                    filterImageView(filter: filter)
-                        .onTapGesture {
-                            onFilterTap?(filter.filter_id)
-                        }
-                    
-                    // 필터 상세 설명
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("필터 설명")
-                            .font(.pretendard(size: 16, weight: .semiBold))
-                            .foregroundColor(.white)
-                        
-                        Text(filter.description)
-                            .font(.pretendard(size: 14, weight: .regular))
-                            .foregroundColor(.white.opacity(0.8))
-                            .lineLimit(nil)
-                        
-                        // 생성/수정일
-                        HStack {
-                            Text("생성일: \(formatDate(filter.createdAt))")
-                                .font(.pretendard(size: 12, weight: .regular))
-                                .foregroundColor(.white.opacity(0.6))
-                            
-                            Spacer()
-                            
-                            Text("수정일: \(formatDate(filter.updatedAt))")
-                                .font(.pretendard(size: 12, weight: .regular))
-                                .foregroundColor(.white.opacity(0.6))
-                        }
+            ZStack {
+                // 배경 이미지 - SafeArea까지 포함
+                if let filter = filter, let firstImagePath = filter.files.first {
+                    AuthenticatedImageView(
+                        imagePath: firstImagePath,
+                        contentMode: .fill
+                    ) {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .overlay(
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            )
                     }
-                    .padding(.horizontal, 20)
-                }
-            } else {
-                // 로딩 상태
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(height: 240)
-                    .overlay(
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .frame(
+                        width: geometry.size.width,
+                        height: height
                     )
-                    .padding(.horizontal, 20)
-            }
-        }
-    }
-    
-    // 필터 이미지 뷰를 별도 메서드로 분리
-    @ViewBuilder
-    private func filterImageView(filter: TodayFilterResponse) -> some View {
-        ZStack {
-            if let firstImagePath = filter.files.first {
-                AuthenticatedImageView(
-                    imagePath: firstImagePath,
-                    contentMode: .fill
-                ) {
+                    .clipped()
+                    .offset(y: yOffset)
+                } else {
+                    // 로딩 상태
                     Rectangle()
                         .fill(Color.gray.opacity(0.3))
+                        .frame(
+                            width: geometry.size.width,
+                            height: height
+                        )
                         .overlay(
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         )
+                        .offset(y: yOffset)
                 }
-                .frame(height: 240)
-                .clipped()
-            }
-            
-            // 그라데이션 오버레이
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.black.opacity(0.2),
-                    Color.black.opacity(0.6)
-                ]),
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            
-            // 텍스트 콘텐츠
-            VStack(alignment: .leading, spacing: 8) {
-                Spacer()
                 
-                HStack {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(filter.title)
-                            .font(.hakgyoansim(size: 24, weight: .bold))
-                            .foregroundColor(.white)
-                        
-                        Text(filter.introduction)
-                            .font(.pretendard(size: 16, weight: .medium))
-                            .foregroundColor(.white.opacity(0.9))
-                    }
-                    
-                    Spacer()
-                    
-                    // 탭 인디케이터
+                // Dim 그라데이션 - SafeArea까지 포함
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.black.opacity(0.1),
+                        Color.black.opacity(0.4),
+                        Color.black.opacity(0.85),
+                        Color.black
+                    ]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(
+                    width: geometry.size.width,
+                    height: height
+                )
+                .offset(y: yOffset)
+                
+                // 콘텐츠 영역 - SafeArea 아래쪽에 위치
+                if let filter = filter {
                     VStack {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(.white.opacity(0.8))
+                        Spacer()
                         
-                        Text("자세히 보기")
-                            .font(.pretendard(size: 12, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
+                        HStack {
+                            VStack(alignment: .leading, spacing: 12) {
+                                // 오늘의 필터 소개 라벨
+                                Text("오늘의 필터 소개")
+                                    .font(.pretendard(size: 12, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.8))
+                                
+                                // 필터 제목
+                                Text(filter.title)
+                                    .font(.hakgyoansim(size: 24, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(2)
+                                
+                                // 필터 부제목
+                                Text(filter.introduction)
+                                    .font(.hakgyoansim(size: 16, weight: .regular))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .lineLimit(1)
+                                
+                                // 필터 설명
+                                Text(filter.description)
+                                    .font(.pretendard(size: 13, weight: .regular))
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .lineLimit(3)
+                                    .lineSpacing(2)
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
                     }
+                    .frame(height: height)
+                    .offset(y: yOffset)
+                    
+                    // 우상단 사용해보기 버튼 - SafeArea 아래쪽에 위치
+                    VStack {
+                        HStack {
+                            Spacer()
+                            
+                            Button {
+                                onFilterTap?(filter.filter_id)
+                            } label: {
+                                Text("사용해보기")
+                                    .font(.pretendard(size: 12, weight: .medium))
+                                    .foregroundColor(.gray45)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule()
+                                            .fill(.gray60.opacity(0.6))
+                                            .overlay(
+                                                Capsule()
+                                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                            )
+                                    )
+                                    .cornerRadius(8)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.top, safeAreaTop + 20) // SafeArea + 여유 공간
+                        
+                        Spacer()
+                    }
+                    .frame(height: height)
+                    .offset(y: yOffset)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 20)
             }
         }
-        .cornerRadius(16)
-        .padding(.horizontal, 20)
+        .frame(height: baseHeaderHeight + geometry.safeAreaInsets.top)
     }
     
-    private func formatDate(_ dateString: String) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
-        
-        if let date = formatter.date(from: dateString) {
-            formatter.dateFormat = "yyyy.MM.dd"
-            return formatter.string(from: date)
+    // Stretch 높이 계산 (아래로 당길 때만)
+    private func getStretchHeight(offset: CGFloat, totalHeight: CGFloat) -> CGFloat {
+        if offset > 0 {
+            // 아래로 당길 때 (양수 offset) - 이미지 늘리기
+            return totalHeight + offset
+        } else {
+            // 위로 스크롤할 때 - 기본 높이 유지
+            return totalHeight
         }
-        return dateString
+    }
+    
+    // Y 오프셋 계산 (아래로 당길 때만)
+    private func getYOffset(offset: CGFloat) -> CGFloat {
+        if offset > 0 {
+            // 아래로 당길 때 - 이미지를 위로 이동시켜 늘어나는 효과
+            return -offset
+        } else {
+            // 위로 스크롤할 때 - 오프셋 없음
+            return 0
+        }
     }
 }

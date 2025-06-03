@@ -46,7 +46,7 @@ struct BannerCard: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
         }
-        .frame(height: 100)
+        .frame(height: 80) // 100에서 80으로 줄임
     }
 }
 

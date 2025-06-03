@@ -10,7 +10,13 @@ import SwiftUI
 // MARK: - 섹션 4: 오늘의 작가 소개 (왼쪽 정렬)
 struct TodayAuthorSection: View {
     let authorData: TodayAuthorResponse?
+    let onFilterTap: ((String) -> Void)?
     
+    init(authorData: TodayAuthorResponse?, onFilterTap: ((String) -> Void)? = nil) {
+        self.authorData = authorData
+        self.onFilterTap = onFilterTap
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             // 타이틀
@@ -24,7 +30,7 @@ struct TodayAuthorSection: View {
             .padding(.horizontal, 20)
             
             if let authorData = authorData {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 32) { // spacing 증가로 구분감 강화
                     // 작가 프로필 섹션 (왼쪽 정렬)
                     HStack(alignment: .top, spacing: 16) {
                         // 프로필 이미지
@@ -93,12 +99,8 @@ struct TodayAuthorSection: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    // 작가 상세 설명 (왼쪽 정렬)
+                    // 작가 상세 설명 (텍스트 제거하고 바로 설명)
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("작가 소개")
-                            .font(.pretendard(size: 16, weight: .semiBold))
-                            .foregroundColor(.white)
-                        
                         Text(authorData.author.description)
                             .font(.pretendard(size: 14, weight: .regular))
                             .foregroundColor(.white.opacity(0.8))
@@ -106,28 +108,25 @@ struct TodayAuthorSection: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    // 작가의 필터 작품들
+                    // 작가의 필터 작품들 (텍스트 제거하고 바로 작품들)
                     if !authorData.filters.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("작가의 작품")
-                                .font(.pretendard(size: 16, weight: .semiBold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 20)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
-                                    ForEach(authorData.filters) { filter in
-                                        AuthorFilterCard(filter: filter)
-                                    }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(authorData.filters) { filter in
+                                    AuthorFilterCard(
+                                        filter: filter,
+                                        onTap: {
+                                            onFilterTap?(filter.filter_id)
+                                        }
+                                    )
                                 }
-                                .padding(.horizontal, 20)
                             }
+                            .padding(.horizontal, 20)
                         }
                     }
                 }
             } else {
-                
-                AuthorMockView()
+                AuthorMockView(onFilterTap: onFilterTap)
             }
         }
     }
@@ -137,6 +136,7 @@ struct TodayAuthorSection: View {
 // MARK: - 아래 코드는 정보를 서버로 부터 받지 못했을때 갈아 끼워줄 View
 struct MockFilterCard: View {
     let index: Int
+    let onTap: (() -> Void)?
     private let mockTitles = ["자연 필터", "도시 필터", "빈티지 필터", "모던 필터"]
     private let mockColors: [Color] = [.green, .blue, .orange, .purple]
     
@@ -150,6 +150,9 @@ struct MockFilterCard: View {
                         .foregroundColor(.white)
                         .font(.system(size: 24))
                 )
+                .onTapGesture {
+                    onTap?()
+                }
             
             Text(mockTitles[index])
                 .font(.pretendard(size: 12, weight: .medium))
@@ -161,8 +164,10 @@ struct MockFilterCard: View {
 
 // MARK: - 작가 Mock 뷰 (데이터 로딩 실패 시)
 struct AuthorMockView: View {
+    let onFilterTap: ((String) -> Void)?
+    
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 32) { // spacing 증가
             // Mock 작가 프로필
             VStack(spacing: 16) {
                 Circle()
@@ -218,33 +223,25 @@ struct AuthorMockView: View {
             }
             .padding(.horizontal, 20)
             
-            // Mock 설명
+            // Mock 설명 (텍스트 제거)
             VStack(alignment: .leading, spacing: 12) {
-                Text("작가 소개")
-                    .font(.pretendard(size: 16, weight: .semiBold))
-                    .foregroundColor(.white)
-                
                 Text("자연의 섬세한 아름다움을 포착하는 데 탁월한 감각을 지닌 사진작가입니다. 새싹이 돋아나는 계절의 생명력과 따뜻함을 렌즈에 담아내며, 보는 이들에게 감동을 전달합니다.")
                     .font(.pretendard(size: 14, weight: .regular))
                     .foregroundColor(.white.opacity(0.8))
             }
             .padding(.horizontal, 20)
             
-            // Mock 필터 작품들
-            VStack(alignment: .leading, spacing: 12) {
-                Text("작가의 작품")
-                    .font(.pretendard(size: 16, weight: .semiBold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(0..<4) { index in
-                            MockFilterCard(index: index)
+            // Mock 필터 작품들 (텍스트 제거)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(0..<4) { index in
+                        MockFilterCard(index: index) {
+                            // Mock 필터이므로 실제 filterId는 없음
+                            onFilterTap?("mock_filter_\(index)")
                         }
                     }
-                    .padding(.horizontal, 20)
                 }
+                .padding(.horizontal, 20)
             }
         }
     }

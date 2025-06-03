@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-// 배너 섹션 
+// 배너 섹션
 struct AdBannerSection: View {
     @State private var currentIndex = 0
     
@@ -18,7 +18,7 @@ struct AdBannerSection: View {
     ]
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) { // 12에서 8로 줄임
             TabView(selection: $currentIndex) {
                 ForEach(Array(bannerData.enumerated()), id: \.element.id) { index, banner in
                     Button {
@@ -31,7 +31,7 @@ struct AdBannerSection: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 120)
+            .frame(height: 100) // 120에서 100으로 줄임
             .padding(.horizontal, 20)
             
             BannerPageIndicator(

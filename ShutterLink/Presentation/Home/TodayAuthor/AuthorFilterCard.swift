@@ -9,6 +9,12 @@ import SwiftUI
 
 struct AuthorFilterCard: View {
     let filter: FilterItem
+    let onTap: (() -> Void)?
+    
+    init(filter: FilterItem, onTap: (() -> Void)? = nil) {
+        self.filter = filter
+        self.onTap = onTap
+    }
     
     var body: some View {
         VStack(spacing: 8) {
@@ -26,6 +32,9 @@ struct AuthorFilterCard: View {
                 }
                 .frame(width: 120, height: 120)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                .onTapGesture {
+                    onTap?()
+                }
             } else {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.gray.opacity(0.3))
@@ -34,6 +43,9 @@ struct AuthorFilterCard: View {
                         Image(systemName: "photo")
                             .foregroundColor(.gray)
                     )
+                    .onTapGesture {
+                        onTap?()
+                    }
             }
             
             Text(filter.title)
