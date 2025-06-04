@@ -132,7 +132,7 @@ struct UserProfileHeaderSection: View {
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                 
-                Text(user.name)
+                Text(user.name ?? "")
                     .font(.pretendard(size: 16, weight: .medium))
                     .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
@@ -172,7 +172,7 @@ struct UserHashTagsSection: View {
 
 // MARK: - 작가 소개 섹션
 struct UserIntroductionSection: View {
-    let introduction: String
+    let introduction: String?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -183,17 +183,20 @@ struct UserIntroductionSection: View {
                 Spacer()
             }
             
-            Text("아름다운 자연을 담아내는 사진 작가")
-                .font(.pretendard(size: 16, weight: .medium))
-                .foregroundColor(.white)
-                .italic()
-                .multilineTextAlignment(.leading)
-            
-            Text(introduction.isEmpty ? "윤새싹은 자연의 섬세한 아름다움을 포착하는 데 탁월한 감각을 지닌 사진작가입니다. 새싹이 돋아나는 계절의 생명력과 따뜻함을 렌즈에 담아내며, 보는 이들에게 감동을 전달합니다." : introduction)
-                .font(.pretendard(size: 14, weight: .regular))
-                .foregroundColor(.white.opacity(0.8))
-                .lineSpacing(4)
-                .multilineTextAlignment(.leading)
+            if let introduction = introduction, !introduction.isEmpty {
+                Text(introduction)
+                    .font(.pretendard(size: 14, weight: .regular))
+                    .foregroundColor(.white.opacity(0.8))
+                    .lineSpacing(4)
+                    .multilineTextAlignment(.leading)
+            } else {
+                // 기본 메시지 표시
+                Text("아직 작가 소개가 등록되지 않았습니다.")
+                    .font(.pretendard(size: 14, weight: .regular))
+                    .foregroundColor(.white.opacity(0.6))
+                    .italic()
+                    .multilineTextAlignment(.leading)
+            }
         }
         .padding(.horizontal, 20)
     }

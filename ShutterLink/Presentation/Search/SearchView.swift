@@ -196,13 +196,13 @@ struct UserSearchResultItem: View {
                         .foregroundColor(.white)
                         .lineLimit(1)
                     
-                    Text(user.name)
+                    Text(user.name ?? "")
                         .font(.pretendard(size: 14, weight: .regular))
                         .foregroundColor(.gray)
                         .lineLimit(1)
                     
-                    if !user.introduction.isEmpty {
-                        Text(user.introduction)
+                    if ((user.introduction?.isEmpty) == nil) {
+                        Text(user.introduction ?? "")
                             .font(.pretendard(size: 12, weight: .regular))
                             .foregroundColor(.white.opacity(0.7))
                             .lineLimit(2)
