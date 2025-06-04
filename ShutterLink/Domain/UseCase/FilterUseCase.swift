@@ -13,6 +13,7 @@ protocol FilterUseCase {
     func getFilters(next: String, limit: Int, category: String?, orderBy: String) async throws -> FilterListResponse
     func likeFilter(filterId: String, likeStatus: Bool) async throws -> Bool
     func getFilterDetail(filterId: String) async throws -> FilterDetailResponse
+    func getLikedFilters(next: String, limit: Int, category: String?) async throws -> FilterListResponse // 추가
 }
 
 class FilterUseCaseImpl: FilterUseCase {
@@ -43,5 +44,10 @@ class FilterUseCaseImpl: FilterUseCase {
     func getFilterDetail(filterId: String) async throws -> FilterDetailResponse {
         let router = FilterRouter.getFilterDetail(filterId: filterId)
         return try await networkManager.request(router, type: FilterDetailResponse.self)
+    }
+    
+    func getLikedFilters(next: String, limit: Int, category: String?) async throws -> FilterListResponse {
+        let router = FilterRouter.getLikedFilters(next: next, limit: limit, category: category)
+        return try await networkManager.request(router, type: FilterListResponse.self)
     }
 }

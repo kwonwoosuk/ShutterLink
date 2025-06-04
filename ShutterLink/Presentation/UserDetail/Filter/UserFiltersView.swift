@@ -92,8 +92,19 @@ struct UserFiltersView: View {
                 switch route {
                 case .filterDetail(let filterId):
                     FilterDetailView(filterId: filterId)
-                case .userDetail(userId: let userId, userInfo: let userInfo):
-                    EmptyView()
+                case .userDetail(let userId, let userInfo):
+                    // CreatorInfo를 UserInfo로 변환해서 전달
+                    UserDetailView(
+                        userId: userId,
+                        userInfo: UserInfo(
+                            user_id: userInfo.user_id,
+                            nick: userInfo.nick,
+                            name: userInfo.name,
+                            introduction: userInfo.introduction,
+                            profileImage: userInfo.profileImage,
+                            hashTags: userInfo.hashTags
+                        )
+                    )
                 }
             }
             .navigationBarHidden(true)

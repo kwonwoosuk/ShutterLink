@@ -6,27 +6,44 @@
 //
 
 import SwiftUI
+import Combine
 
 class ProfileViewModel: ObservableObject {
-    // @Published 프로퍼티들은 자동으로 메인스레드에서 UI 업데이트
+    // 기존 프로퍼티들
     @Published var profile: ProfileResponse?
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var selectedImage: UIImage?
     @Published var isImageUploading = false
     
+    // 좋아요한 필터 관련 프로퍼티 추가
+    @Published var likedFilters: [FilterItem] = []
+    @Published var isLoadingLikedFilters = false
+    @Published var hasMoreLikedFilters = true
+    
     private let profileUseCase: ProfileUseCase
+    private let filterUseCase: FilterUseCase // 추가
     private let authState: AuthState
+    
+    // 페이지네이션 상태
+    private var likedFiltersNextCursor = ""
+    private let likedFiltersPageLimit = 10
     
     // Task 관리용
     private var loadProfileTask: Task<Void, Never>?
     private var updateProfileTask: Task<Bool, Never>?
     private var uploadImageTask: Task<Bool, Never>?
+    private var loadLikedFiltersTask: Task<Void, Never>? // 추가
     
-    init(profileUseCase: ProfileUseCase = ProfileUseCaseImpl(), authState: AuthState = .shared) {
+    init(profileUseCase: ProfileUseCase = ProfileUseCaseImpl(),
+         filterUseCase: FilterUseCase = FilterUseCaseImpl(), // 추가
+         authState: AuthState = .shared) {
         self.profileUseCase = profileUseCase
+        self.filterUseCase = filterUseCase // 추가
         self.authState = authState
     }
+    
+    // 기존 메서드들... (loadProfile, updateProfile, uploadProfileImage)
     
     func loadProfile() {
         // 기존 작업 취소
@@ -57,6 +74,9 @@ class ProfileViewModel: ObservableObject {
                 print("✅ ProfileViewModel: 프로필 로드 성공")
                 print("🖼️ ProfileViewModel: 프로필 이미지 경로 - \(profileResponse.profileImage ?? "없음")")
                 
+                // 프로필 로드 성공 후 좋아요한 필터들도 로드
+                loadLikedFilters()
+                
             } catch is CancellationError {
                 print("🔵 ProfileViewModel: 프로필 로드 작업 취소됨")
                 await MainActor.run {
@@ -71,6 +91,91 @@ class ProfileViewModel: ObservableObject {
             }
         }
     }
+    
+    // MARK: - 좋아요한 필터 로드
+    func loadLikedFilters() {
+        // 기존 작업 취소
+        loadLikedFiltersTask?.cancel()
+        
+        loadLikedFiltersTask = Task {
+            print("🔵 ProfileViewModel: 좋아요한 필터 로드 시작")
+            
+            // UI 상태 업데이트 (메인스레드)
+            await MainActor.run {
+                self.isLoadingLikedFilters = true
+                self.likedFiltersNextCursor = ""
+            }
+            
+            do {
+                // 네트워킹 작업 (백그라운드에서 실행)
+                let response = try await filterUseCase.getLikedFilters(
+                    next: "",
+                    limit: likedFiltersPageLimit,
+                    category: nil
+                )
+                
+                // Task가 취소되었는지 확인
+                try Task.checkCancellation()
+                
+                print("✅ ProfileViewModel: 좋아요한 필터 로드 성공 - \(response.data.count)개 필터")
+                
+                // UI 업데이트 (메인스레드에서 실행)
+                await MainActor.run {
+                    self.likedFilters = response.data
+                    self.hasMoreLikedFilters = response.next_cursor != "0"
+                    self.isLoadingLikedFilters = false
+                }
+                self.likedFiltersNextCursor = response.next_cursor
+                
+            } catch is CancellationError {
+                print("🔵 ProfileViewModel: 좋아요한 필터 로드 작업 취소됨")
+                await MainActor.run {
+                    self.isLoadingLikedFilters = false
+                }
+            } catch {
+                print("❌ ProfileViewModel: 좋아요한 필터 로드 실패 - \(error)")
+                await MainActor.run {
+                    self.isLoadingLikedFilters = false
+                    self.likedFilters = []
+                }
+            }
+        }
+    }
+    
+    // MARK: - 더 많은 좋아요한 필터 로드 (나중에 필요시 구현)
+    func loadMoreLikedFilters() {
+        guard !isLoadingLikedFilters && hasMoreLikedFilters && !likedFiltersNextCursor.isEmpty && likedFiltersNextCursor != "0" else {
+            return
+        }
+        
+        Task {
+            await MainActor.run {
+                self.isLoadingLikedFilters = true
+            }
+            
+            do {
+                let response = try await filterUseCase.getLikedFilters(
+                    next: likedFiltersNextCursor,
+                    limit: likedFiltersPageLimit,
+                    category: nil
+                )
+                
+                await MainActor.run {
+                    self.likedFilters.append(contentsOf: response.data)
+                    self.hasMoreLikedFilters = response.next_cursor != "0"
+                    self.isLoadingLikedFilters = false
+                }
+                self.likedFiltersNextCursor = response.next_cursor
+                
+            } catch {
+                await MainActor.run {
+                    self.isLoadingLikedFilters = false
+                }
+            }
+        }
+    }
+    
+    // 기존 메서드들 (updateProfile, uploadProfileImage)...
     
     func updateProfile(nick: String, name: String, introduction: String, phoneNum: String, hashTags: [String]) -> Task<Bool, Never> {
         // 기존 작업 취소
@@ -238,5 +343,6 @@ class ProfileViewModel: ObservableObject {
         loadProfileTask?.cancel()
         updateProfileTask?.cancel()
         uploadImageTask?.cancel()
+        loadLikedFiltersTask?.cancel() // 추가
     }
 }

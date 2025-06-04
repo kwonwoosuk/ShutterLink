@@ -12,7 +12,7 @@ struct ProfileView: View {
     @EnvironmentObject var authState: AuthState
     @EnvironmentObject private var router: NavigationRouter
     @StateObject private var viewModel = ProfileViewModel()
-    @State private var showLogoutAlert = false // 로그아웃 확인 알림창 표시 여부
+    @State private var showLogoutAlert = false
     @State private var hasAppeared = false
     
     var body: some View {
@@ -103,7 +103,17 @@ struct ProfileView: View {
                             .padding(.horizontal)
                             .padding(.top, 10)
                             
-                            // 로그아웃 버튼 추가
+                            // 좋아요한 필터 섹션 추가
+                            LikedFiltersSection(
+                                filters: viewModel.likedFilters,
+                                isLoading: viewModel.isLoadingLikedFilters,
+                                onFilterTap: { filterId in
+                                    router.pushToLikedFilterDetail(filterId: filterId)
+                                }
+                            )
+                            .padding(.top, 10)
+                            
+                            // 로그아웃 버튼
                             Button {
                                 showLogoutAlert = true
                             } label: {
@@ -124,22 +134,6 @@ struct ProfileView: View {
                             }
                             .padding(.horizontal)
                             .padding(.top, 10)
-                            
-                            // 사진 그리드
-                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
-                                ForEach(1...6, id: \.self) { _ in
-                                    Color.gray.opacity(0.2)
-                                        .aspectRatio(1, contentMode: .fill)
-                                        .overlay(
-                                            Image(systemName: "photo")
-                                                .resizable()
-                                                .scaledToFit()
-                                                .frame(width: 30)
-                                                .foregroundColor(.gray)
-                                        )
-                                }
-                            }
-                            .padding(.top, 20)
                         }
                         .padding(.bottom, 100) // 탭바 높이만큼 하단 패딩
                     }
@@ -173,6 +167,10 @@ struct ProfileView: View {
                 switch route {
                 case .editProfile:
                     ProfileEditView()
+                case .likedFilters:
+                    EmptyView() // 필요시 전체 좋아요한 필터 리스트 뷰
+                case .filterDetail(let filterId):
+                    FilterDetailView(filterId: filterId)
                 }
             }
         }
@@ -203,6 +201,166 @@ struct ProfileView: View {
             }
         } message: {
             Text("정말 로그아웃 하시겠습니까?")
+        }
+    }
+}
+
+// MARK: - 좋아요한 필터 섹션
+struct LikedFiltersSection: View {
+    let filters: [FilterItem]
+    let isLoading: Bool
+    let onFilterTap: (String) -> Void
+    
+    private let cardWidth: CGFloat = 140
+    private let cardHeight: CGFloat = 180
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // 섹션 헤더
+            HStack {
+                Text("좋아요한 필터")
+                    .font(.pretendard(size: 18, weight: .semiBold))
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                if !filters.isEmpty {
+                    Text("\(filters.count)개")
+                        .font(.pretendard(size: 14, weight: .regular))
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.horizontal)
+            
+            // 필터 가로 스크롤
+            if isLoading && filters.isEmpty {
+                // 로딩 상태
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.8)
+                    Spacer()
+                }
+                .frame(height: cardHeight)
+            } else if filters.isEmpty {
+                // 빈 상태
+                VStack(spacing: 12) {
+                    Image(systemName: "heart")
+                        .font(.system(size: 32))
+                        .foregroundColor(.gray)
+                    
+                    Text("아직 좋아요한 필터가 없습니다")
+                        .font(.pretendard(size: 14, weight: .medium))
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(height: cardHeight)
+                .frame(maxWidth: .infinity)
+            } else {
+                // 필터 목록
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(filters) { filter in
+                            ProfileFilterCard(
+                                filter: filter,
+                                cardWidth: cardWidth,
+                                cardHeight: cardHeight,
+                                onFilterTap: onFilterTap
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 프로필용 필터 카드 (FeedView 블록뷰와 동일한 스타일)
+struct ProfileFilterCard: View {
+    let filter: FilterItem
+    let cardWidth: CGFloat
+    let cardHeight: CGFloat
+    let onFilterTap: (String) -> Void
+    
+    @State private var shouldLoadImage = false
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            // 이미지 영역
+            Button {
+                onFilterTap(filter.filter_id)
+            } label: {
+                ZStack(alignment: .bottomTrailing) {
+                    if shouldLoadImage, let firstImagePath = filter.files.first {
+                        AuthenticatedImageView(
+                            imagePath: firstImagePath,
+                            contentMode: .fill,
+                            targetSize: CGSize(width: cardWidth * 2, height: cardHeight * 1.2)
+                        ) {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.gray.opacity(0.3))
+                                .overlay(
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .scaleEffect(0.6)
+                                )
+                        }
+                    } else {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.gray.opacity(0.3))
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .foregroundColor(.gray)
+                                    .font(.system(size: 24))
+                            )
+                    }
+                    
+                    // 좋아요 표시 (우하단)
+                    HStack(spacing: 3) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.red)
+                        Text("\(filter.like_count)")
+                            .font(.pretendard(size: 9, weight: .medium))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(8)
+                    .padding(.trailing, 6)
+                    .padding(.bottom, 6)
+                }
+                .frame(width: cardWidth, height: cardHeight * 0.8)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            // 필터 정보
+            VStack(spacing: 2) {
+                Text(filter.title)
+                    .font(.pretendard(size: 12, weight: .semiBold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Text(filter.creator.nick)
+                    .font(.pretendard(size: 10, weight: .regular))
+                    .foregroundColor(.gray)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(width: cardWidth)
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                shouldLoadImage = true
+            }
+        }
+        .onDisappear {
+            shouldLoadImage = false
         }
     }
 }

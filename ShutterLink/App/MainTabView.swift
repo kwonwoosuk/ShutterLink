@@ -9,7 +9,7 @@ import SwiftUI
 import Combine
 
 struct MainTabView: View {
-    @StateObject private var router = NavigationRouter.shared
+    @EnvironmentObject private var router: NavigationRouter
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -46,7 +46,6 @@ struct MainTabView: View {
             )
         }
         .ignoresSafeArea(edges: .bottom)
-        .environmentObject(router)
         .sheet(item: $router.presentedSheet) { sheet in
             sheetView(for: sheet)
         }

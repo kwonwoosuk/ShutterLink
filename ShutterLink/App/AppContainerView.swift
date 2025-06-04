@@ -9,6 +9,7 @@ import SwiftUI
 
 struct AppContainerView: View {
     @EnvironmentObject private var authState: AuthState
+    @StateObject private var router = NavigationRouter.shared
     @State private var hasInitialized = false
     
     var body: some View {
@@ -16,6 +17,7 @@ struct AppContainerView: View {
             Group {
                 if authState.isLoggedIn && hasInitialized {
                     MainTabView()
+                        .environmentObject(router)
                         .transition(.asymmetric(
                             insertion: .move(edge: .trailing).combined(with: .opacity),
                             removal: .move(edge: .leading).combined(with: .opacity)

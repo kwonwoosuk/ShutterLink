@@ -13,6 +13,7 @@ enum FilterRouter: APIRouter {
     case getFilters(next: String, limit: Int, category: String?, orderBy: String)
     case likeFilter(filterId: String, likeStatus: Bool)
     case getFilterDetail(filterId: String)
+    case getLikedFilters(next: String, limit: Int, category: String?) // 추가
     
     var path: String {
         switch self {
@@ -26,12 +27,14 @@ enum FilterRouter: APIRouter {
             return APIConstants.Path.filterLike(filterId)
         case .getFilterDetail(let filterId):
             return APIConstants.Path.filterDetail(filterId)
+        case .getLikedFilters:
+            return APIConstants.Path.likedFilters
         }
     }
     
     var method: HTTPMethod {
         switch self {
-        case .getTodayFilter, .getHotTrendFilters, .getFilters, .getFilterDetail:
+        case .getTodayFilter, .getHotTrendFilters, .getFilters, .getFilterDetail, .getLikedFilters:
             return .get
         case .likeFilter:
             return .post
@@ -60,6 +63,16 @@ enum FilterRouter: APIRouter {
                 items.append(URLQueryItem(name: "category", value: category))
             }
             items.append(URLQueryItem(name: "order_by", value: orderBy))
+            return items
+        case .getLikedFilters(let next, let limit, let category):
+            var items: [URLQueryItem] = []
+            if !next.isEmpty {
+                items.append(URLQueryItem(name: "next", value: next))
+            }
+            items.append(URLQueryItem(name: "limit", value: String(limit)))
+            if let category = category, !category.isEmpty {
+                items.append(URLQueryItem(name: "category", value: category))
+            }
             return items
         default:
             return nil

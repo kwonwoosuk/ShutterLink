@@ -15,7 +15,7 @@ protocol Route: Hashable, Identifiable {
 // MARK: - 홈/피드 탭 라우트 (필터 관련)
 enum FilterRoute: Route {
     case filterDetail(filterId: String)
-    case userDetail(userId: String, userInfo: CreatorInfo) // 추가
+    case userDetail(userId: String, userInfo: CreatorInfo)
     
     var id: String {
         switch self {
@@ -45,11 +45,17 @@ enum UserRoute: Route {
 // MARK: - 프로필 탭 라우트
 enum ProfileRoute: Route {
     case editProfile
+    case likedFilters // 추가: 좋아요한 필터 목록
+    case filterDetail(filterId: String) // 추가: 프로필에서 필터 상세로 이동
     
     var id: String {
         switch self {
         case .editProfile:
             return "editProfile"
+        case .likedFilters:
+            return "likedFilters"
+        case .filterDetail(let filterId):
+            return "filterDetail_\(filterId)"
         }
     }
 }

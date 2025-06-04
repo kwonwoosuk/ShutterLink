@@ -119,6 +119,14 @@ class NavigationRouter: ObservableObject {
     
     // MARK: - Navigation Actions for User Routes (Search)
     func pushToUserDetail(userId: String, userInfo: UserInfo?) {
+        // 중복 방지를 위한 검사
+        if case .userDetail(let currentUserId, _) = searchPath.last {
+            if currentUserId == userId {
+                print("⚠️ NavigationRouter: 이미 같은 유저 상세 화면에 있음 - \(userId)")
+                return
+            }
+        }
+        
         let route = UserRoute.userDetail(userId: userId, userInfo: userInfo)
         searchPath.append(route)
         print("🧭 NavigationRouter: 유저 상세로 이동 - \(userId)")
@@ -131,6 +139,15 @@ class NavigationRouter: ObservableObject {
     }
     
     func pushToUserDetailFromFilter(userId: String, userInfo: CreatorInfo, from tab: Tab = .home) {
+        // 중복 방지를 위한 검사
+        let currentPath = tab == .home ? homePath : feedPath
+        if case .userDetail(let currentUserId, _) = currentPath.last {
+            if currentUserId == userId {
+                print("⚠️ NavigationRouter: 이미 같은 유저 상세 화면에 있음 - \(userId)")
+                return
+            }
+        }
+        
         let route = FilterRoute.userDetail(userId: userId, userInfo: userInfo)
         
         switch tab {
@@ -155,11 +172,23 @@ class NavigationRouter: ObservableObject {
         searchPath.removeAll()
     }
     
-    // MARK: - Navigation Actions for Profile Routes
+    // MARK: - Navigation Actions for Profile Routes (추가)
     func pushToEditProfile() {
         let route = ProfileRoute.editProfile
         profilePath.append(route)
         print("🧭 NavigationRouter: 프로필 편집으로 이동")
+    }
+    
+    func pushToLikedFilters() {
+        let route = ProfileRoute.likedFilters
+        profilePath.append(route)
+        print("🧭 NavigationRouter: 좋아요한 필터 목록으로 이동")
+    }
+    
+    func pushToLikedFilterDetail(filterId: String) {
+        let route = ProfileRoute.filterDetail(filterId: filterId)
+        profilePath.append(route)
+        print("🧭 NavigationRouter: 좋아요한 필터 상세로 이동 - \(filterId)")
     }
     
     func popProfileRoute() {
@@ -215,7 +244,7 @@ class NavigationRouter: ObservableObject {
     }
 }
 
-// MARK: - Sheet Types
+// MARK: - Sheet Types (기존과 동일)
 enum PresentedSheet: Identifiable, CustomStringConvertible, Equatable  {
     case userFilters(userId: String, userNick: String)
     case profileEdit
