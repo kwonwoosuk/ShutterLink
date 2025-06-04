@@ -15,19 +15,19 @@ struct MainTabView: View {
         ZStack(alignment: .bottom) {
             // 콘텐츠 영역
             TabView(selection: $router.selectedTab) {
-                HomeView()
+                LazyView(HomeView())
                     .tag(Tab.home)
                 
-                FeedView()
+                LazyView(FeedView())
                     .tag(Tab.feed)
                 
-                Text("필터 화면")
+                LazyView(Text("필터 화면"))
                     .tag(Tab.filter)
                 
-                SearchView()
+                LazyView(SearchView())
                     .tag(Tab.search)
                 
-                ProfileView()
+                LazyView(ProfileView())
                     .tag(Tab.profile)
             }
             .toolbar(.hidden, for: .tabBar)
@@ -83,5 +83,16 @@ struct MainTabView: View {
                 }
             }
         }
+    }
+}
+
+struct LazyView<Content: View>: View {
+    let build: () -> Content
+    init(_ build: @autoclosure @escaping () -> Content) {
+        self.build = build
+    }
+    
+    var body: Content {
+        build()
     }
 }

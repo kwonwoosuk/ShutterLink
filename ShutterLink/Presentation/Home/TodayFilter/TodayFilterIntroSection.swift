@@ -58,7 +58,7 @@ struct TodayFilterIntroSection: View {
                         .offset(y: yOffset)
                 }
                 
-                // Dim 그라데이션 - SafeArea까지 포함
+                
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color.black.opacity(0.1),
@@ -176,3 +176,4 @@ struct TodayFilterIntroSection: View {
         }
     }
 }
+

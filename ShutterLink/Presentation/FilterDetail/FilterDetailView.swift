@@ -810,19 +810,16 @@ struct FilterPresetItem: View {
     
     var body: some View {
         VStack(spacing: 8) {
-            Image(iconName)
-                .foregroundColor(.white)
-                .font(.system(size: 16))
-                .frame(width: 40, height: 40)
-                .background(
-                    Circle()
-                        .fill(Color.gray.opacity(0.3))
-                )
-            
-            Text(formattedValue)
-                .font(.pretendard(size: 12, weight: .medium))
-                .foregroundColor(.white)
-        }
+                  Image(iconName)
+                .overlay(DesignSystem.Colors.Gray.gray15)
+                 .mask(Image(iconName))
+                      .font(.system(size: 16))
+                      .frame(width: 40, height: 40)
+                  
+                  Text(formattedValue)
+                      .font(.pretendard(size: 12, weight: .medium))
+                      .foregroundColor(.white)
+              }
     }
     
     private var formattedValue: String {
