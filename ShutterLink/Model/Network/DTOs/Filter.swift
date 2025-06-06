@@ -65,6 +65,24 @@ struct CreatorInfo: Decodable, Equatable, Hashable {
     let introduction: String
     let profileImage: String?
     let hashTags: [String]
+    
+    enum CodingKeys: String, CodingKey {
+        case user_id, nick, name, introduction, profileImage, hashTags
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // 필수 필드
+        user_id = try container.decode(String.self, forKey: .user_id)
+        nick = try container.decode(String.self, forKey: .nick)
+        
+        // 옵셔널 필드는 비어있는 경우 기본값 사용
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        introduction = try container.decodeIfPresent(String.self, forKey: .introduction) ?? ""
+        profileImage = try container.decodeIfPresent(String.self, forKey: .profileImage)
+        hashTags = try container.decodeIfPresent([String].self, forKey: .hashTags) ?? []
+    }
 }
 
 // MARK: - 이미지 URL 유틸리티
