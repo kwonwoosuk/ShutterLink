@@ -1,24 +1,44 @@
 //
-//  ImageFilterProcessor.swift
+//  CoreImageProcessor.swift
 //  ShutterLink
 //
 //  Created by 권우석 on 6/6/25.
 //
 
+import Foundation
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import UIKit
 
-class ImageFilterProcessor: ObservableObject {
-    private let context = CIContext()
+class CoreImageProcessor: ObservableObject {
+    private let context: CIContext
     private var originalCIImage: CIImage?
     
-    func setOriginalImage(_ image: UIImage) {
-        originalCIImage = CIImage(image: image)
+    init() {
+        // GPU 사용 가능하면 GPU, 아니면 CPU 컨텍스트 생성
+        if let metalDevice = MTLCreateSystemDefaultDevice() {
+            context = CIContext(mtlDevice: metalDevice)
+            print("🖥️ CoreImageProcessor: GPU 컨텍스트 생성됨")
+        } else {
+            context = CIContext(options: [.useSoftwareRenderer: false])
+            print("🖥️ CoreImageProcessor: CPU 컨텍스트 생성됨")
+        }
     }
     
+    // 원본 이미지 설정
+    func setOriginalImage(_ image: UIImage) {
+        if let cgImage = image.cgImage {
+            originalCIImage = CIImage(cgImage: cgImage)
+            print("🖼️ CoreImageProcessor: 원본 이미지 설정됨 - 크기: \(image.size)")
+        }
+    }
+    
+    // EditingState를 사용하여 필터 적용
     func applyFilters(with state: EditingState) -> UIImage? {
-        guard let originalImage = originalCIImage else { return nil }
+        guard let originalImage = originalCIImage else {
+            print("⚠️ CoreImageProcessor: 원본 이미지가 없음")
+            return nil
+        }
         
         var filteredImage = originalImage
         
@@ -149,22 +169,97 @@ class ImageFilterProcessor: ObservableObject {
         
         // CIImage를 UIImage로 변환
         guard let cgImage = context.createCGImage(filteredImage, from: filteredImage.extent) else {
+            print("⚠️ CoreImageProcessor: CGImage 생성 실패")
             return nil
         }
         
         return UIImage(cgImage: cgImage)
     }
     
-    func resetFilters() -> UIImage? {
-        guard let originalImage = originalCIImage,
-              let cgImage = context.createCGImage(originalImage, from: originalImage.extent) else {
+    // 실시간 미리보기용 (성능 최적화된 버전)
+    func createPreviewImage(with state: EditingState, targetSize: CGSize = CGSize(width: 375, height: 375)) -> UIImage? {
+        guard let originalImage = originalCIImage else { return nil }
+        
+        // 미리보기용으로 이미지 크기 조정
+        let scaleTransform = CGAffineTransform(
+            scaleX: targetSize.width / originalImage.extent.width,
+            y: targetSize.height / originalImage.extent.height
+        )
+        let scaledImage = originalImage.transformed(by: scaleTransform)
+        
+        // 필터 적용 (간소화된 버전 - 주요 효과만)
+        var filteredImage = scaledImage
+        
+        // 주요 필터들만 적용하여 성능 최적화
+        let colorFilter = CIFilter.colorControls()
+        colorFilter.inputImage = filteredImage
+        colorFilter.brightness = Float(state.brightness * 0.3) // 미리보기용으로 줄임
+        colorFilter.contrast = Float(state.contrast)
+        colorFilter.saturation = Float(state.saturation)
+        
+        if let output = colorFilter.outputImage {
+            filteredImage = output
+        }
+        
+        // 노출 조정 (간소화)
+        if abs(state.exposure) > 0.1 {
+            let exposureFilter = CIFilter.exposureAdjust()
+            exposureFilter.inputImage = filteredImage
+            exposureFilter.ev = Float(state.exposure * 0.7) // 미리보기용으로 줄임
+            if let output = exposureFilter.outputImage {
+                filteredImage = output
+            }
+        }
+        
+        // 블러 (가벼운 버전)
+        if abs(state.blur) > 0.1 {
+            let blurFilter = CIFilter.gaussianBlur()
+            blurFilter.inputImage = filteredImage
+            blurFilter.radius = Float(abs(state.blur) * 5.0) // 미리보기용으로 반으로 줄임
+            if let output = blurFilter.outputImage {
+                filteredImage = output
+            }
+        }
+        
+        guard let cgImage = context.createCGImage(filteredImage, from: filteredImage.extent) else {
+            return nil
+        }
+        
+        return UIImage(cgImage: cgImage)
+    }
+    
+    // 원본 이미지 반환
+    func getOriginalImage() -> UIImage? {
+        guard let ciImage = originalCIImage,
+              let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
             return nil
         }
         return UIImage(cgImage: cgImage)
     }
+    
+    // 메모리 정리
+    func clearCache() {
+        originalCIImage = nil
+        print("🧹 CoreImageProcessor: 캐시 정리됨")
+    }
 }
 
-// MARK: - 이미지 유틸리티 확장
+// MARK: - 성능 최적화 확장
+extension CoreImageProcessor {
+    
+    // 배치 처리용 (여러 상태를 한 번에 처리)
+    func applyFiltersBatch(with states: [EditingState]) -> [UIImage?] {
+        return states.map { applyFilters(with: $0) }
+    }
+    
+    // 비동기 필터 적용
+    func applyFiltersAsync(with state: EditingState) async -> UIImage? {
+        return await Task.detached(priority: .userInitiated) {
+            return self.applyFilters(with: state)
+        }.value
+    }
+}
+
 extension UIImage {
     func resized(to size: CGSize) -> UIImage? {
         UIGraphicsBeginImageContextWithOptions(size, false, scale)
@@ -185,3 +280,4 @@ extension UIImage {
         return imageData
     }
 }
+

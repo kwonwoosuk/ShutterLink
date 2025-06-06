@@ -45,7 +45,7 @@ class MakeViewModel: ObservableObject {
     
     let input = Input()
     private var cancellables = Set<AnyCancellable>()
-    private let filterProcessor = ImageFilterProcessor()
+    private let filterProcessor = CoreImageProcessor()
     private let filterUseCase: FilterUseCase
     
     // Enhanced Undo/Redo 스택

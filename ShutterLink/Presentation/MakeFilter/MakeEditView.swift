@@ -12,27 +12,39 @@ struct MakeEditView: View {
     let onComplete: (UIImage?, EditingState) -> Void
     
     @StateObject private var viewModel = MakeViewModel()
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedPropertyIndex = 0
-    @State private var hasAppeared = false
-    @State private var isShowingBefore = false
+    @StateObject private var filterStateManager = EditingStateManager()
+    @StateObject private var imageProcessor = CoreImageProcessor()
     
-    private let properties = FilterProperty.properties
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedProperty: EditingStateProperty = .brightness
+    @State private var showBeforeImage = false
+    @State private var hasAppeared = false
+    @State private var isDraggingSlider = false
+    @State private var dragStartState: EditingState?
     
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // 메인 이미지 영역 (전체 화면 활용)
-                editingImageSection
+                // 상단 컨트롤 바 (항상 표시)
+                topControlBar
                 
-                // 하단 편집 컨트롤
-                editingControlsSection
+                // 메인 이미지 영역
+                imageSection
+                
+                // 하단 필터 컨트롤 바
+                bottomControlBar
+            }
+            
+            // 로딩 오버레이
+            if viewModel.isLoading {
+                loadingOverlay
             }
         }
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarHidden(false)
         .navigationBarBackButtonHidden(true)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
@@ -58,6 +70,7 @@ struct MakeEditView: View {
                         .font(.pretendard(size: 16, weight: .semiBold))
                         .foregroundColor(.white)
                 }
+                .disabled(viewModel.isLoading)
             }
         }
         .onAppear {
@@ -65,361 +78,455 @@ struct MakeEditView: View {
                 hasAppeared = true
                 setupInitialImage()
                 print("🎨 MakeEditView: 화면 표시됨")
-                print("🎨 초기 Undo 가능: \(viewModel.canUndo), Redo 가능: \(viewModel.canRedo)")
             }
         }
-        .compatibleOnChange(of: viewModel.canUndo) { newValue in
-            print("🎨 MakeEditView: Undo 상태 변경 - \(newValue)")
-        }
-        .compatibleOnChange(of: viewModel.canRedo) { newValue in
-            print("🎨 MakeEditView: Redo 상태 변경 - \(newValue)")
-        }
-        .compatibleOnChange(of: selectedPropertyIndex) { newIndex in
-            print("🎨 MakeEditView: 선택된 속성 변경 - \(properties[newIndex].name)")
+        .compatibleOnChange(of: filterStateManager.currentState) { newState in
+            updateImageWithState(newState)
         }
     }
     
-    // MARK: - 편집 이미지 섹션
-    @ViewBuilder
-    private var editingImageSection: some View {
+    // MARK: - Views
+    
+    private var topControlBar: some View {
+        HStack(spacing: 16) {
+            // Undo 버튼
+            Button {
+                filterStateManager.undo()
+            } label: {
+                VStack(spacing: 4) {
+                    Image("Undo")
+                        .overlay(filterStateManager.canUndo ? DesignSystem.Colors.Gray.gray15 : Color.gray)
+                        .mask(Image("Undo"))
+                        .font(.system(size: 16))
+                        .frame(width: 24, height: 24)
+                    
+                    Text("Undo")
+                        .font(.pretendard(size: 10, weight: .medium))
+                        .foregroundColor(filterStateManager.canUndo ? .white : .gray)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(!filterStateManager.canUndo)
+            
+            // Redo 버튼
+            Button {
+                filterStateManager.redo()
+            } label: {
+                VStack(spacing: 4) {
+                    Image("Redo")
+                        .overlay(filterStateManager.canRedo ? DesignSystem.Colors.Gray.gray15 : Color.gray)
+                        .mask(Image("Redo"))
+                        .font(.system(size: 16))
+                        .frame(width: 24, height: 24)
+                    
+                    Text("Redo")
+                        .font(.pretendard(size: 10, weight: .medium))
+                        .foregroundColor(filterStateManager.canRedo ? .white : .gray)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(!filterStateManager.canRedo)
+            
+            Spacer()
+            
+            // Before/After 버튼
+            Button {
+                // 버튼을 누르고 있는 동안 Before 이미지 표시
+            } label: {
+                VStack(spacing: 4) {
+                    Image("Compare")
+                        .overlay(DesignSystem.Colors.Gray.gray15)
+                        .mask(Image("Compare"))
+                        .font(.system(size: 16))
+                        .frame(width: 24, height: 24)
+                    
+                    Text("비교")
+                        .font(.pretendard(size: 10, weight: .medium))
+                        .foregroundColor(.white)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        if !showBeforeImage {
+                            showBeforeImage = true
+                        }
+                    }
+                    .onEnded { _ in
+                        showBeforeImage = false
+                    }
+            )
+            
+            // 리셋 버튼
+            Button {
+                filterStateManager.resetToDefault()
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                    
+                    Text("리셋")
+                        .font(.pretendard(size: 10, weight: .medium))
+                        .foregroundColor(.white)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(
+            Rectangle()
+                .fill(Color.black.opacity(0.8))
+        )
+    }
+    
+    private var imageSection: some View {
         GeometryReader { geometry in
-            ZStack {
-                // 메인 이미지
-                Group {
-                    if isShowingBefore {
-                        // Before: 원본 이미지
-                        if let originalImage = viewModel.originalImage {
+            let imageSize = min(geometry.size.width - 40, geometry.size.height - 40)
+            
+            VStack {
+                Spacer()
+                
+                HStack {
+                    Spacer()
+                    
+                    Group {
+                        if showBeforeImage, let originalImage = viewModel.originalImage {
+                            // Before 이미지 (원본)
                             Image(uiImage: originalImage)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
-                        }
-                    } else {
-                        // After: 편집된 이미지
-                        if let filteredImage = viewModel.filteredImage {
+                                .frame(width: imageSize, height: imageSize)
+                                .clipShape(RoundedRectangle(cornerRadius: 20))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .stroke(Color.white.opacity(0.3), lineWidth: 2)
+                                )
+                                .overlay(
+                                    VStack {
+                                        HStack {
+                                            Text("Before")
+                                                .font(.pretendard(size: 12, weight: .semiBold))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 6)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(Color.black.opacity(0.7))
+                                                )
+                                            Spacer()
+                                        }
+                                        .padding(16)
+                                        Spacer()
+                                    }
+                                )
+                        } else if let filteredImage = viewModel.filteredImage {
+                            // After 이미지 (편집된)
                             Image(uiImage: filteredImage)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
-                        } else if let originalImage = viewModel.originalImage {
-                            Image(uiImage: originalImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-                
-                // Before/After 상태 라벨 (좌측 상단)
-                VStack {
-                    HStack {
-                        Text(isShowingBefore ? "BEFORE" : "AFTER")
-                            .font(.pretendard(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color.black.opacity(0.7))
-                            )
-                        Spacer()
-                    }
-                    .padding(20)
-                    Spacer()
-                }
-                
-                // 플로팅 버튼들 (항상 표시)
-                VStack {
-                    Spacer()
-                    HStack {
-                        // 좌측: Undo/Redo 버튼들
-                        HStack(spacing: 12) {
-                            Button {
-                                viewModel.input.undo.send()
-                            } label: {
-                                Circle()
-                                    .fill(Color.black.opacity(0.7))
-                                    .frame(width: 48, height: 48)
-                                    .overlay(
-                                        Image("Undo")
-                                            .overlay(viewModel.canUndo ? DesignSystem.Colors.Gray.gray15 : Color.gray.opacity(0.5))
-                                            .mask(Image("Undo"))
-                                            .font(.system(size: 18))
-                                            .frame(width: 24, height: 24)
-                                    )
-                            }
-                            .disabled(!viewModel.canUndo)
-                            
-                            Button {
-                                viewModel.input.redo.send()
-                            } label: {
-                                Circle()
-                                    .fill(Color.black.opacity(0.7))
-                                    .frame(width: 48, height: 48)
-                                    .overlay(
-                                        Image("Redo")
-                                            .overlay(viewModel.canRedo ? DesignSystem.Colors.Gray.gray15 : Color.gray.opacity(0.5))
-                                            .mask(Image("Redo"))
-                                            .font(.system(size: 18))
-                                            .frame(width: 24, height: 24)
-                                    )
-                            }
-                            .disabled(!viewModel.canRedo)
-                        }
-                        .padding(.leading, 20)
-                        
-                        Spacer()
-                        
-                        // 우측: Before/After 버튼
-                        Button {
-                            // 이 버튼은 onPressingChanged를 사용하므로 여기서는 빈 액션
-                        } label: {
-                            Circle()
-                                .fill(Color.black.opacity(0.7))
-                                .frame(width: 48, height: 48)
+                                .frame(width: imageSize, height: imageSize)
+                                .clipShape(RoundedRectangle(cornerRadius: 20))
                                 .overlay(
-                                    Image("Compare")
-                                        .overlay(DesignSystem.Colors.Gray.gray15)
-                                        .mask(Image("Compare"))
-                                        .font(.system(size: 18))
-                                        .frame(width: 24, height: 24)
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .stroke(Color.white.opacity(0.3), lineWidth: 2)
+                                )
+                                .overlay(
+                                    VStack {
+                                        HStack {
+                                            Text("After")
+                                                .font(.pretendard(size: 12, weight: .semiBold))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 6)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(Color.black.opacity(0.7))
+                                                )
+                                            Spacer()
+                                        }
+                                        .padding(16)
+                                        Spacer()
+                                    }
+                                )
+                        } else {
+                            // 플레이스홀더
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(width: imageSize, height: imageSize)
+                                .overlay(
+                                    VStack {
+                                        Image(systemName: "photo")
+                                            .font(.system(size: 48))
+                                            .foregroundColor(.gray)
+                                        
+                                        Text("이미지를 선택하세요")
+                                            .font(.pretendard(size: 16, weight: .medium))
+                                            .foregroundColor(.gray)
+                                            .padding(.top, 16)
+                                    }
                                 )
                         }
-                        .onPressingChanged { isPressing in
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isShowingBefore = isPressing
-                            }
-                        }
-                        .padding(.trailing, 20)
                     }
-                    .padding(.bottom, 40) // 하단 컨트롤과 겹치지 않도록 여유 공간
-                }
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: isShowingBefore)
-    }
-    
-    // MARK: - 편집 컨트롤 섹션
-    @ViewBuilder
-    private var editingControlsSection: some View {
-        VStack(spacing: 0) {
-            // 속성 선택 탭바
-            propertyTabBar
-            
-            // 선택된 속성의 슬라이더
-            if selectedPropertyIndex < properties.count {
-                let property = properties[selectedPropertyIndex]
-                let currentValue = Binding(
-                    get: { viewModel.editingState.getValue(for: property.key) },
-                    set: { newValue in
-                        viewModel.input.editProperty.send((property.key, newValue))
-                    }
-                )
-                
-                EnhancedFilterSlider(
-                    property: property,
-                    value: currentValue,
-                    onValueChanged: { key, value in
-                        viewModel.input.editProperty.send((key, value))
-                    }
-                )
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-            }
-            
-            // 하단 컨트롤 버튼들
-            HStack(spacing: 20) {
-                // 리셋 버튼
-                Button {
-                    viewModel.input.resetToOriginal.send()
-                } label: {
-                    Text("리셋")
-                        .font(.pretendard(size: 14, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(Color.gray.opacity(0.3))
-                        )
+                    .animation(.easeInOut(duration: 0.2), value: showBeforeImage)
+                    
+                    Spacer()
                 }
                 
                 Spacer()
             }
+        }
+        .background(Color.black)
+    }
+    
+    private var bottomControlBar: some View {
+        VStack(spacing: 0) {
+            // 필터 속성 아이콘 바
+            VStack(spacing: 12) {
+                HStack {
+                    Text(selectedProperty.title)
+                        .font(.pretendard(size: 16, weight: .semiBold))
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    Text(formatValue(filterStateManager.currentState.getValue(for: selectedProperty.key), for: selectedProperty))
+                        .font(.pretendard(size: 14, weight: .medium))
+                        .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
+                }
+                
+                optimizedSlider
+            }
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 20) {
+                    ForEach(EditingStateProperty.allCases, id: \.self) { property in
+                        Button {
+                            selectedProperty = property
+                        } label: {
+                            VStack(spacing: 6) {
+                                ZStack {
+                                    Circle()
+                                        .fill(selectedProperty == property ?
+                                              DesignSystem.Colors.Brand.brightTurquoise :
+                                              Color.gray.opacity(0.4))
+                                        .frame(width: 56, height: 56)
+                                    
+                                    Image(property.iconName)
+                                        .overlay(selectedProperty == property ? Color.black : DesignSystem.Colors.Gray.gray15)
+                                        .mask(Image(property.iconName))
+                                        .font(.system(size: 16))
+                                        .frame(width: 28, height: 28)
+                                }
+                                
+                                Text(property.title)
+                                    .font(.pretendard(size: 11, weight: .medium))
+                                    .foregroundColor(selectedProperty == property ?
+                                                   DesignSystem.Colors.Brand.brightTurquoise : .gray)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            .padding(.vertical, 16)
+            
+            // 선택된 속성의 슬라이더
+            
         }
+        .padding(.bottom, 60)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            Rectangle()
                 .fill(Color.black.opacity(0.9))
-                .ignoresSafeArea(.container, edges: .bottom)
         )
     }
     
-    // MARK: - 속성 선택 탭바
-    @ViewBuilder
-    private var propertyTabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 16) {
-                ForEach(Array(properties.enumerated()), id: \.offset) { index, property in
-                    Button {
-                        selectedPropertyIndex = index
-                    } label: {
-                        VStack(spacing: 6) {
-                            // 아이콘
-                            Image(property.iconName)
-                                .overlay(selectedPropertyIndex == index ? DesignSystem.Colors.Brand.brightTurquoise : DesignSystem.Colors.Gray.gray15)
-                                .mask(Image(property.iconName))
-                                .font(.system(size: 16))
-                                .frame(width: 40, height: 40)
-                                .background(
-                                    Circle()
-                                        .fill(selectedPropertyIndex == index ? DesignSystem.Colors.Brand.brightTurquoise.opacity(0.2) : Color.gray.opacity(0.3))
-                                )
-                            
-                            // 제목
-                            Text(property.name)
-                                .font(.pretendard(size: 10, weight: .medium))
-                                .foregroundColor(selectedPropertyIndex == index ? DesignSystem.Colors.Brand.brightTurquoise : .white)
-                                .lineLimit(1)
-                        }
-                        .frame(width: 60)
-                    }
-                }
+    // MARK: - 최적화된 슬라이더
+    private var optimizedSlider: some View {
+        GeometryReader { geometry in
+            let range = selectedProperty.range
+            let currentValue = filterStateManager.currentState.getValue(for: selectedProperty.key)
+            let normalizedValue = (currentValue - range.lowerBound) / (range.upperBound - range.lowerBound)
+            let trackWidth = geometry.size.width - 24
+            
+            ZStack(alignment: .leading) {
+                // 배경 트랙
+                Capsule()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(height: 8)
+                
+                // 진행 바
+                Capsule()
+                    .fill(DesignSystem.Colors.Brand.brightTurquoise)
+                    .frame(width: trackWidth * CGFloat(normalizedValue), height: 8)
+                
+                // 슬라이더 썸
+                Circle()
+                    .fill(.white)
+                    .frame(width: 28, height: 28)
+                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                    .scaleEffect(isDraggingSlider ? 1.2 : 1.0)
+                    .offset(x: trackWidth * CGFloat(normalizedValue))
+                    .gesture(
+                        DragGesture()
+                            .onChanged { gesture in
+                                // 드래그 시작 시 현재 상태 저장 (한 번만)
+                                if !isDraggingSlider {
+                                    isDraggingSlider = true
+                                    dragStartState = filterStateManager.currentState
+                                    print("🎛️ 슬라이더 드래그 시작 - \(selectedProperty.title)")
+                                }
+                                
+                                let newPosition = max(0, min(trackWidth, gesture.location.x))
+                                let newNormalizedValue = newPosition / trackWidth
+                                let newValue = range.lowerBound + Double(newNormalizedValue) * (range.upperBound - range.lowerBound)
+                                
+                                // 실시간 업데이트 (스택에 저장하지 않음)
+                                var newState = filterStateManager.currentState
+                                newState.setValue(for: selectedProperty.key, value: newValue)
+                                filterStateManager.currentState = newState
+                            }
+                            .onEnded { _ in
+                                // 드래그 완료 시에만 undo 스택에 저장
+                                if let startState = dragStartState {
+                                    filterStateManager.saveStateToUndoStack(startState)
+                                    print("🎛️ 슬라이더 드래그 완료 - \(selectedProperty.title): \(currentValue)")
+                                }
+                                
+                                isDraggingSlider = false
+                                dragStartState = nil
+                            }
+                    )
             }
-            .padding(.horizontal, 20)
         }
-        .padding(.top, 20)
-        .padding(.bottom, 12)
+        .frame(height: 28)
+        .animation(.easeInOut(duration: 0.2), value: isDraggingSlider)
     }
     
-    // MARK: - 초기 이미지 설정
+    private var loadingOverlay: some View {
+        VStack {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .scaleEffect(1.5)
+            
+            Text("이미지 처리 중...")
+                .font(.pretendard(size: 16, weight: .medium))
+                .foregroundColor(.white)
+                .padding(.top, 16)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.8))
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func formatValue(_ value: Double, for property: EditingStateProperty) -> String {
+        switch property {
+        case .temperature:
+            return "\(Int(value))K"
+        default:
+            return String(format: "%.1f", value)
+        }
+    }
+    
     private func setupInitialImage() {
         if let originalImage = originalImage {
             viewModel.handleImageSelection(originalImage)
+            imageProcessor.setOriginalImage(originalImage)
+            
+            // 초기 상태 설정 - EditingState.defaultState 사용
+            filterStateManager.currentState = EditingState.defaultState
+            updateImageWithState(filterStateManager.currentState)
         }
     }
     
-    // MARK: - 편집 완료
+    private func updateImageWithState(_ state: EditingState) {
+        guard let originalImage = viewModel.originalImage else { return }
+        
+        // 백그라운드에서 필터 적용
+        Task.detached(priority: .userInitiated) {
+            let filteredImage = await self.imageProcessor.applyFilters(with: state)
+            
+            await MainActor.run {
+                self.viewModel.filteredImage = filteredImage ?? originalImage
+                self.viewModel.editingState = state
+            }
+        }
+    }
+    
     private func completeEditing() {
-        viewModel.input.completeEditing.send()
         onComplete(viewModel.filteredImage, viewModel.editingState)
     }
 }
 
-// MARK: - 향상된 필터 슬라이더
-struct EnhancedFilterSlider: View {
-    let property: FilterProperty
-    @Binding var value: Double
-    let onValueChanged: (String, Double) -> Void
+// MARK: - EditingState 속성 enum
+enum EditingStateProperty: String, CaseIterable {
+    case brightness = "brightness"
+    case exposure = "exposure"
+    case contrast = "contrast"
+    case saturation = "saturation"
+    case sharpness = "sharpness"
+    case blur = "blur"
+    case vignette = "vignette"
+    case noiseReduction = "noiseReduction"
+    case highlights = "highlights"
+    case shadows = "shadows"
+    case temperature = "temperature"
+    case blackPoint = "blackPoint"
     
-    @State private var isDragging = false
-    @State private var dragOffset: CGFloat = 0
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            // 속성 이름과 현재 값
-            HStack {
-                Text(property.name)
-                    .font(.pretendard(size: 16, weight: .semiBold))
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                Text(formatValue(value))
-                    .font(.pretendard(size: 14, weight: .medium))
-                    .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
-                    .monospacedDigit()
-            }
-            
-            // 커스텀 슬라이더
-            GeometryReader { geometry in
-                let trackWidth = geometry.size.width
-                let normalizedValue = (value - property.minValue) / (property.maxValue - property.minValue)
-                let thumbPosition = trackWidth * CGFloat(normalizedValue)
-                
-                ZStack(alignment: .leading) {
-                    // 배경 트랙
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.3))
-                        .frame(height: 8)
-                    
-                    // 진행 바
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(DesignSystem.Colors.Brand.brightTurquoise)
-                        .frame(width: thumbPosition, height: 8)
-                    
-                    // 슬라이더 썸
-                    Circle()
-                        .fill(.white)
-                        .frame(width: 20, height: 20)
-                        .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 1)
-                        .scaleEffect(isDragging ? 1.2 : 1.0)
-                        .offset(x: thumbPosition - 10) // 썸 중앙 정렬
-                        .gesture(
-                            DragGesture()
-                                .onChanged { gesture in
-                                    if !isDragging {
-                                        isDragging = true
-                                        print("🎛️ EnhancedFilterSlider: 드래그 시작 - \(property.name)")
-                                    }
-                                    
-                                    let newPosition = max(0, min(trackWidth, gesture.location.x))
-                                    let newNormalizedValue = newPosition / trackWidth
-                                    let newValue = property.minValue + Double(newNormalizedValue) * (property.maxValue - property.minValue)
-                                    
-                                    // 스텝에 맞춰 값 조정
-                                    let steppedValue = round(newValue / property.step) * property.step
-                                    
-                                    value = steppedValue
-                                    onValueChanged(property.key, steppedValue)
-                                }
-                                .onEnded { _ in
-                                    isDragging = false
-                                    print("🎛️ EnhancedFilterSlider: 드래그 완료 - \(property.name): \(value)")
-                                    // 드래그 완료 시에는 별도 처리 없음 (이미 onValueChanged에서 처리)
-                                }
-                        )
-                }
-            }
-            .frame(height: 20)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)
-            
-            // 범위 표시
-            HStack {
-                Text(formatValue(property.minValue))
-                    .font(.pretendard(size: 11, weight: .regular))
-                    .foregroundColor(.gray)
-                
-                Spacer()
-                
-                Text(formatValue(property.maxValue))
-                    .font(.pretendard(size: 11, weight: .regular))
-                    .foregroundColor(.gray)
-            }
+    var title: String {
+        switch self {
+        case .brightness: return "밝기"
+        case .exposure: return "노출"
+        case .contrast: return "대비"
+        case .saturation: return "채도"
+        case .sharpness: return "선명도"
+        case .blur: return "블러"
+        case .vignette: return "비네팅"
+        case .noiseReduction: return "노이즈"
+        case .highlights: return "하이라이트"
+        case .shadows: return "섀도우"
+        case .temperature: return "색온도"
+        case .blackPoint: return "블랙포인트"
         }
     }
     
-    private func formatValue(_ val: Double) -> String {
-        if property.key == "temperature" {
-            return String(format: "%.0fK", val)
-        } else {
-            return String(format: "%.2f", val)
+    var iconName: String {
+        switch self {
+        case .brightness: return "Brightness"
+        case .exposure: return "Exposure"
+        case .contrast: return "Contrast"
+        case .saturation: return "Saturation"
+        case .sharpness: return "Sharpness"
+        case .blur: return "Blur"
+        case .vignette: return "Vignette"
+        case .noiseReduction: return "Noise"
+        case .highlights: return "Highlights"
+        case .shadows: return "Shadows"
+        case .temperature: return "Temperature"
+        case .blackPoint: return "BlackPoint"
         }
     }
-}
-
-// MARK: - onPressingChanged 제스처 확장
-extension View {
-    func onPressingChanged(_ action: @escaping (Bool) -> Void) -> some View {
-        self.simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    action(true)
-                }
-                .onEnded { _ in
-                    action(false)
-                }
-        )
+    
+    var range: ClosedRange<Double> {
+        switch self {
+        case .brightness, .exposure, .sharpness, .blur, .vignette, .noiseReduction, .highlights, .shadows, .blackPoint:
+            return -1.0...1.0
+        case .contrast, .saturation:
+            return 0.0...2.0
+        case .temperature:
+            return 2000...10000
+        }
+    }
+    
+    var key: String {
+        return self.rawValue
     }
 }
 
