@@ -17,6 +17,7 @@ class NavigationRouter: ObservableObject {
     @Published var feedPath: [FilterRoute] = []
     @Published var searchPath: [UserRoute] = []
     @Published var profilePath: [ProfileRoute] = []
+    @Published var makePath: [MakeRoute] = []
     
     // MARK: - Sheet States
     @Published var presentedSheet: PresentedSheet?
@@ -26,6 +27,7 @@ class NavigationRouter: ObservableObject {
     let feedScrollToTop = PassthroughSubject<Void, Never>()
     let searchScrollToTop = PassthroughSubject<Void, Never>()
     let profileScrollToTop = PassthroughSubject<Void, Never>()
+    let makeScrollToTop = PassthroughSubject<Void, Never>()
     
     // MARK: - Singleton
     static let shared = NavigationRouter()
@@ -56,7 +58,7 @@ class NavigationRouter: ObservableObject {
         case .profile:
             profilePath.removeAll()
         case .filter:
-            break // 향후 구현
+            makePath.removeAll()
         }
     }
     
@@ -71,7 +73,7 @@ class NavigationRouter: ObservableObject {
         case .profile:
             profileScrollToTop.send()
         case .filter:
-            break // 향후 구현
+            makeScrollToTop.send()
         }
     }
     
@@ -224,13 +226,30 @@ class NavigationRouter: ObservableObject {
         case .profile:
             return profilePath.count
         case .filter:
-            return 0
+            return makePath.count
         }
     }
     
     func canGoBack() -> Bool {
         return getCurrentPathCount() > 0
     }
+    
+    func pushToEditFilter(with originalImage: UIImage? = nil) {
+          let route = MakeRoute.editFilter(originalImage: originalImage)
+          makePath.append(route)
+          print("🧭 NavigationRouter: 필터 편집으로 이동")
+      }
+      
+      func popMakeRoute() {
+          if !makePath.isEmpty {
+              makePath.removeLast()
+          }
+      }
+      
+      func popToRootMake() {
+          makePath.removeAll()
+          print("🧭 NavigationRouter: Make 루트로 이동")
+      }
     
     // MARK: - Debug Methods
     func printCurrentState() {

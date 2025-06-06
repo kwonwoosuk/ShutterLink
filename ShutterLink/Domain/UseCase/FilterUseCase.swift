@@ -13,7 +13,9 @@ protocol FilterUseCase {
     func getFilters(next: String, limit: Int, category: String?, orderBy: String) async throws -> FilterListResponse
     func likeFilter(filterId: String, likeStatus: Bool) async throws -> Bool
     func getFilterDetail(filterId: String) async throws -> FilterDetailResponse
-    func getLikedFilters(next: String, limit: Int, category: String?) async throws -> FilterListResponse // 추가
+    func getLikedFilters(next: String, limit: Int, category: String?) async throws -> FilterListResponse
+    func uploadFilterFiles(originalData: Data, filteredData: Data) async throws -> [String]
+     func createFilter(request: FilterCreateRequest) async throws -> FilterDetailResponse
 }
 
 class FilterUseCaseImpl: FilterUseCase {
@@ -50,4 +52,25 @@ class FilterUseCaseImpl: FilterUseCase {
         let router = FilterRouter.getLikedFilters(next: next, limit: limit, category: category)
         return try await networkManager.request(router, type: FilterListResponse.self)
     }
+    
+    func uploadFilterFiles(originalData: Data, filteredData: Data) async throws -> [String] {
+            let router = FilterRouter.uploadFilterFiles(originalImage: originalData, filteredImage: filteredData)
+            
+            // multipart/form-data 업로드를 위한 특별한 처리
+            let uploadData = try await networkManager.uploadMultipleImages(
+                router,
+                images: [
+                    ("files", originalData, "original.jpg"),
+                    ("files", filteredData, "filtered.jpg")
+                ]
+            )
+            
+            let response = try JSONDecoder().decode(FilterFilesUploadResponse.self, from: uploadData)
+            return response.files
+        }
+        
+        func createFilter(request: FilterCreateRequest) async throws -> FilterDetailResponse {
+            let router = FilterRouter.createFilter(request: request)
+            return try await networkManager.request(router, type: FilterDetailResponse.self)
+        }
 }

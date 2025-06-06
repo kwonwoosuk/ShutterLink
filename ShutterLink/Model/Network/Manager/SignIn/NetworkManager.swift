@@ -238,6 +238,68 @@ class NetworkManager {
             throw error
         }
     }
+    
+    func uploadMultipleImages(_ router: APIRouter, images: [(fieldName: String, data: Data, filename: String)]) async throws -> Data {
+            var urlRequest = try router.asURLRequest()
+            middleware.prepare(request: &urlRequest, authorizationType: router.authorizationType)
+            
+            print("🌐 [\(urlRequest.httpMethod ?? "UNKNOWN")] 다중 이미지 업로드 요청: \(urlRequest.url?.absoluteString ?? "")")
+            
+            // UUID로 고유한 경계값 생성
+            let boundary = "Boundary-\(UUID().uuidString)"
+            urlRequest.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: APIConstants.Header.contentType)
+            
+            // 멀티파트 형식으로 바디 구성
+            var body = Data()
+            
+            for (fieldName, imageData, filename) in images {
+                // 데이터 크기 확인
+                guard imageData.count > 0 else {
+                    throw NetworkError.customError("이미지 데이터가 비어 있습니다")
+                }
+                
+                // 시작 경계
+                body.append("--\(boundary)\r\n".data(using: .utf8)!)
+                
+                // 필드 설정
+                body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+                body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+                
+                // 이미지 데이터 추가
+                body.append(imageData)
+                body.append("\r\n".data(using: .utf8)!)
+            }
+            
+            // 종료 경계
+            body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+            
+            // 요청 본문 설정
+            urlRequest.httpBody = body
+            
+            print("🌐 다중 이미지 업로드 요청 - 총 \(images.count)개 파일")
+            
+            do {
+                let (data, response) = try await session.data(for: urlRequest)
+                print("📨 API 응답: \(response)")
+                
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("🔢 상태 코드: \(httpResponse.statusCode)")
+                }
+                
+                // 응답 데이터 로그
+                if let responseString = String(data: data, encoding: .utf8) {
+                    print("📄 다중 이미지 업로드 응답: \(responseString)")
+                }
+                
+                return try middleware.handleResponse(data: data, response: response)
+            } catch let error as NetworkError {
+                print("⚠️ 다중 이미지 업로드 에러: \(error)")
+                throw error
+            } catch {
+                print("⚠️ 다중 이미지 업로드 알 수 없는 에러: \(error)")
+                throw error
+            }
+        }
 }
 
 struct TokenResponse: Decodable {

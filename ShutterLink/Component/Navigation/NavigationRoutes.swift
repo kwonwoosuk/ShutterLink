@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 
 // MARK: - Route 프로토콜
 protocol Route: Hashable, Identifiable {
@@ -56,6 +57,17 @@ enum ProfileRoute: Route {
             return "likedFilters"
         case .filterDetail(let filterId):
             return "filterDetail_\(filterId)"
+        }
+    }
+}
+
+enum MakeRoute: Route {
+    case editFilter(originalImage: UIImage?)
+    
+    var id: String {
+        switch self {
+        case .editFilter:
+            return "editFilter"
         }
     }
 }

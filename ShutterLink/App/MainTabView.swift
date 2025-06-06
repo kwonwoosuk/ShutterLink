@@ -20,8 +20,8 @@ struct MainTabView: View {
                 
                 LazyView(FeedView())
                     .tag(Tab.feed)
-                
-                LazyView(Text("필터 화면"))
+             
+                LazyView(MakeView())
                     .tag(Tab.filter)
                 
                 LazyView(SearchView())

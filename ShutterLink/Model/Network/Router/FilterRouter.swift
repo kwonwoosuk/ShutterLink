@@ -14,6 +14,8 @@ enum FilterRouter: APIRouter {
     case likeFilter(filterId: String, likeStatus: Bool)
     case getFilterDetail(filterId: String)
     case getLikedFilters(next: String, limit: Int, category: String?) // 추가
+    case uploadFilterFiles(originalImage: Data, filteredImage: Data)
+      case createFilter(request: FilterCreateRequest)
     
     var path: String {
         switch self {
@@ -29,6 +31,10 @@ enum FilterRouter: APIRouter {
             return APIConstants.Path.filterDetail(filterId)
         case .getLikedFilters:
             return APIConstants.Path.likedFilters
+        case .uploadFilterFiles:
+                   return APIConstants.Path.filterUpload
+               case .createFilter:
+                   return APIConstants.Path.filterCreate
         }
     }
     
@@ -38,6 +44,8 @@ enum FilterRouter: APIRouter {
             return .get
         case .likeFilter:
             return .post
+        case .uploadFilterFiles, .createFilter:
+                   return .post
         }
     }
     
@@ -50,6 +58,17 @@ enum FilterRouter: APIRouter {
             return nil
         }
     }
+    
+    var contentType: String {
+           switch self {
+           case .uploadFilterFiles:
+               return APIConstants.ContentType.multipartFormData
+           case .createFilter:
+               return APIConstants.ContentType.json
+           default:
+               return APIConstants.ContentType.json
+           }
+       }
     
     var queryItems: [URLQueryItem]? {
         switch self {
