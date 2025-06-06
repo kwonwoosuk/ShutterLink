@@ -61,9 +61,11 @@ struct MakeView: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                         .scaleEffect(0.8)
                                 } else {
-                                    Text("저장")
-                                        .font(.pretendard(size: 16, weight: .semiBold))
-                                        .foregroundColor(.white)
+                                    Image("Save")
+                                        .overlay(DesignSystem.Colors.Gray.gray15)
+                                        .mask(Image("Save"))
+                                        .font(.system(size: 16))
+                                        .frame(width: 24, height: 24)
                                 }
                             }
                             .disabled(viewModel.isUploading)
@@ -91,6 +93,11 @@ struct MakeView: View {
                     // 공통 입력 필드들
                     inputFieldsSection
                     
+                    // 카테고리 선택 아래에 사진 등록 (이미지가 없을 때만)
+                    if !viewModel.hasOriginalImage {
+                        addPhotoSection
+                    }
+                    
                     // 편집된 이미지가 있을 때만 EXIF 정보 표시
                     if viewModel.hasEditedImage, let metadata = viewModel.photoMetadata {
                         ExifInfoSection(metadata: metadata)
@@ -99,6 +106,7 @@ struct MakeView: View {
                     
                     Spacer(minLength: 100)
                 }
+                .dismissKeyboardOnScroll()
                 .padding(.top, 20)
             }
             
@@ -174,33 +182,23 @@ struct MakeView: View {
         .padding(.horizontal, 20)
     }
     
-    // MARK: - 초기 상태 섹션 (+ 버튼)
+    // MARK: - 초기 상태 섹션
     @ViewBuilder
     private var initialStateSection: some View {
         VStack(spacing: 16) {
-            Text("대표 사진 등록")
-                .font(.pretendard(size: 16, weight: .semiBold))
+            Text("새로운 필터를 만들어보세요")
+                .font(.hakgyoansim(size: 20, weight: .bold))
                 .foregroundColor(.white)
+                .multilineTextAlignment(.center)
             
-            // 중앙 + 버튼
-            Button {
-                viewModel.input.selectImage.send()
-            } label: {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(height: 200)
-                    .overlay(
-                        Image(systemName: "plus")
-                            .font(.system(size: 48, weight: .light))
-                            .foregroundColor(.gray)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.gray.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [8, 4]))
-                    )
-            }
+            Text("사진을 선택하고 편집하여\n나만의 필터를 제작할 수 있습니다")
+                .font(.pretendard(size: 14, weight: .regular))
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
         }
         .padding(.horizontal, 20)
+        .padding(.vertical, 40)
     }
     
     // MARK: - 입력 필드들 섹션
@@ -252,7 +250,7 @@ struct MakeView: View {
                 }
             }
             
-            // 필터 소개
+            // 필터 소개 (항상 표시)
             VStack(alignment: .leading, spacing: 8) {
                 Text("필터 소개")
                     .font(.pretendard(size: 14, weight: .medium))
@@ -266,6 +264,45 @@ struct MakeView: View {
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.gray.opacity(0.15))
+                    )
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    // MARK: - 사진 등록 섹션 (카테고리 선택 아래)
+    @ViewBuilder
+    private var addPhotoSection: some View {
+        VStack(spacing: 16) {
+            Text("대표 사진 등록")
+                .font(.pretendard(size: 16, weight: .semiBold))
+                .foregroundColor(.white)
+            
+            Button {
+                viewModel.input.selectImage.send()
+            } label: {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 200)
+                    .overlay(
+                        VStack(spacing: 12) {
+                            Circle()
+                                .fill(DesignSystem.Colors.Brand.brightTurquoise)
+                                .frame(width: 60, height: 60)
+                                .overlay(
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 24, weight: .medium))
+                                        .foregroundColor(.black)
+                                )
+                            
+                            Text("사진 선택하기")
+                                .font(.pretendard(size: 16, weight: .semiBold))
+                                .foregroundColor(.white)
+                        }
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.gray.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [8, 4]))
                     )
             }
         }
@@ -288,6 +325,13 @@ struct MakeView: View {
             viewModel.errorMessage = "필터 소개를 입력해주세요."
             return
         }
+        
+        guard viewModel.hasEditedImage else {
+            viewModel.errorMessage = "편집된 이미지가 필요합니다."
+            return
+        }
+        
+        print("💾 MakeView: 필터 저장 시작 - 제목: \(viewModel.filterTitle), 설명: \(viewModel.filterDescription)")
         
         viewModel.input.saveFilter.send((
             viewModel.filterTitle,

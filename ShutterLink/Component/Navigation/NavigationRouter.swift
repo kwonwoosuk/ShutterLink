@@ -234,6 +234,12 @@ class NavigationRouter: ObservableObject {
         return getCurrentPathCount() > 0
     }
     
+    func pushToFilterCreationEdit() {
+        let route = MakeRoute.editFilter(originalImage: nil)
+        makePath.append(route)
+        print("🧭 NavigationRouter: 필터 생성 편집 화면으로 이동")
+    }
+    
     func pushToEditFilter(with originalImage: UIImage? = nil) {
           let route = MakeRoute.editFilter(originalImage: originalImage)
           makePath.append(route)
@@ -249,6 +255,15 @@ class NavigationRouter: ObservableObject {
       func popToRootMake() {
           makePath.removeAll()
           print("🧭 NavigationRouter: Make 루트로 이동")
+      }
+    
+    func getMakePathDepth() -> Int {
+          return makePath.count
+      }
+      
+      /// Make 탭에서 뒤로 갈 수 있는지 확인
+      func canGoBackInMake() -> Bool {
+          return !makePath.isEmpty
       }
     
     // MARK: - Debug Methods

@@ -48,10 +48,14 @@ class MakeViewModel: ObservableObject {
     private let filterProcessor = ImageFilterProcessor()
     private let filterUseCase: FilterUseCase
     
-    // Undo/Redo 스택
+    // Enhanced Undo/Redo 스택
     private var undoStack: [EditingState] = []
     private var redoStack: [EditingState] = []
     private let maxHistoryCount = 50
+    
+    // 성능 최적화를 위한 디바운싱
+    private var filterUpdateTimer: Timer?
+    private let filterUpdateDelay: TimeInterval = 0.1
     
     // 중복 저장 방지
     private var isSaving = false
@@ -75,11 +79,10 @@ class MakeViewModel: ObservableObject {
             }
             .store(in: &cancellables)
         
-        // 속성 편집
+        // 속성 편집 (디바운싱 적용)
         input.editProperty
-            .debounce(for: 0.1, scheduler: RunLoop.main)
             .sink { [weak self] key, value in
-                self?.updateEditingProperty(key: key, value: value)
+                self?.updateEditingPropertyWithDebouncing(key: key, value: value)
             }
             .store(in: &cancellables)
         
@@ -129,16 +132,32 @@ class MakeViewModel: ObservableObject {
         print("✅ MakeViewModel: 이미지 선택 완료")
     }
     
-    // MARK: - Editing State Management
-    private func updateEditingProperty(key: String, value: Double) {
-        // 히스토리에 현재 상태 저장
-        saveToUndoStack()
+    // MARK: - Enhanced Editing State Management
+    
+    private func updateEditingPropertyWithDebouncing(key: String, value: Double) {
+        // 현재 값과 동일하면 무시
+        let currentValue = editingState.getValue(for: key)
+        if abs(currentValue - value) < 0.001 {
+            return
+        }
         
-        // 새 값 적용
+        print("🎛️ MakeViewModel: \(key) 값 변경: \(currentValue) → \(value)")
+        
+        // 첫 번째 변경이거나 마지막 스택 상태와 다르면 undo 스택에 저장
+        if undoStack.isEmpty || (undoStack.last?.getValue(for: key) != currentValue) {
+            saveToUndoStack()
+        }
+        
+        // 타이머 초기화
+        filterUpdateTimer?.invalidate()
+        
+        // 즉시 상태 업데이트 (UI 반응성을 위해)
         editingState.setValue(for: key, value: value)
         
-        // 실시간 필터 적용
-        applyFiltersInRealTime()
+        // 디바운싱된 필터 적용
+        filterUpdateTimer = Timer.scheduledTimer(withTimeInterval: filterUpdateDelay, repeats: false) { [weak self] _ in
+            self?.applyFiltersInRealTime()
+        }
     }
     
     private func applyFiltersInRealTime() {
@@ -147,49 +166,81 @@ class MakeViewModel: ObservableObject {
         filterTask = Task { @MainActor in
             guard let original = originalImage else { return }
             
-            let filtered = filterProcessor.applyFilters(with: editingState)
+            // 백그라운드에서 필터 적용
+            let filtered = await Task.detached {
+                return self.filterProcessor.applyFilters(with: self.editingState)
+            }.value
+            
             self.filteredImage = filtered ?? original
-            self.hasEditedImage = !editingState.isDefault
+            self.hasEditedImage = !self.editingState.isDefault
         }
     }
     
     private func saveToUndoStack() {
+        // 현재 상태를 undo 스택에 추가
         undoStack.append(editingState)
+        
+        // redo 스택 초기화 (새로운 변경이 있으면 redo 불가)
         redoStack.removeAll()
         
         // 히스토리 크기 제한
         if undoStack.count > maxHistoryCount {
             undoStack.removeFirst()
         }
+        
+        print("📚 MakeViewModel: Undo 스택에 저장됨 - 총 \(undoStack.count)개, Redo: \(redoStack.count)개")
     }
     
     private func performUndo() {
-        guard !undoStack.isEmpty else { return }
+        guard !undoStack.isEmpty else {
+            print("⚠️ MakeViewModel: Undo 스택이 비어있음")
+            return
+        }
         
+        // 현재 상태를 redo 스택에 저장
         redoStack.append(editingState)
-        editingState = undoStack.removeLast()
+        
+        // 이전 상태 복원
+        let previousState = undoStack.removeLast()
+        editingState = previousState
         applyFiltersInRealTime()
         
-        print("🔄 MakeViewModel: Undo 실행")
+        print("🔄 MakeViewModel: Undo 실행 - Undo: \(undoStack.count), Redo: \(redoStack.count)")
     }
     
     private func performRedo() {
-        guard !redoStack.isEmpty else { return }
+        guard !redoStack.isEmpty else {
+            print("⚠️ MakeViewModel: Redo 스택이 비어있음")
+            return
+        }
         
+        // 현재 상태를 undo 스택에 저장
         undoStack.append(editingState)
-        editingState = redoStack.removeLast()
+        
+        // 다음 상태 복원
+        let nextState = redoStack.removeLast()
+        editingState = nextState
         applyFiltersInRealTime()
         
-        print("🔄 MakeViewModel: Redo 실행")
+        print("🔄 MakeViewModel: Redo 실행 - Undo: \(undoStack.count), Redo: \(redoStack.count)")
     }
     
     private func resetToOriginal() {
-        saveToUndoStack()
+        print("🔄 MakeViewModel: 원본으로 리셋 시작")
+        
+        // 현재 상태가 기본 상태가 아니라면 undo 스택에 저장
+        if editingState != EditingState.defaultState {
+            saveToUndoStack()
+        }
+        
         editingState = EditingState.defaultState
         filteredImage = originalImage
         hasEditedImage = false
         
-        print("🔄 MakeViewModel: 원본으로 리셋")
+        // 필터 적용
+        applyFiltersInRealTime()
+        
+        print("✅ MakeViewModel: 원본으로 리셋 완료 - Undo: \(undoStack.count), Redo: \(redoStack.count)")
     }
     
     private func resetEditingState() {
@@ -346,8 +397,6 @@ class MakeViewModel: ObservableObject {
     }
     
     private func uploadFilterFiles(originalData: Data, filteredData: Data) async throws -> [String] {
-        // NetworkManager에서 multipart 업로드 처리 필요
-        // 임시로 필터 생성 UseCase에 추가하거나, 별도 메서드 구현
         return try await filterUseCase.uploadFilterFiles(originalData: originalData, filteredData: filteredData)
     }
     
@@ -385,6 +434,7 @@ class MakeViewModel: ObservableObject {
     }
     
     deinit {
+        filterUpdateTimer?.invalidate()
         filterTask?.cancel()
         saveTask?.cancel()
         cancellables.removeAll()
@@ -397,3 +447,4 @@ private extension EditingState {
         return self == EditingState.defaultState
     }
 }
+
