@@ -17,6 +17,14 @@ struct FilterDetailView: View {
     @State private var hasAppeared = false
     @State private var showChatOuterView = false
     
+    // 새로운 이미지 비교를 위한 State 추가
+    @State private var originalImage: Image?
+    @State private var filteredImage: Image?
+    @State private var filterPivot: CGFloat = 0
+    @State private var imageSectionHeight: CGFloat = 0
+    @State private var imageLoadTask: Task<Void, Never>?
+    @State private var hasLoadedImages = false // 중복 로딩 방지
+    
     var body: some View {
         ZStack {
             Color.black
@@ -25,12 +33,10 @@ struct FilterDetailView: View {
             if let filterDetail = viewModel.filterDetail {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 24) {
-                        InteractiveBeforeAfterView(
-                            imagePath: filterDetail.files.first ?? "",
-                            filterValues: filterDetail.filterValues
-                        )
-                        .frame(height: 400)
-                        .padding(.top, 40)
+                        // InteractiveBeforeAfterView 대신 새로운 imageSection 사용
+                        imageSection
+                            .frame(height: 400)
+                            .padding(.top, 40)
                         
                         // 필터 정보와 통계
                         FilterInfoWithStatsSection(filterDetail: filterDetail)
@@ -167,6 +173,16 @@ struct FilterDetailView: View {
                 }
             }
         }
+        .onDisappear {
+            cleanUpResources()
+        }
+        .onReceive(viewModel.$filterDetail) { filterDetail in
+            // 한 번만 로딩하도록 제한
+            if let filterDetail = filterDetail, !hasLoadedImages {
+                hasLoadedImages = true
+                loadImages(filterDetail: filterDetail)
+            }
+        }
         .sheet(isPresented: $showChatOuterView) {
             // 채팅 뷰
             NavigationStack {
@@ -191,6 +207,182 @@ struct FilterDetailView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - 새로운 imageSection (참고 코드 방식 적용)
+    @ViewBuilder
+    private var imageSection: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            
+            if let originalImage, let filteredImage {
+                ZStack {
+                    // Filtered 이미지 (배경 전체)
+                    filteredImage
+                        .squareImage(width)
+                    
+                    // Original 이미지 (마스킹으로 일부만)
+                    originalImage
+                        .squareImage(width)
+                        .mask(
+                            Rectangle()
+                                .frame(width: filterPivot)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        )
+                }
+                .cornerRadius(16)
+                .clipped()
+                
+                // 슬라이더 컨트롤
+                HStack(spacing: 4) {
+                    Text("After")
+                        .font(.pretendard(size: 12, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 48, height: 20)
+                        .background(Color.gray.opacity(0.7))
+                        .cornerRadius(10)
+                
+                    Circle()
+                        .fill(Color.gray.opacity(0.7))
+                        .frame(width: 24, height: 24)
+                        .overlay(
+                            Circle().stroke(.white, lineWidth: 2)
+                        )
+                        .overlay(
+                            Image("DivideButton")
+                                .resizable()
+                                .scaledToFit() 
+                                .frame(width: 20, height: 20)
+                        )
+                    
+                    Text("Before")
+                        .font(.pretendard(size: 12, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 48, height: 20)
+                        .background(Color.gray.opacity(0.7))
+                        .cornerRadius(10)
+                }
+                .offset(x: filterPivot - 60, y: width + 20)
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            let newPosition = max(0, min(width, value.location.x))
+                            filterPivot = newPosition
+                        }
+                )
+                .onAppear {
+                    filterPivot = width / 2
+                }
+            } else {
+                // 로딩 상태
+                Rectangle()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: width, height: width)
+                    .cornerRadius(16)
+                    .overlay(
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    )
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    // MARK: - 이미지 로딩 함수
+    private func loadImages(filterDetail: FilterDetailResponse) {
+        // 이미 로딩 중이면 중단
+        guard imageLoadTask == nil else {
+            print("🔄 이미지 로딩이 이미 진행 중입니다.")
+            return
+        }
+        
+        print("🔄 이미지 로딩 시작: \(filterDetail.files.first ?? "없음")")
+        
+        imageLoadTask = Task {
+            do {
+                // 원본 이미지만 로딩 (필터된 이미지는 나중에 서버에서 제공받을 때 추가)
+                let originalImg = try await fetchImage(urlString: filterDetail.files.first)
+                let filteredImg = try await fetchImage(urlString: filterDetail.files.last)
+                // Task가 취소되지 않았는지 확인
+                guard !Task.isCancelled else {
+                    print("🔄 이미지 로딩 Task 취소됨")
+                    return
+                }
+                
+                await MainActor.run {
+                    self.originalImage = originalImg
+                    self.filteredImage = filteredImg
+                    self.imageLoadTask = nil
+                }
+                
+                print("✅ 이미지 로딩 성공")
+            } catch {
+                await MainActor.run {
+                    self.imageLoadTask = nil
+                }
+                
+                // 취소 에러가 아닌 경우만 로그 출력
+                if (error as NSError).code != NSURLErrorCancelled {
+                    print("❌ 이미지 로딩 실패 (취소가 아님): \(error)")
+                }
+            }
+        }
+    }
+    
+    // MARK: - 이미지 다운로드 함수
+    private func fetchImage(urlString: String?) async throws -> Image? {
+        guard let urlString = urlString, !urlString.isEmpty else {
+            throw URLError(.badURL)
+        }
+        
+        // Task 취소 확인
+        guard !Task.isCancelled else {
+            throw URLError(.cancelled)
+        }
+        
+        let data = try await ImageLoader.shared.loadImage(from: urlString)
+        
+        // 다시 한 번 취소 확인
+        guard !Task.isCancelled else {
+            throw URLError(.cancelled)
+        }
+        
+        guard let uiImage = UIImage(data: data) else {
+            throw URLError(.cannotDecodeContentData)
+        }
+        
+        return Image(uiImage: uiImage)
+    }
+    
+    // MARK: - 리소스 정리 함수
+    private func cleanUpResources() {
+        print("🧹 FilterDetailView: 리소스 정리 시작")
+        
+        // 1. 이미지 메모리 정리
+        originalImage = nil
+        filteredImage = nil
+        
+        // 2. 진행 중인 Task 취소
+        imageLoadTask?.cancel()
+        imageLoadTask = nil
+        
+        // 3. 상태 초기화
+        filterPivot = 0
+        imageSectionHeight = 0
+        hasLoadedImages = false // 로딩 상태 초기화
+        
+        print("🧹 FilterDetailView: 리소스 정리 완료")
+    }
+}
+
+// MARK: - 이미지 헬퍼 Extension
+private extension Image {
+    func squareImage(_ width: CGFloat) -> some View {
+        self
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: width, height: width)
+            .clipped()
     }
 }
 
@@ -290,174 +482,6 @@ struct PurchaseDownloadButton: View {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         return formatter.string(from: NSNumber(value: price)) ?? "\(price)"
-    }
-}
-
-// MARK: - 드래그 가능한 Before/After 이미지 비교 뷰 (기존과 동일)
-struct InteractiveBeforeAfterView: View {
-    let imagePath: String
-    let filterValues: FilterValues
-    @State private var dividerPosition: CGFloat = 0.5
-    @State private var isDragging: Bool = false
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            // 메인 이미지 영역
-            GeometryReader { geometry in
-                ZStack {
-                    // Before 이미지 (원본) - 전체 이미지
-                    if !imagePath.isEmpty {
-                        AuthenticatedImageView(
-                            imagePath: imagePath,
-                            contentMode: .fill
-                        ) {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.3))
-                                .overlay(
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                )
-                        }
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .clipped()
-                        .cornerRadius(16)
-                    }
-                    
-                    // After 이미지 (필터 적용) - 디바이더 위치에 따라 표시
-                    if !imagePath.isEmpty {
-                        AuthenticatedImageView(
-                            imagePath: imagePath,
-                            contentMode: .fill
-                        ) {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.3))
-                        }
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .clipped()
-                        .overlay(
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color.blue.opacity(0.2 + filterValues.saturation * 0.15),
-                                    Color.cyan.opacity(0.1 + filterValues.contrast * 0.1)
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                            .blendMode(.multiply)
-                        )
-                        .brightness(filterValues.brightness * 0.3)
-                        .contrast(1 + filterValues.contrast * 0.5)
-                        .saturation(1 + filterValues.saturation)
-                        .mask(
-                            Rectangle()
-                                .frame(width: geometry.size.width * dividerPosition, height: geometry.size.height)
-                                .position(x: geometry.size.width * dividerPosition / 2, y: geometry.size.height / 2)
-                        )
-                        .cornerRadius(16)
-                    }
-                }
-            }
-            .frame(height: 400)
-            
-            // 통합된 디바이더 컨트롤
-            ConnectedControlView(
-                dividerPosition: $dividerPosition,
-                isDragging: $isDragging
-            )
-            .padding(.bottom, 20)
-        }
-        .padding(.horizontal, 20)
-    }
-}
-
-// MARK: - 연결된 컨트롤 뷰 (기존과 동일)
-struct ConnectedControlView: View {
-    @Binding var dividerPosition: CGFloat
-    @Binding var isDragging: Bool
-    @State private var dragOffset: CGFloat = 0
-    
-    var body: some View {
-        GeometryReader { geometry in
-            HStack(spacing: 0) {
-                // After 버튼
-                Text("After")
-                    .font(.pretendard(size: 12, weight: .medium))
-                    .foregroundColor(.white)
-                    .frame(width: 60, height: 24)
-                    .background(
-                        Capsule()
-                            .fill(DesignSystem.Colors.Gray.gray60.opacity(0.7))
-                    )
-                
-                // 디바이더 버튼
-                Button {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        dividerPosition = 0.5
-                    }
-                } label: {
-                    Image("DivideButton")
-                        .renderingMode(.template)
-                        .foregroundColor(.white)
-                        .frame(width: 24, height: 24)
-                        .background(
-                            Capsule()
-                                .fill(DesignSystem.Colors.Gray.gray60)
-                                .frame(width: 32, height: 32)
-                        )
-                        .scaleEffect(isDragging ? 1.1 : 1.0)
-                        .animation(.easeInOut(duration: 0.1), value: isDragging)
-                }
-                .buttonStyle(PlainButtonStyle())
-                
-                // Before 버튼
-                Text("Before")
-                    .font(.pretendard(size: 12, weight: .medium))
-                    .foregroundColor(.white)
-                    .frame(width: 60, height: 24)
-                    .background(
-                        Capsule()
-                            .fill(DesignSystem.Colors.Gray.gray60.opacity(0.7))
-                    )
-            }
-            .offset(x: dragOffset)
-            .frame(maxWidth: .infinity)
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        isDragging = true
-                        
-                        let trackWidth = geometry.size.width - 40
-                        let relativeX = value.location.x - (trackWidth / 2)
-                        
-                        let buttonGroupWidth: CGFloat = 60 + 32 + 60
-                        let maxOffset = (trackWidth - buttonGroupWidth) / 2
-                        dragOffset = max(-maxOffset, min(maxOffset, relativeX))
-                        
-                        let normalizedPosition = (dragOffset + maxOffset) / (maxOffset * 2)
-                        dividerPosition = normalizedPosition
-                    }
-                    .onEnded { _ in
-                        isDragging = false
-                    }
-            )
-        }
-        .frame(height: 40)
-        .onAppear {
-            let trackWidth = (UIScreen.main.bounds.width - 40) - 40
-            let buttonGroupWidth: CGFloat = 60 + 32 + 60
-            let maxOffset = (trackWidth - buttonGroupWidth) / 2
-            dragOffset = (0.5 * (maxOffset * 2)) - maxOffset
-        }
-        .onChange(of: dividerPosition) { newValue in
-            if !isDragging {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    let trackWidth = (UIScreen.main.bounds.width - 40) - 40
-                    let buttonGroupWidth: CGFloat = 60 + 32 + 60
-                    let maxOffset = (trackWidth - buttonGroupWidth) / 2
-                    dragOffset = (newValue * (maxOffset * 2)) - maxOffset
-                }
-            }
-        }
     }
 }
 
