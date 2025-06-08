@@ -80,7 +80,7 @@ struct MakeEditView: View {
                 print("🎨 MakeEditView: 화면 표시됨")
             }
         }
-        .compatibleOnChange(of: filterStateManager.currentState) { newState in
+        .onChange(of: filterStateManager.currentState) { newState in
             updateImageWithState(newState)
         }
     }

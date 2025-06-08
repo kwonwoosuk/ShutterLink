@@ -184,8 +184,7 @@ struct ProfileView: View {
                 }
             }
         }
-        // iOS 16 호환성을 위한 onChange 수정
-        .compatibleOnChange(of: router.presentedSheet) { newValue in
+        .onChange(of: router.presentedSheet) { newValue in
             if newValue == nil {
                 // 프로필 수정 화면이 닫힌 후 프로필 다시 로드
                 print("🔵 ProfileView: 프로필 수정 완료, 다시 로드")

@@ -448,7 +448,7 @@ struct ConnectedControlView: View {
             let maxOffset = (trackWidth - buttonGroupWidth) / 2
             dragOffset = (0.5 * (maxOffset * 2)) - maxOffset
         }
-        .compatibleOnChange(of: dividerPosition) { newValue in
+        .onChange(of: dividerPosition) { newValue in
             if !isDragging {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     let trackWidth = (UIScreen.main.bounds.width - 40) - 40

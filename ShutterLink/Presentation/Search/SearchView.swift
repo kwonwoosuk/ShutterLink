@@ -98,7 +98,7 @@ struct SearchView: View {
                 }
             }
         }
-        .compatibleOnChange(of: searchText) { newValue in
+        .onChange(of: searchText) { newValue in
             if newValue.isEmpty {
                 viewModel.input.clearResults.send()
             }

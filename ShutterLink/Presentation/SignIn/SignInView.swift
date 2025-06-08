@@ -145,9 +145,9 @@ struct SignInView: View {
             }
         }
         
-        // iOS 16 호환성을 위한 onChange 수정
+        
         return mainView
-            .compatibleOnChange(of: viewModel.isSignInComplete) { newValue in
+            .onChange(of: viewModel.isSignInComplete) { newValue in
                 if newValue {
                     dismiss()
                 }

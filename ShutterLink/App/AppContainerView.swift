@@ -53,7 +53,7 @@ struct AppContainerView: View {
                                 .scaleEffect(1.2)
                                 .padding(.top, 10)
                             
-                            // 로딩이 너무 오래 걸릴 때 디버깅용 (개발 시에만 사용)
+                            
                             #if DEBUG
                             if hasInitialized {
                                 Button("강제 로그아웃") {
@@ -87,11 +87,11 @@ struct AppContainerView: View {
                 hasInitialized = true
             }
         }
-        // iOS 16 호환성을 위한 onChange 수정
-        .compatibleOnChange(of: authState.isLoggedIn) { newValue in
+        
+        .onChange(of: authState.isLoggedIn) { newValue in
             print("🔄 로그인 상태 변경: \(newValue)")
         }
-        .compatibleOnChange(of: authState.isLoading) { newValue in
+        .onChange(of: authState.isLoading) { newValue in
             print("🔄 로딩 상태 변경: \(newValue)")
         }
     }

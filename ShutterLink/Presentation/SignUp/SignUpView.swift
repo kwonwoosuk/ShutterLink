@@ -182,8 +182,7 @@ struct SignUpView: View {
                     }
                 }
             }
-            // iOS 16 호환성을 위한 onChange 수정
-            .compatibleOnChange(of: viewModel.isSignUpComplete) { newValue in
+            .onChange(of: viewModel.isSignUpComplete) { newValue in
                 if newValue {
                     dismiss()
                 }
