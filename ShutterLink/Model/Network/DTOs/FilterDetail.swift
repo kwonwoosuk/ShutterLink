@@ -16,7 +16,7 @@ struct FilterDetailResponse: Decodable {
     let files: [String]
     let price: Int
     let creator: CreatorInfo
-    let photoMetadata: PhotoMetadata
+    let photoMetadata: PhotoMetadata?
     let filterValues: FilterValues
     var is_liked: Bool
     var is_downloaded: Bool
@@ -29,17 +29,17 @@ struct FilterDetailResponse: Decodable {
 
 // MARK: - 사진 메타데이터 모델
 struct PhotoMetadata: Decodable {
-    let camera: String
-    let lens_info: String
-    let focal_length: Float
-    let aperture: Double
-    let iso: Int
-    let shutter_speed: String
+    let camera: String?                 // 옵셔널로 변경
+    let lens_info: String?              // 옵셔널로 변경
+    let focal_length: Float?            // 옵셔널로 변경
+    let aperture: Double?               // 옵셔널로 변경
+    let iso: Int?                       // 옵셔널로 변경
+    let shutter_speed: String?          // 옵셔널로 변경
     let pixel_width: Int
     let pixel_height: Int
     let file_size: Int
-    let format: String
-    let date_time_original: String
+    let format: String?                 // 옵셔널로 변경
+    let date_time_original: String?     // 옵셔널로 변경
     let latitude: Double?
     let longitude: Double?
 }
@@ -90,14 +90,18 @@ extension PhotoMetadata {
     }
     
     var formattedDateTime: String {
+        guard let dateTimeOriginal = date_time_original else {
+            return "알 수 없음"
+        }
+        
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
         
-        if let date = formatter.date(from: date_time_original) {
+        if let date = formatter.date(from: dateTimeOriginal) {
             formatter.dateFormat = "yyyy.MM.dd HH:mm"
             return formatter.string(from: date)
         }
-        return date_time_original
+        return dateTimeOriginal
     }
     
     var resolution: String {
@@ -106,6 +110,45 @@ extension PhotoMetadata {
     
     var hasLocation: Bool {
         return latitude != nil && longitude != nil
+    }
+    
+    // 카메라 정보 (안전하게 처리)
+    var cameraInfo: String {
+        return camera ?? "알 수 없는 카메라"
+    }
+    
+    // 렌즈 정보 (안전하게 처리)
+    var lensInfo: String {
+        return lens_info ?? "알 수 없는 렌즈"
+    }
+    
+    // 초점거리 정보 (안전하게 처리)
+    var focalLengthInfo: String {
+        guard let focalLength = focal_length else {
+            return "알 수 없음"
+        }
+        return "\(Int(focalLength))mm"
+    }
+    
+    // 조리개 정보 (안전하게 처리)
+    var apertureInfo: String {
+        guard let aperture = aperture else {
+            return "알 수 없음"
+        }
+        return "f/\(String(format: "%.1f", aperture))"
+    }
+    
+    // ISO 정보 (안전하게 처리)
+    var isoInfo: String {
+        guard let iso = iso else {
+            return "알 수 없음"
+        }
+        return "ISO \(iso)"
+    }
+    
+    // 셔터 스피드 정보 (안전하게 처리)
+    var shutterSpeedInfo: String {
+        return shutter_speed ?? "알 수 없음"
     }
 }
 

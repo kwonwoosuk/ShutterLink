@@ -311,7 +311,10 @@ struct MakeView: View {
     
     // MARK: - 필터 저장 액션
     private func saveFilter() {
-        guard !viewModel.filterTitle.isEmpty else {
+        let trimmedTitle = viewModel.filterTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDescription = viewModel.filterDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedTitle.isEmpty else {
             viewModel.errorMessage = "필터명을 입력해주세요."
             return
         }
@@ -321,23 +324,23 @@ struct MakeView: View {
             return
         }
         
-        guard !viewModel.filterDescription.isEmpty else {
+        guard !trimmedDescription.isEmpty else {
             viewModel.errorMessage = "필터 소개를 입력해주세요."
             return
         }
         
-        guard viewModel.hasEditedImage else {
-            viewModel.errorMessage = "편집된 이미지가 필요합니다."
-            return
-        }
-        
-        print("💾 MakeView: 필터 저장 시작 - 제목: \(viewModel.filterTitle), 설명: \(viewModel.filterDescription)")
+        print("💾 MakeView: 필터 저장 데이터 확인")
+        print("   제목: '\(trimmedTitle)'")
+        print("   카테고리: '\(viewModel.selectedCategory)'")
+        print("   가격: \(viewModel.filterPrice)")
+        print("   소개: '\(trimmedDescription)'")
+        print("   소개 길이: \(trimmedDescription.count)")
         
         viewModel.input.saveFilter.send((
-            viewModel.filterTitle,
+            trimmedTitle,
             viewModel.selectedCategory,
             viewModel.filterPrice,
-            viewModel.filterDescription
+            trimmedDescription  // 공백 제거된 버전 전달
         ))
     }
 }

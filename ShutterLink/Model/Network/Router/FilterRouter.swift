@@ -54,6 +54,18 @@ enum FilterRouter: APIRouter {
         case .likeFilter(_, let likeStatus):
             let request = LikeRequest(like_status: likeStatus)
             return try? JSONEncoder().encode(request)
+        case .createFilter(let request):
+            do {
+                let jsonData = try JSONEncoder().encode(request)
+                print("🌐 FilterRouter: createFilter JSON 바디")
+                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                    print(jsonString)
+                }
+                return jsonData
+            } catch {
+                print("❌ FilterRouter: JSON 인코딩 실패 - \(error)")
+                return nil
+            }
         default:
             return nil
         }

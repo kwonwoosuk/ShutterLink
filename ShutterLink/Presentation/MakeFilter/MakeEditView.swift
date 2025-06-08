@@ -184,7 +184,10 @@ struct MakeEditView: View {
     
     private var imageSection: some View {
         GeometryReader { geometry in
-            let imageSize = min(geometry.size.width - 40, geometry.size.height - 40)
+            // 안전한 imageSize 계산 - 최소값 보장
+            let safeWidth = max(geometry.size.width - 40, 100)
+            let safeHeight = max(geometry.size.height - 40, 100)
+            let imageSize = max(min(safeWidth, safeHeight), 100) // 최소 100pt 보장
             
             VStack {
                 Spacer()
@@ -195,79 +198,21 @@ struct MakeEditView: View {
                     Group {
                         if showBeforeImage, let originalImage = viewModel.originalImage {
                             // Before 이미지 (원본)
-                            Image(uiImage: originalImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: imageSize, height: imageSize)
-                                .clipShape(RoundedRectangle(cornerRadius: 20))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(Color.white.opacity(0.3), lineWidth: 2)
-                                )
-                                .overlay(
-                                    VStack {
-                                        HStack {
-                                            Text("Before")
-                                                .font(.pretendard(size: 12, weight: .semiBold))
-                                                .foregroundColor(.white)
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 6)
-                                                .background(
-                                                    Capsule()
-                                                        .fill(Color.black.opacity(0.7))
-                                                )
-                                            Spacer()
-                                        }
-                                        .padding(16)
-                                        Spacer()
-                                    }
-                                )
+                            createImageView(
+                                image: originalImage,
+                                size: imageSize,
+                                label: "Before"
+                            )
                         } else if let filteredImage = viewModel.filteredImage {
                             // After 이미지 (편집된)
-                            Image(uiImage: filteredImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: imageSize, height: imageSize)
-                                .clipShape(RoundedRectangle(cornerRadius: 20))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(Color.white.opacity(0.3), lineWidth: 2)
-                                )
-                                .overlay(
-                                    VStack {
-                                        HStack {
-                                            Text("After")
-                                                .font(.pretendard(size: 12, weight: .semiBold))
-                                                .foregroundColor(.white)
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 6)
-                                                .background(
-                                                    Capsule()
-                                                        .fill(Color.black.opacity(0.7))
-                                                )
-                                            Spacer()
-                                        }
-                                        .padding(16)
-                                        Spacer()
-                                    }
-                                )
+                            createImageView(
+                                image: filteredImage,
+                                size: imageSize,
+                                label: "After"
+                            )
                         } else {
                             // 플레이스홀더
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: imageSize, height: imageSize)
-                                .overlay(
-                                    VStack {
-                                        Image(systemName: "photo")
-                                            .font(.system(size: 48))
-                                            .foregroundColor(.gray)
-                                        
-                                        Text("이미지를 선택하세요")
-                                            .font(.pretendard(size: 16, weight: .medium))
-                                            .foregroundColor(.gray)
-                                            .padding(.top, 16)
-                                    }
-                                )
+                            createPlaceholderView(size: imageSize)
                         }
                     }
                     .animation(.easeInOut(duration: 0.2), value: showBeforeImage)
@@ -279,6 +224,57 @@ struct MakeEditView: View {
             }
         }
         .background(Color.black)
+    }
+    
+    // MARK: - Helper Views for Image Section
+    
+    @ViewBuilder
+    private func createImageView(image: UIImage, size: CGFloat, label: String) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.white.opacity(0.3), lineWidth: 2)
+            )
+            .overlay(
+                VStack {
+                    HStack {
+                        Text(label)
+                            .font(.pretendard(size: 12, weight: .semiBold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(Color.black.opacity(0.7))
+                            )
+                        Spacer()
+                    }
+                    .padding(16)
+                    Spacer()
+                }
+            )
+    }
+    
+    @ViewBuilder
+    private func createPlaceholderView(size: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 20)
+            .fill(Color.gray.opacity(0.3))
+            .frame(width: size, height: size)
+            .overlay(
+                VStack(spacing: 16) {
+                    Image(systemName: "photo")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    
+                    Text("이미지를 선택하세요")
+                        .font(.pretendard(size: 16, weight: .medium))
+                        .foregroundColor(.gray)
+                }
+            )
     }
     
     private var bottomControlBar: some View {
@@ -336,9 +332,6 @@ struct MakeEditView: View {
                 .padding(.horizontal, 20)
             }
             .padding(.vertical, 16)
-            
-            // 선택된 속성의 슬라이더
-            
         }
         .padding(.bottom, 60)
         .background(
@@ -353,7 +346,7 @@ struct MakeEditView: View {
             let range = selectedProperty.range
             let currentValue = filterStateManager.currentState.getValue(for: selectedProperty.key)
             let normalizedValue = (currentValue - range.lowerBound) / (range.upperBound - range.lowerBound)
-            let trackWidth = geometry.size.width - 24
+            let trackWidth = max(geometry.size.width - 24, 0) // 음수 방지
             
             ZStack(alignment: .leading) {
                 // 배경 트랙
@@ -362,47 +355,51 @@ struct MakeEditView: View {
                     .frame(height: 8)
                 
                 // 진행 바
-                Capsule()
-                    .fill(DesignSystem.Colors.Brand.brightTurquoise)
-                    .frame(width: trackWidth * CGFloat(normalizedValue), height: 8)
+                if trackWidth > 0 {
+                    Capsule()
+                        .fill(DesignSystem.Colors.Brand.brightTurquoise)
+                        .frame(width: trackWidth * CGFloat(max(0, min(1, normalizedValue))), height: 8)
+                }
                 
                 // 슬라이더 썸
-                Circle()
-                    .fill(.white)
-                    .frame(width: 28, height: 28)
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                    .scaleEffect(isDraggingSlider ? 1.2 : 1.0)
-                    .offset(x: trackWidth * CGFloat(normalizedValue))
-                    .gesture(
-                        DragGesture()
-                            .onChanged { gesture in
-                                // 드래그 시작 시 현재 상태 저장 (한 번만)
-                                if !isDraggingSlider {
-                                    isDraggingSlider = true
-                                    dragStartState = filterStateManager.currentState
-                                    print("🎛️ 슬라이더 드래그 시작 - \(selectedProperty.title)")
+                if trackWidth > 0 {
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 28, height: 28)
+                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                        .scaleEffect(isDraggingSlider ? 1.2 : 1.0)
+                        .offset(x: trackWidth * CGFloat(max(0, min(1, normalizedValue))))
+                        .gesture(
+                            DragGesture()
+                                .onChanged { gesture in
+                                    // 드래그 시작 시 현재 상태 저장 (한 번만)
+                                    if !isDraggingSlider {
+                                        isDraggingSlider = true
+                                        dragStartState = filterStateManager.currentState
+                                        print("🎛️ 슬라이더 드래그 시작 - \(selectedProperty.title)")
+                                    }
+                                    
+                                    let newPosition = max(0, min(trackWidth, gesture.location.x))
+                                    let newNormalizedValue = trackWidth > 0 ? newPosition / trackWidth : 0
+                                    let newValue = range.lowerBound + Double(newNormalizedValue) * (range.upperBound - range.lowerBound)
+                                    
+                                    // 실시간 업데이트 (스택에 저장하지 않음)
+                                    var newState = filterStateManager.currentState
+                                    newState.setValue(for: selectedProperty.key, value: newValue)
+                                    filterStateManager.currentState = newState
                                 }
-                                
-                                let newPosition = max(0, min(trackWidth, gesture.location.x))
-                                let newNormalizedValue = newPosition / trackWidth
-                                let newValue = range.lowerBound + Double(newNormalizedValue) * (range.upperBound - range.lowerBound)
-                                
-                                // 실시간 업데이트 (스택에 저장하지 않음)
-                                var newState = filterStateManager.currentState
-                                newState.setValue(for: selectedProperty.key, value: newValue)
-                                filterStateManager.currentState = newState
-                            }
-                            .onEnded { _ in
-                                // 드래그 완료 시에만 undo 스택에 저장
-                                if let startState = dragStartState {
-                                    filterStateManager.saveStateToUndoStack(startState)
-                                    print("🎛️ 슬라이더 드래그 완료 - \(selectedProperty.title): \(currentValue)")
+                                .onEnded { _ in
+                                    // 드래그 완료 시에만 undo 스택에 저장
+                                    if let startState = dragStartState {
+                                        filterStateManager.saveStateToUndoStack(startState)
+                                        print("🎛️ 슬라이더 드래그 완료 - \(selectedProperty.title): \(currentValue)")
+                                    }
+                                    
+                                    isDraggingSlider = false
+                                    dragStartState = nil
                                 }
-                                
-                                isDraggingSlider = false
-                                dragStartState = nil
-                            }
-                    )
+                        )
+                }
             }
         }
         .frame(height: 28)
@@ -449,7 +446,7 @@ struct MakeEditView: View {
     private func updateImageWithState(_ state: EditingState) {
         guard let originalImage = viewModel.originalImage else { return }
         
-        // 백그라운드에서 필터 적용
+        // 백그라운드에서 필터 적용s
         Task.detached(priority: .userInitiated) {
             let filteredImage = await self.imageProcessor.applyFilters(with: state)
             

@@ -16,7 +16,7 @@ struct AuthenticatedImageView: View {
     @State private var imageData: Data?
     @State private var isLoading = false
     @State private var hasError = false
-    
+    @State var loadingTask: Task<Void, Never>?
     private let tokenManager = TokenManager.shared
     
     init(
@@ -52,6 +52,18 @@ struct AuthenticatedImageView: View {
                     }
             }
         }
+        .onDisappear {
+            cleanUp()
+        }
+    }
+    
+    private func cleanUp() {
+        loadingTask?.cancel()
+        loadingTask = nil
+        imageData = nil
+        isLoading = false
+        hasError = false
+        print("AuthnticatedImageView 리소스 정리됨")
     }
     
     private func loadImage() {

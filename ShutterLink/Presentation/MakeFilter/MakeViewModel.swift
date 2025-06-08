@@ -271,13 +271,14 @@ class MakeViewModel: ObservableObject {
         let imageData = image.jpegData(compressionQuality: 1.0) ?? Data()
         let fileSize = imageData.count
         
+        // 옵셔널 필드들은 nil로 설정 (서버에서 요구하지 않는 경우)
         photoMetadata = PhotoMetadataRequest(
-            camera: "Unknown Camera",
-            lensInfo: "Unknown Lens",
-            focalLength: nil,
-            aperture: nil,
-            iso: nil,
-            shutterSpeed: nil,
+            camera: nil,          // 서버에서 null 허용
+            lensInfo: nil,        // 서버에서 null 허용
+            focalLength: nil,     // 서버에서 null 허용
+            aperture: nil,        // 서버에서 null 허용
+            iso: nil,            // 서버에서 null 허용
+            shutterSpeed: nil,    // 서버에서 null 허용
             pixelWidth: pixelWidth,
             pixelHeight: pixelHeight,
             fileSize: fileSize,
@@ -287,7 +288,7 @@ class MakeViewModel: ObservableObject {
             longitude: nil
         )
         
-        print("📱 MakeViewModel: 메타데이터 추출 완료")
+        print("📱 MakeViewModel: 메타데이터 추출 완료 - 크기: \(pixelWidth)x\(pixelHeight), 파일크기: \(fileSize) bytes")
     }
     
     // MARK: - Filter Saving
@@ -342,6 +343,22 @@ class MakeViewModel: ObservableObject {
                     photoMetadata: photoMetadata,
                     filterValues: editingState.toFilterValuesRequest()
                 )
+
+                // JSON 인코딩 테스트
+                do {
+                    let jsonData = try JSONEncoder().encode(filterRequest)
+                    if let jsonString = String(data: jsonData, encoding: .utf8) {
+                        print("🔍 FilterCreateRequest JSON:")
+                        print(jsonString)
+                    }
+                } catch {
+                    print("❌ FilterCreateRequest 인코딩 실패: \(error)")
+                }
+
+                print("🔍 MakeViewModel: 필터 생성 요청 상세:")
+                print("   📝 description: '\(description)'")
+                print("   📝 description.count: \(description.count)")
+                print("   📝 description.isEmpty: \(description.isEmpty)")
                 
                 print("🔵 MakeViewModel: 필터 생성 시작")
                 

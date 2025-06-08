@@ -35,8 +35,10 @@ struct FilterDetailView: View {
                         // 필터 정보와 통계
                         FilterInfoWithStatsSection(filterDetail: filterDetail)
                         
-                        // 사진 메타데이터 섹션
-                        PhotoMetadataSection(metadata: filterDetail.photoMetadata)
+                        // 사진 메타데이터 섹션 (안전하게 처리)
+                        if let photoMetadata = filterDetail.photoMetadata {
+                            PhotoMetadataSection(metadata: photoMetadata)
+                        }
                         
                         // 필터 프리셋 섹션
                         FilterPresetsSection(
@@ -533,7 +535,7 @@ struct FilterInfoWithStatsSection: View {
     }
 }
 
-
+// MARK: - 수정된 PhotoMetadataSection (옵셔널 필드 안전 처리)
 struct PhotoMetadataSection: View {
     let metadata: PhotoMetadata
     @State private var address: String = ""
@@ -542,7 +544,7 @@ struct PhotoMetadataSection: View {
         VStack(spacing: 0) {
             // 상단 헤더 띠
             HStack {
-                Text(metadata.camera)
+                Text(metadata.cameraInfo)
                     .font(.pretendard(size: 14, weight: .medium))
                     .foregroundColor(.white)
                 
@@ -580,13 +582,13 @@ struct PhotoMetadataSection: View {
                 
                 // 오른쪽: 카메라 정보와 위치 정보
                 VStack(alignment: .leading, spacing: 8) {
-                    
-                    Text("\(metadata.lens_info) · \(Int(metadata.focal_length))mm f/\(String(format: "%.1f", metadata.aperture)) ISO \(metadata.iso)")
+                    // 카메라 상세 정보 (안전하게 처리)
+                    Text(buildCameraDetailsString())
                         .font(.pretendard(size: 12, weight: .regular))
                         .foregroundColor(.white)
                         .lineLimit(2)
                     
-                    Text("\(metadata.pixel_width) × \(metadata.pixel_height) · \(metadata.formattedFileSize)")
+                    Text("\(metadata.resolution) · \(metadata.formattedFileSize)")
                         .font(.pretendard(size: 12, weight: .regular))
                         .foregroundColor(.gray)
                     
@@ -621,6 +623,43 @@ struct PhotoMetadataSection: View {
         .background(Color.gray.opacity(0.1))
         .cornerRadius(12)
         .padding(.horizontal, 20)
+    }
+    
+    // 카메라 상세 정보 문자열을 안전하게 구성
+    private func buildCameraDetailsString() -> String {
+        var components: [String] = []
+        
+        // 렌즈 정보
+        if let lensInfo = metadata.lens_info, !lensInfo.isEmpty {
+            components.append(lensInfo)
+        }
+        
+        // 초점거리
+        if let focalLength = metadata.focal_length {
+            components.append("\(Int(focalLength))mm")
+        }
+        
+        // 조리개
+        if let aperture = metadata.aperture {
+            components.append("f/\(String(format: "%.1f", aperture))")
+        }
+        
+        // ISO
+        if let iso = metadata.iso {
+            components.append("ISO \(iso)")
+        }
+        
+        // 셔터 스피드
+        if let shutterSpeed = metadata.shutter_speed, !shutterSpeed.isEmpty {
+            components.append(shutterSpeed)
+        }
+        
+        // 컴포넌트가 없으면 기본 메시지
+        if components.isEmpty {
+            return "촬영 정보 없음"
+        }
+        
+        return components.joined(separator: " · ")
     }
 }
 
@@ -749,18 +788,18 @@ struct FilterPresetsSection: View {
                     GridItem(.flexible()),
                     GridItem(.flexible())
                 ], spacing: 16) {
-                    let presetIcons = ["Brightness", "Exposure", "Contrast", "Saturation", "Sharpness", "Vignette", "Blur", "Noise", "Highlights", "Shadows", "Temperature", "BlackPoint"]
-                    
-                    ForEach(Array(presetIcons.enumerated()), id: \.offset) { index, iconName in
+                    ForEach(FilterPresetItemData.mockData, id: \.title) { item in
                         VStack(spacing: 8) {
                             ZStack {
                                 Circle()
                                     .fill(Color.gray.opacity(0.3))
                                     .frame(width: 40, height: 40)
                                 
-                                Image(iconName)
-                                    .foregroundColor(.gray)
+                                Image(item.iconName)
+                                    .overlay(Color.gray)
+                                    .mask(Image(item.iconName))
                                     .font(.system(size: 16))
+                                    .frame(width: 20, height: 20)
                             }
                             
                             Text("0.0")
@@ -796,7 +835,28 @@ struct FilterPresetsSection: View {
     }
 }
 
-// MARK: - 필터 프리셋 아이템 (기존과 동일)
+// MARK: - Mock 데이터 구조체 (결제 전 표시용)
+struct FilterPresetItemData {
+    let iconName: String
+    let title: String
+    
+    static let mockData: [FilterPresetItemData] = [
+        FilterPresetItemData(iconName: "Brightness", title: "밝기"),
+        FilterPresetItemData(iconName: "Exposure", title: "노출"),
+        FilterPresetItemData(iconName: "Contrast", title: "대비"),
+        FilterPresetItemData(iconName: "Saturation", title: "채도"),
+        FilterPresetItemData(iconName: "Sharpness", title: "선명도"),
+        FilterPresetItemData(iconName: "Vignette", title: "비네팅"),
+        FilterPresetItemData(iconName: "Blur", title: "블러"),
+        FilterPresetItemData(iconName: "Noise", title: "노이즈"),
+        FilterPresetItemData(iconName: "Highlights", title: "하이라이트"),
+        FilterPresetItemData(iconName: "Shadows", title: "섀도우"),
+        FilterPresetItemData(iconName: "Temperature", title: "색온도"),
+        FilterPresetItemData(iconName: "BlackPoint", title: "블랙포인트")
+    ]
+}
+
+// MARK: - 필터 프리셋 아이템 (수정됨)
 struct FilterPresetItem: View {
     let iconName: String
     let value: Double
@@ -810,16 +870,21 @@ struct FilterPresetItem: View {
     
     var body: some View {
         VStack(spacing: 8) {
-                  Image(iconName)
-                .overlay(DesignSystem.Colors.Gray.gray15)
-                 .mask(Image(iconName))
-                      .font(.system(size: 16))
-                      .frame(width: 40, height: 40)
-                  
-                  Text(formattedValue)
-                      .font(.pretendard(size: 12, weight: .medium))
-                      .foregroundColor(.white)
-              }
+            Circle()
+                .fill(DesignSystem.Colors.Brand.brightTurquoise.opacity(0.2))
+                .frame(width: 40, height: 40)
+                .overlay(
+                    Image(iconName)
+                        .overlay(DesignSystem.Colors.Gray.gray15)
+                        .mask(Image(iconName))
+                        .font(.system(size: 16))
+                        .frame(width: 20, height: 20)
+                )
+            
+            Text(formattedValue)
+                .font(.pretendard(size: 12, weight: .medium))
+                .foregroundColor(.white)
+        }
     }
     
     private var formattedValue: String {
@@ -910,12 +975,12 @@ struct CreatorProfileSection: View {
                     onChatTap()
                 } label: {
                     Rectangle()
-                        .fill(Color.deepTurquoise.opacity(0.5))
-                        .frame(width: 45,height: 45)
+                        .fill(DesignSystem.Colors.Brand.deepTurquoise.opacity(0.5))
+                        .frame(width: 45, height: 45)
                         .overlay {
                             Image(systemName: "paperplane.fill")
                                 .font(.system(size: 18))
-                                .foregroundColor(.gray15)
+                                .foregroundColor(DesignSystem.Colors.Gray.gray15)
                         }
                         .cornerRadius(8)
                 }
