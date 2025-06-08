@@ -27,11 +27,14 @@ class CoreImageProcessor: ObservableObject {
     
     // 원본 이미지 설정
     func setOriginalImage(_ image: UIImage) {
-        if let cgImage = image.cgImage {
-            originalCIImage = CIImage(cgImage: cgImage)
-            print("🖼️ CoreImageProcessor: 원본 이미지 설정됨 - 크기: \(image.size)")
-        }
-    }
+          // 이미지 방향을 정규화하여 회전 문제 해결
+          let fixedImage = image.fixedOrientation()
+          
+          if let cgImage = fixedImage.cgImage {
+              originalCIImage = CIImage(cgImage: cgImage)
+              print("🖼️ CoreImageProcessor: 원본 이미지 설정됨 - 크기: \(fixedImage.size), 방향 고정됨")
+          }
+      }
     
     // EditingState를 사용하여 필터 적용
     func applyFilters(with state: EditingState) -> UIImage? {
@@ -278,6 +281,18 @@ extension UIImage {
         }
         
         return imageData
+    }
+    
+    func fixedOrientation() -> UIImage {
+        if imageOrientation == .up {
+            return self
+        }
+        
+        UIGraphicsBeginImageContextWithOptions(size, false, scale)
+        defer { UIGraphicsEndImageContext() }
+        
+        draw(in: CGRect(origin: .zero, size: size))
+        return UIGraphicsGetImageFromCurrentImageContext() ?? self
     }
 }
 

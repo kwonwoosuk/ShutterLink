@@ -124,12 +124,18 @@ class MakeViewModel: ObservableObject {
     
     // MARK: - Image Selection
     func handleImageSelection(_ image: UIImage) {
-        originalImage = image
-        filteredImage = image
-        filterProcessor.setOriginalImage(image)
-        extractPhotoMetadata(from: image)
+        // 이미지 방향을 정규화하여 회전 문제 해결
+        let fixedImage = image.fixedOrientation()
+        
+        originalImage = fixedImage
+        filteredImage = fixedImage
+        filterProcessor.setOriginalImage(fixedImage)
+        extractPhotoMetadata(from: fixedImage)
         resetEditingState()
-        print("✅ MakeViewModel: 이미지 선택 완료")
+        print("✅ MakeViewModel: 이미지 선택 완료 (방향 고정됨)")
+        
+        // 사진 선택 후 즉시 이미지 피커를 닫음
+        isShowingImagePicker = false
     }
     
     // MARK: - Enhanced Editing State Management

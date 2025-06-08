@@ -120,7 +120,7 @@ class NavigationRouter: ObservableObject {
     }
     
     // MARK: - Navigation Actions for User Routes (Search)
-    func pushToUserDetail(userId: String, userInfo: UserInfo?) {
+    func pushToUserDetail(userId: String, userInfo: UserInfo? = nil) {
         // 중복 방지를 위한 검사
         if case .userDetail(let currentUserId, _) = searchPath.last {
             if currentUserId == userId {
@@ -174,7 +174,7 @@ class NavigationRouter: ObservableObject {
         searchPath.removeAll()
     }
     
-    // MARK: - Navigation Actions for Profile Routes (추가)
+    // MARK: - Navigation Actions for Profile Routes
     func pushToEditProfile() {
         let route = ProfileRoute.editProfile
         profilePath.append(route)
@@ -201,6 +201,42 @@ class NavigationRouter: ObservableObject {
     
     func popToRootProfile() {
         profilePath.removeAll()
+    }
+    
+    // MARK: - Navigation Actions for Make Routes (수정됨)
+    
+    /// 필터 생성 화면으로 이동
+    func pushToCreateFilter() {
+        let route = MakeRoute.create
+        makePath.append(route)
+        print("🧭 NavigationRouter: 필터 생성 화면으로 이동")
+    }
+    
+    /// 필터 편집 화면으로 이동
+    func pushToEditFilter(with originalImage: UIImage? = nil) {
+        let route = MakeRoute.editFilter(originalImage: originalImage)
+        makePath.append(route)
+        print("🧭 NavigationRouter: 필터 편집으로 이동")
+    }
+    
+    func popMakeRoute() {
+        if !makePath.isEmpty {
+            makePath.removeLast()
+        }
+    }
+    
+    func popToRootMake() {
+        makePath.removeAll()
+        print("🧭 NavigationRouter: Make 루트로 이동")
+    }
+    
+    func getMakePathDepth() -> Int {
+        return makePath.count
+    }
+    
+    /// Make 탭에서 뒤로 갈 수 있는지 확인
+    func canGoBackInMake() -> Bool {
+        return !makePath.isEmpty
     }
     
     // MARK: - Sheet Management
@@ -234,38 +270,6 @@ class NavigationRouter: ObservableObject {
         return getCurrentPathCount() > 0
     }
     
-    func pushToFilterCreationEdit() {
-        let route = MakeRoute.editFilter(originalImage: nil)
-        makePath.append(route)
-        print("🧭 NavigationRouter: 필터 생성 편집 화면으로 이동")
-    }
-    
-    func pushToEditFilter(with originalImage: UIImage? = nil) {
-          let route = MakeRoute.editFilter(originalImage: originalImage)
-          makePath.append(route)
-          print("🧭 NavigationRouter: 필터 편집으로 이동")
-      }
-      
-      func popMakeRoute() {
-          if !makePath.isEmpty {
-              makePath.removeLast()
-          }
-      }
-      
-      func popToRootMake() {
-          makePath.removeAll()
-          print("🧭 NavigationRouter: Make 루트로 이동")
-      }
-    
-    func getMakePathDepth() -> Int {
-          return makePath.count
-      }
-      
-      /// Make 탭에서 뒤로 갈 수 있는지 확인
-      func canGoBackInMake() -> Bool {
-          return !makePath.isEmpty
-      }
-    
     // MARK: - Debug Methods
     func printCurrentState() {
         print("🧭 NavigationRouter 현재 상태:")
@@ -274,11 +278,12 @@ class NavigationRouter: ObservableObject {
         print("   피드 경로: \(feedPath.count)개")
         print("   검색 경로: \(searchPath.count)개")
         print("   프로필 경로: \(profilePath.count)개")
+        print("   Make 경로: \(makePath.count)개")
         print("   Sheet: \(presentedSheet?.description ?? "없음")")
     }
 }
 
-// MARK: - Sheet Types (기존과 동일)
+// MARK: - Sheet Types
 enum PresentedSheet: Identifiable, CustomStringConvertible, Equatable  {
     case userFilters(userId: String, userNick: String)
     case profileEdit

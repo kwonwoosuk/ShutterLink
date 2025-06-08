@@ -62,10 +62,13 @@ enum ProfileRoute: Route {
 }
 
 enum MakeRoute: Route {
-    case editFilter(originalImage: UIImage?)
+    case create // 필터 생성 화면
+    case editFilter(originalImage: UIImage?) // 필터 편집 화면
     
     var id: String {
         switch self {
+        case .create:
+            return "create"
         case .editFilter:
             return "editFilter"
         }

@@ -18,6 +18,9 @@ struct MakeView: View {
             makeContent
                 .navigationDestination(for: MakeRoute.self) { route in
                     switch route {
+                    case .create:
+                        // 필터 생성 화면
+                        createFilterContent
                     case .editFilter(let originalImage):
                         MakeEditView(
                             originalImage: originalImage,
@@ -38,39 +41,6 @@ struct MakeView: View {
                             .font(.hakgyoansim(size: 18, weight: .bold))
                             .foregroundColor(.white)
                     }
-                    
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button {
-                            // 뒤로 가기 (피드나 다른 탭으로)
-                            router.selectTab(.feed)
-                        } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(.white)
-                        }
-                    }
-                    
-                    // 편집된 이미지가 있고 저장 가능한 상태일 때만 저장 버튼 표시
-                    if viewModel.hasEditedImage && viewModel.canSaveFilter {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button {
-                                saveFilter()
-                            } label: {
-                                if viewModel.isUploading {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Image("Save")
-                                        .overlay(DesignSystem.Colors.Gray.gray15)
-                                        .mask(Image("Save"))
-                                        .font(.system(size: 16))
-                                        .frame(width: 24, height: 24)
-                                }
-                            }
-                            .disabled(viewModel.isUploading)
-                        }
-                    }
                 }
         }
     }
@@ -80,23 +50,68 @@ struct MakeView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             
+            VStack(spacing: 40) {
+                Spacer()
+                
+                // 메인 타이틀과 설명
+                VStack(spacing: 16) {
+                    Text("새로운 필터를 만들어보세요")
+                        .font(.hakgyoansim(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("사진을 선택하고 편집하여\n나만의 필터를 제작할 수 있습니다")
+                        .font(.pretendard(size: 16, weight: .regular))
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                }
+                
+                // 필터 생성 버튼
+                Button {
+                    router.pushToCreateFilter()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(.black)
+                        
+                        Text("새로운 필터 생성하기")
+                            .font(.pretendard(size: 16, weight: .semiBold))
+                            .foregroundColor(.black)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(DesignSystem.Colors.Brand.brightTurquoise)
+                    )
+                }
+                .padding(.horizontal, 20)
+                
+                Spacer()
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var createFilterContent: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 24) {
-                    if viewModel.hasOriginalImage {
-                        // 편집된 이미지가 있는 상태
-                        editedImageSection
-                    } else {
-                        // 초기 상태 (이미지 없음)
-                        initialStateSection
-                    }
+                    // 필터명 입력 (카테고리 위로 이동)
+                    filterNameSection
                     
-                    // 공통 입력 필드들
-                    inputFieldsSection
+                    // 카테고리 선택
+                    categorySection
                     
-                    // 카테고리 선택 아래에 사진 등록 (이미지가 없을 때만)
-                    if !viewModel.hasOriginalImage {
-                        addPhotoSection
-                    }
+                    // 대표 사진 등록 (카테고리 바로 밑)
+                    photoRegistrationSection
+                    
+                    // 나머지 입력 필드들
+                    remainingInputFieldsSection
                     
                     // 편집된 이미지가 있을 때만 EXIF 정보 표시
                     if viewModel.hasEditedImage, let metadata = viewModel.photoMetadata {
@@ -135,98 +150,248 @@ struct MakeView: View {
                 set: { image in
                     if let image = image {
                         viewModel.handleImageSelection(image)
+                        // 사진 선택 후 바로 편집 화면으로 이동
+                        router.pushToEditFilter(with: image)
                     }
                 }
             ))
         }
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("필터 생성")
+                    .font(.hakgyoansim(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+            }
+            
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    router.popMakeRoute()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.white)
+                }
+            }
+            
+            // 편집된 이미지가 있고 저장 가능한 상태일 때만 저장 버튼 표시
+            if viewModel.hasEditedImage && viewModel.canSaveFilter {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        saveFilter()
+                    } label: {
+                        if viewModel.isUploading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                        } else {
+                            Image("Save")
+                                .overlay(DesignSystem.Colors.Gray.gray15)
+                                .mask(Image("Save"))
+                                .font(.system(size: 16))
+                                .frame(width: 24, height: 24)
+                        }
+                    }
+                    .disabled(viewModel.isUploading)
+                }
+            }
+        }
         .onAppear {
             if !hasAppeared {
                 hasAppeared = true
-                print("🔵 MakeView: 화면 표시")
+                print("🔵 MakeView: 필터 생성 화면 표시")
             }
         }
     }
     
-    // MARK: - 편집된 이미지 섹션
+    // MARK: - 필터명 섹션
     @ViewBuilder
-    private var editedImageSection: some View {
-        VStack(spacing: 16) {
-            // 대표 사진 미리보기
-            if let filteredImage = viewModel.filteredImage {
-                Image(uiImage: filteredImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(height: 200)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                    )
-            }
-            
-            // 수정하기 버튼
-            Button {
-                router.pushToEditFilter(with: viewModel.originalImage)
-            } label: {
-                Text("수정하기")
-                    .font(.pretendard(size: 16, weight: .semiBold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(DesignSystem.Colors.Brand.brightTurquoise)
-                    )
-            }
-        }
-        .padding(.horizontal, 20)
-    }
-    
-    // MARK: - 초기 상태 섹션
-    @ViewBuilder
-    private var initialStateSection: some View {
-        VStack(spacing: 16) {
-            Text("새로운 필터를 만들어보세요")
-                .font(.hakgyoansim(size: 20, weight: .bold))
+    private var filterNameSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("필터명")
+                .font(.pretendard(size: 14, weight: .medium))
                 .foregroundColor(.white)
-                .multilineTextAlignment(.center)
             
-            Text("사진을 선택하고 편집하여\n나만의 필터를 제작할 수 있습니다")
-                .font(.pretendard(size: 14, weight: .regular))
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
+            TextField("필터명을 입력하세요", text: $viewModel.filterTitle)
+                .font(.pretendard(size: 16, weight: .regular))
+                .foregroundColor(.white)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.gray.opacity(0.15))
+                )
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 40)
     }
-    
-    // MARK: - 입력 필드들 섹션
     @ViewBuilder
-    private var inputFieldsSection: some View {
-        VStack(spacing: 20) {
-            // 필터명 입력
-            VStack(alignment: .leading, spacing: 8) {
-                Text("필터명")
+    private var categorySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("카테고리")
                     .font(.pretendard(size: 14, weight: .medium))
                     .foregroundColor(.white)
-                
-                TextField("필터명을 입력하세요", text: $viewModel.filterTitle)
-                    .font(.pretendard(size: 16, weight: .regular))
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.gray.opacity(0.15))
-                    )
+                Spacer()
             }
             
-            // 카테고리 선택
-            CategorySelector(
-                selectedCategory: $viewModel.selectedCategory,
-                categories: viewModel.categories
-            )
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(viewModel.categories, id: \.self) { category in
+                        Button {
+                            viewModel.selectedCategory = category
+                        } label: {
+                            Text(category)
+                                .font(.pretendard(size: 14, weight: .medium))
+                                .foregroundColor(viewModel.selectedCategory == category ? .black : .white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule()
+                                        .fill(viewModel.selectedCategory == category ? DesignSystem.Colors.Brand.brightTurquoise : Color.gray.opacity(0.3))
+                                )
+                        }
+                        .animation(.easeInOut(duration: 0.2), value: viewModel.selectedCategory)
+                    }
+                }
+                .padding(.horizontal, 1)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    // MARK: - 대표 사진 등록 섹션 (편집된 이미지 표시 포함)
+    @ViewBuilder
+    private var photoRegistrationSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("대표 사진 등록")
+                    .font(.pretendard(size: 16, weight: .semiBold))
+                    .foregroundColor(.white)
+                Spacer()
+            }
             
+            Button {
+                viewModel.input.selectImage.send()
+            } label: {
+                Group {
+                    if let displayImage = viewModel.filteredImage ?? viewModel.originalImage {
+                        // 편집된 이미지 또는 원본 이미지가 있는 경우
+                        Image(uiImage: displayImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 200)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(DesignSystem.Colors.Brand.brightTurquoise, lineWidth: 2)
+                            )
+                            .overlay(
+                                // 편집 상태 표시 및 버튼들
+                                VStack {
+                                    // 편집 상태 표시
+                                    if viewModel.hasEditedImage {
+                                        HStack {
+                                            Text("편집됨")
+                                                .font(.pretendard(size: 12, weight: .semiBold))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(DesignSystem.Colors.Brand.brightTurquoise)
+                                                )
+                                            Spacer()
+                                        }
+                                        .padding(12)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    // 하단 버튼들
+                                    HStack {
+                                        Spacer()
+                                        
+                                        HStack(spacing: 12) {
+                                            // 다시 선택하기 버튼
+                                            Button {
+                                                viewModel.input.selectImage.send()
+                                            } label: {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "camera.fill")
+                                                        .font(.system(size: 12, weight: .medium))
+                                                    Text("변경")
+                                                        .font(.pretendard(size: 12, weight: .semiBold))
+                                                }
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 6)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(Color.black.opacity(0.7))
+                                                )
+                                            }
+                                            
+                                            // 수정하기 버튼 (이미지가 있을 때만)
+                                            if viewModel.originalImage != nil {
+                                                Button {
+                                                    router.pushToEditFilter(with: viewModel.originalImage)
+                                                } label: {
+                                                    HStack(spacing: 6) {
+                                                        Image(systemName: "slider.horizontal.3")
+                                                            .font(.system(size: 12, weight: .medium))
+                                                        Text("편집")
+                                                            .font(.pretendard(size: 12, weight: .semiBold))
+                                                    }
+                                                    .foregroundColor(.black)
+                                                    .padding(.horizontal, 12)
+                                                    .padding(.vertical, 6)
+                                                    .background(
+                                                        Capsule()
+                                                            .fill(DesignSystem.Colors.Brand.brightTurquoise)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        .padding(12)
+                                    }
+                                }
+                            )
+                    } else {
+                        // 이미지가 선택되지 않은 경우
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 200)
+                            .overlay(
+                                VStack(spacing: 12) {
+                                    Circle()
+                                        .fill(DesignSystem.Colors.Brand.brightTurquoise)
+                                        .frame(width: 60, height: 60)
+                                        .overlay(
+                                            Image(systemName: "plus")
+                                                .font(.system(size: 24, weight: .medium))
+                                                .foregroundColor(.black)
+                                        )
+                                    
+                                    Text("사진 선택하기")
+                                        .font(.pretendard(size: 16, weight: .semiBold))
+                                        .foregroundColor(.white)
+                                }
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.gray.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [8, 4]))
+                            )
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    // MARK: - 나머지 입력 필드들 섹션
+    @ViewBuilder
+    private var remainingInputFieldsSection: some View {
+        VStack(spacing: 20) {
             // 판매 가격 입력
             VStack(alignment: .leading, spacing: 8) {
                 Text("판매 가격")
@@ -250,7 +415,7 @@ struct MakeView: View {
                 }
             }
             
-            // 필터 소개 (항상 표시)
+            // 필터 소개
             VStack(alignment: .leading, spacing: 8) {
                 Text("필터 소개")
                     .font(.pretendard(size: 14, weight: .medium))
@@ -264,45 +429,6 @@ struct MakeView: View {
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.gray.opacity(0.15))
-                    )
-            }
-        }
-        .padding(.horizontal, 20)
-    }
-    
-    // MARK: - 사진 등록 섹션 (카테고리 선택 아래)
-    @ViewBuilder
-    private var addPhotoSection: some View {
-        VStack(spacing: 16) {
-            Text("대표 사진 등록")
-                .font(.pretendard(size: 16, weight: .semiBold))
-                .foregroundColor(.white)
-            
-            Button {
-                viewModel.input.selectImage.send()
-            } label: {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(height: 200)
-                    .overlay(
-                        VStack(spacing: 12) {
-                            Circle()
-                                .fill(DesignSystem.Colors.Brand.brightTurquoise)
-                                .frame(width: 60, height: 60)
-                                .overlay(
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 24, weight: .medium))
-                                        .foregroundColor(.black)
-                                )
-                            
-                            Text("사진 선택하기")
-                                .font(.pretendard(size: 16, weight: .semiBold))
-                                .foregroundColor(.white)
-                        }
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.gray.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [8, 4]))
                     )
             }
         }
@@ -340,7 +466,7 @@ struct MakeView: View {
             trimmedTitle,
             viewModel.selectedCategory,
             viewModel.filterPrice,
-            trimmedDescription  // 공백 제거된 버전 전달
+            trimmedDescription
         ))
     }
 }
