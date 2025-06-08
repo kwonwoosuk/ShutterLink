@@ -59,10 +59,10 @@ struct AuthenticatedImageView: View {
                 }
             } else {
                 Color.clear
-                    .onAppear {
-                        loadImageIfNeeded()
-                    }
             }
+        }
+        .task(id: imagePath) { // onAppear 대신 task 사용으로 최적화
+            await loadImageIfNeeded()
         }
         .onDisappear {
             cleanUp()
@@ -72,32 +72,37 @@ struct AuthenticatedImageView: View {
     private func cleanUp() {
         loadingTask?.cancel()
         loadingTask = nil
-        print("AuthenticatedImageView 리소스 정리됨")
     }
     
-    private func loadImageIfNeeded() {
+    private func loadImageIfNeeded() async {
         guard !imagePath.isEmpty else {
-            hasError = true
+            await MainActor.run {
+                hasError = true
+            }
             return
         }
         
         guard !isLoading else { return }
         
-        performImageLoad()
+        await performImageLoad()
     }
     
     private func retryImageLoad() {
         hasError = false
-        performImageLoad()
+        Task {
+            await performImageLoad()
+        }
     }
     
-    private func performImageLoad() {
-        isLoading = true
-        hasError = false
+    private func performImageLoad() async {
+        await MainActor.run {
+            isLoading = true
+            hasError = false
+        }
         
         loadingTask = Task {
             do {
-                // 개선된 ImageLoader 사용 (NetworkManager 기반, 토큰 갱신 포함)
+                // 최적화된 ImageLoader 사용 (재시도 로직 제거)
                 let data = try await ImageLoader.shared.loadImage(
                     from: imagePath,
                     targetSize: targetSize

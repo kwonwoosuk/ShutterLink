@@ -16,24 +16,33 @@ struct HomeView: View {
         NavigationStack(path: $router.homePath) {
             homeContent
                 .navigationDestination(for: FilterRoute.self) { route in
-                    switch route {
-                    case .filterDetail(let filterId):
-                        FilterDetailView(filterId: filterId)
-                    case .userDetail(let userId, let userInfo):
-                        UserDetailView(
-                            userId: userId,
-                            userInfo: UserInfo(
-                                user_id: userInfo.user_id,
-                                nick: userInfo.nick,
-                                name: userInfo.name,
-                                introduction: userInfo.introduction,
-                                profileImage: userInfo.profileImage,
-                                hashTags: userInfo.hashTags
-                            )
-                        )
-                    }
+                    // NavigationLazyView로 감싸서 메모리 최적화
+                    NavigationLazyView(
+                        destinationView(for: route)
+                    )
                 }
                 .navigationBarHidden(true)
+        }
+    }
+    
+    // MARK: - Navigation Destination Builder (성능 최적화)
+    @ViewBuilder
+    private func destinationView(for route: FilterRoute) -> some View {
+        switch route {
+        case .filterDetail(let filterId):
+            FilterDetailView(filterId: filterId)
+        case .userDetail(let userId, let userInfo):
+            UserDetailView(
+                userId: userId,
+                userInfo: UserInfo(
+                    user_id: userInfo.user_id,
+                    nick: userInfo.nick,
+                    name: userInfo.name,
+                    introduction: userInfo.introduction,
+                    profileImage: userInfo.profileImage,
+                    hashTags: userInfo.hashTags
+                )
+            )
         }
     }
     
@@ -47,12 +56,13 @@ struct HomeView: View {
                     ScrollView(.vertical, showsIndicators: false) {
                         LazyVStack(spacing: 0) {
                             TodayFilterIntroSection(
-                                filter: viewModel.todayFilter, geometry: geometry,
+                                filter: viewModel.todayFilter,
+                                geometry: geometry,
                                 onFilterTap: { filterId in
                                     router.pushToFilterDetail(filterId: filterId, from: .home)
                                 }
                             )
-                            .id("top")
+                            .id("top") // 기존 id 이름 유지
 
                             LazyVStack(spacing: 20) {
                                 AdBannerSection()
@@ -80,8 +90,15 @@ struct HomeView: View {
                     .ignoresSafeArea(.container, edges: .top)
                     .onReceive(router.homeScrollToTop) { _ in
                         print("🔄 HomeView: 상단으로 스크롤")
-                        withAnimation(.easeInOut(duration: 0.5)) {
+                        
+                        // 애니메이션 최적화: 더 빠른 스크롤
+                        withAnimation(.easeInOut(duration: 0.3)) {
                             proxy.scrollTo("top", anchor: .top)
+                        }
+                        
+                        // 애니메이션 완료 후 리프레쉬 (캐시 활용을 위해 조금 더 지연)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            viewModel.refreshData()
                         }
                     }
                 }
@@ -108,9 +125,9 @@ struct HomeView: View {
             print("🔵 HomeView: onAppear - 처음만 로딩")
             viewModel.loadDataOnceIfNeeded()
         }
-        .refreshable {
-            print("🔵 HomeView: Pull-to-refresh")
-            viewModel.refreshData()
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // 백그라운드에서 돌아올 때만 캐시 정리
+            ImageLoader.shared.clearCache()
         }
     }
 }

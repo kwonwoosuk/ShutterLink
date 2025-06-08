@@ -63,9 +63,22 @@ struct FeedView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 0) {
-                    FilterContent
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(spacing: 0) {
+                        // Explicit Identity를 위한 최상단 마커
+                        Color.clear
+                            .frame(height: 0)
+                            .id("feed_top")
+                        
+                        FilterContent
+                    }
+                }
+                .onReceive(router.feedScrollToTop) { _ in
+                    print("🔄 FeedView: 상단으로 스크롤")
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        proxy.scrollTo("feed_top", anchor: .top)
+                    }
                 }
             }
             
