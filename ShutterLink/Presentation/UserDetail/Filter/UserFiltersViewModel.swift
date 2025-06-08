@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-class UserFiltersViewModel: ObservableObject {
+final class UserFiltersViewModel: ObservableObject {
     struct Input {
         let loadInitialFilters = PassthroughSubject<String, Never>()
         let loadMoreFilters = PassthroughSubject<Void, Never>()

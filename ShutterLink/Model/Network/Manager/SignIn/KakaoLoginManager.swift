@@ -10,7 +10,7 @@ import KakaoSDKUser
 import KakaoSDKAuth
 import KakaoSDKCommon
 
-class KakaoLoginManager {
+final class KakaoLoginManager {
     static let shared = KakaoLoginManager()
     
     private let authUseCase: AuthUseCase

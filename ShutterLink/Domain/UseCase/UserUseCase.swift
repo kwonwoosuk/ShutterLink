@@ -13,7 +13,7 @@ protocol UserUseCase {
     func getUserFilters(userId: String, category: String?, next: String, limit: Int) async throws -> FilterListResponse
 }
 
-class UserUseCaseImpl: UserUseCase {
+final class UserUseCaseImpl: UserUseCase {
     private let networkManager = NetworkManager.shared
     
     func getTodayAuthor() async throws -> TodayAuthorResponse {

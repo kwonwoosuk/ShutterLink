@@ -9,7 +9,7 @@ import Foundation
 import AuthenticationServices
 import SwiftUI
 
-class AppleLoginManager: NSObject, ObservableObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+final class AppleLoginManager: NSObject, ObservableObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     static let shared = AppleLoginManager()
     
     private let authUseCase: AuthUseCase

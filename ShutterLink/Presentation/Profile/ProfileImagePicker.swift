@@ -12,7 +12,7 @@ struct ImagePicker: UIViewControllerRepresentable {
     @Binding var image: UIImage?
     @Environment(\.presentationMode) var presentationMode
     
-    class Coordinator: NSObject, PHPickerViewControllerDelegate {
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
         var parent: ImagePicker
         
         init(_ parent: ImagePicker) {

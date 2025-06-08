@@ -10,11 +10,13 @@ import SwiftUI
 struct VerticalOvalCard: View {
     let filter: FilterItem
     let rank: Int
+    let isActive: Bool
     let onFilterTap: ((String) -> Void)?
     
-    init(filter: FilterItem, rank: Int, onFilterTap: ((String) -> Void)? = nil) {
+    init(filter: FilterItem, rank: Int, isActive: Bool, onFilterTap: ((String) -> Void)? = nil) {
         self.filter = filter
         self.rank = rank
+        self.isActive = isActive
         self.onFilterTap = onFilterTap
     }
     
@@ -28,7 +30,7 @@ struct VerticalOvalCard: View {
     @ViewBuilder
     private var cardContent: some View {
         ZStack {
-            // 세로로 긴 타원형 배경 - 스크린샷과 동일한 스타일
+            // 세로로 긴 타원형 배경
             Capsule()
                 .fill(Color.black.opacity(0.85))
                 .frame(width: 240, height: 360)
@@ -64,7 +66,7 @@ struct VerticalOvalCard: View {
                             .font(.system(size: 40))
                     }
                     
-                    // 원형 테두리 - 스크린샷과 동일한 turquoise 색상
+                    // 원형 테두리
                     Circle()
                         .stroke(DesignSystem.Colors.Brand.brightTurquoise, lineWidth: 3)
                         .frame(width: 180, height: 180)
@@ -73,7 +75,7 @@ struct VerticalOvalCard: View {
                 
                 Spacer()
                 
-                // 하단 텍스트 정보 - 스크린샷과 동일한 레이아웃
+                // 하단 텍스트 정보
                 VStack(spacing: 8) {
                     Text(filter.creator.nick)
                         .font(.pretendard(size: 14, weight: .regular))
@@ -92,7 +94,7 @@ struct VerticalOvalCard: View {
                 }
                 .padding(.bottom, 20)
                 
-                // 순위 표시 - 스크린샷과 동일한 스타일
+                // 순위 표시
                 Text("\(rank)")
                     .font(.hakgyoansim(size: 24, weight: .bold))
                     .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
@@ -102,15 +104,17 @@ struct VerticalOvalCard: View {
     }
 }
 
-// 미니 버전 (좌우 페이지 미리보기용) - 스크린샷 스타일 적용
+// 미니 버전 (좌우 페이지 미리보기용)
 struct MiniVerticalOvalCard: View {
     let filter: FilterItem
     let rank: Int
+    let isActive: Bool
     let onFilterTap: ((String) -> Void)?
     
-    init(filter: FilterItem, rank: Int, onFilterTap: ((String) -> Void)? = nil) {
+    init(filter: FilterItem, rank: Int, isActive: Bool, onFilterTap: ((String) -> Void)? = nil) {
         self.filter = filter
         self.rank = rank
+        self.isActive = isActive
         self.onFilterTap = onFilterTap
     }
     

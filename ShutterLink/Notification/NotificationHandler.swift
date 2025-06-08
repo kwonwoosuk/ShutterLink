@@ -9,7 +9,7 @@
 import SwiftUI
 import UserNotifications
 
-class NotificationHandler: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
+final class NotificationHandler: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationHandler()
     
     override init() {

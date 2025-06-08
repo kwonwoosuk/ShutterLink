@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 import Combine
 
-class SignUpViewModel: ObservableObject {
+final class SignUpViewModel: ObservableObject {
     // Input
     @Published var email = ""
     @Published var password = ""

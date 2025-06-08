@@ -10,7 +10,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import UIKit
 
-class CoreImageProcessor: ObservableObject {
+final class CoreImageProcessor: ObservableObject {
     private let context: CIContext
     private var originalCIImage: CIImage?
     

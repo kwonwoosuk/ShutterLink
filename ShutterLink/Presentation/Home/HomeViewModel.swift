@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-class HomeViewModel: ObservableObject {
+final class HomeViewModel: ObservableObject {
     @Published var todayFilter: TodayFilterResponse?
     @Published var hotTrendFilters: [FilterItem] = []
     @Published var todayAuthor: TodayAuthorResponse?

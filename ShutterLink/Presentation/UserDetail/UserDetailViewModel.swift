@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-class UserDetailViewModel: ObservableObject {
+final class UserDetailViewModel: ObservableObject {
     struct Input {
         let loadUserDetail = PassthroughSubject<String, Never>()
         let refreshData = PassthroughSubject<String, Never>()

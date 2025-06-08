@@ -16,7 +16,8 @@ struct AuthenticatedImageView: View {
     @State private var imageData: Data?
     @State private var isLoading = false
     @State private var hasError = false
-    @State var loadingTask: Task<Void, Never>?
+    @State private var loadingTask: Task<Void, Never>?
+    
     private let tokenManager = TokenManager.shared
     
     init(
@@ -43,12 +44,23 @@ struct AuthenticatedImageView: View {
             } else if isLoading {
                 placeholder ?? AnyView(ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white)))
             } else if hasError {
-                Image(systemName: "photo")
-                    .foregroundColor(.gray)
+                VStack(spacing: 4) {
+                    Image(systemName: "photo")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 20))
+                    
+                    Button {
+                        retryImageLoad()
+                    } label: {
+                        Text("재시도")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    }
+                }
             } else {
                 Color.clear
                     .onAppear {
-                        loadImage()
+                        loadImageIfNeeded()
                     }
             }
         }
@@ -56,17 +68,14 @@ struct AuthenticatedImageView: View {
             cleanUp()
         }
     }
-    
+
     private func cleanUp() {
         loadingTask?.cancel()
         loadingTask = nil
-        imageData = nil
-        isLoading = false
-        hasError = false
-        print("AuthnticatedImageView 리소스 정리됨")
+        print("AuthenticatedImageView 리소스 정리됨")
     }
     
-    private func loadImage() {
+    private func loadImageIfNeeded() {
         guard !imagePath.isEmpty else {
             hasError = true
             return
@@ -74,22 +83,37 @@ struct AuthenticatedImageView: View {
         
         guard !isLoading else { return }
         
+        performImageLoad()
+    }
+    
+    private func retryImageLoad() {
+        hasError = false
+        performImageLoad()
+    }
+    
+    private func performImageLoad() {
         isLoading = true
         hasError = false
         
-        Task {
+        loadingTask = Task {
             do {
-                let data = try await ImageLoader.shared.loadImage(from: imagePath, targetSize: targetSize)
+                // 개선된 ImageLoader 사용 (NetworkManager 기반, 토큰 갱신 포함)
+                let data = try await ImageLoader.shared.loadImage(
+                    from: imagePath,
+                    targetSize: targetSize
+                )
+                
                 await MainActor.run {
                     self.imageData = data
                     self.isLoading = false
                 }
+                print("✅ 이미지 로딩 성공: \(imagePath)")
             } catch {
                 await MainActor.run {
                     self.hasError = true
                     self.isLoading = false
                 }
-                print("이미지 로드 실패: \(error)")
+                print("❌ 이미지 로드 실패: \(error)")
             }
         }
     }

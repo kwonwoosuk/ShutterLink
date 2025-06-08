@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-class SignInViewModel: ObservableObject {
+final class SignInViewModel: ObservableObject {
     // Input
     @Published var email = ""
     @Published var password = ""

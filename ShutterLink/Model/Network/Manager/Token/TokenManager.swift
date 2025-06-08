@@ -8,7 +8,7 @@
 import Foundation
 import Security
 
-class TokenManager {
+final class TokenManager {
     static let shared = TokenManager()
     
     private let accessTokenKey = "accessToken"

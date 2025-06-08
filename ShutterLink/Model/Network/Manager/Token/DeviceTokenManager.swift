@@ -10,7 +10,7 @@ import SwiftUI
 import UserNotifications
 import Security
 
-class DeviceTokenManager: ObservableObject {
+final class DeviceTokenManager: ObservableObject {
     static let shared = DeviceTokenManager()
     
     private let tokenKey = "device_token_key"

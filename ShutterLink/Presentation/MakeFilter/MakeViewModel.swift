@@ -11,7 +11,7 @@ import UIKit
 import CoreLocation
 import Photos
 
-class MakeViewModel: ObservableObject {
+final class MakeViewModel: ObservableObject {
     struct Input {
         let selectImage = PassthroughSubject<Void, Never>()
         let editProperty = PassthroughSubject<(String, Double), Never>()

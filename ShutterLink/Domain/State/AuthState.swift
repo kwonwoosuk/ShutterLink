@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-class AuthState: ObservableObject {
+final class AuthState: ObservableObject {
     static let shared = AuthState()
     
     @Published var isLoggedIn = false

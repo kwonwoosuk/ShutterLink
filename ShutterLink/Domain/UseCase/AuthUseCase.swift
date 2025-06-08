@@ -17,7 +17,7 @@ protocol AuthUseCase {
     func refreshToken() async throws -> TokenResponse
 }
 
-class AuthUseCaseImpl: AuthUseCase {
+final class AuthUseCaseImpl: AuthUseCase {
     private let networkManager = NetworkManager.shared
     private let tokenManager = TokenManager.shared
     private let authState = AuthState.shared

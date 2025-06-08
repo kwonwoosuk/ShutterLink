@@ -13,7 +13,7 @@ protocol ProfileUseCase {
     func uploadProfileImage(imageData: Data) async throws -> String
 }
 
-class ProfileUseCaseImpl: ProfileUseCase {
+final class ProfileUseCaseImpl: ProfileUseCase {
     private let networkManager = NetworkManager.shared
     
     func getMyProfile() async throws -> ProfileResponse {

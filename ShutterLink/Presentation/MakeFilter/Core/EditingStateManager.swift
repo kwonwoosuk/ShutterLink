@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-class EditingStateManager: ObservableObject {
+final class EditingStateManager: ObservableObject {
     private var undoStack: [EditingState] = []
     private var redoStack: [EditingState] = []
     

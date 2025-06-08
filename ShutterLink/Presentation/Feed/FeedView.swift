@@ -18,22 +18,9 @@ struct FeedView: View {
         NavigationStack(path: $router.feedPath) {
             feedContent
                 .navigationDestination(for: FilterRoute.self) { route in
-                    switch route {
-                    case .filterDetail(let filterId):
-                        FilterDetailView(filterId: filterId)
-                    case .userDetail(let userId, let userInfo):
-                        UserDetailView(
-                            userId: userId,
-                            userInfo: UserInfo(
-                                user_id: userInfo.user_id,
-                                nick: userInfo.nick,
-                                name: userInfo.name,
-                                introduction: userInfo.introduction,
-                                profileImage: userInfo.profileImage,
-                                hashTags: userInfo.hashTags
-                            )
-                        )
-                    }
+                    NavigationLazyView(
+                        destinationView(for: route)
+                    )
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -44,6 +31,31 @@ struct FeedView: View {
                     }
                 }
         }
+        .id("feed_view_main")
+    }
+    
+    // MARK: - Navigation Destination Builder
+    @ViewBuilder
+    private func destinationView(for route: FilterRoute) -> some View {
+        switch route {
+        case .filterDetail(let filterId):
+            FilterDetailView(filterId: filterId)
+                .onAppear {
+                    print("🔄 FeedView: FilterDetail 진입 - \(filterId)")
+                }
+        case .userDetail(let userId, let userInfo):
+            UserDetailView(
+                userId: userId,
+                userInfo: UserInfo(
+                    user_id: userInfo.user_id,
+                    nick: userInfo.nick,
+                    name: userInfo.name,
+                    introduction: userInfo.introduction,
+                    profileImage: userInfo.profileImage,
+                    hashTags: userInfo.hashTags
+                )
+            )
+        }
     }
     
     @ViewBuilder
@@ -53,95 +65,7 @@ struct FeedView: View {
             
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 0) {
-                    // 카테고리 버튼들
-                    CategoryButtonsView(
-                        selectedCategory: $selectedCategory,
-                        onSelectCategory: { category in
-                            selectedCategory = category
-                            viewModel.input.selectCategory.send(category)
-                        }
-                    )
-                    .padding(.top, 20)
-                    
-                    // Top Ranking 섹션
-                    if !viewModel.allFilters.isEmpty {
-                        TopRankingSection(
-                            filters: Array(viewModel.allFilters.prefix(5)),
-                            currentIndex: $currentTopRankingIndex,
-                            onFilterTap: { filterId in
-                                router.pushToFilterDetail(filterId: filterId, from: .feed)
-                            }
-                        )
-                        .padding(.top, 24)
-                    }
-                    
-                    // 정렬 옵션과 뷰 모드 토글
-                    VStack(spacing: 20) {
-                        SortOptionTabs(
-                            selectedOption: $viewModel.selectedSortOption,
-                            onSelectOption: { option in
-                                viewModel.input.selectSortOption.send(option)
-                            }
-                        )
-                        
-                        HStack {
-                            Text("Filter Feed")
-                                .font(.pretendard(size: 20, weight: .regular))
-                                .foregroundColor(.white)
-                            
-                            Spacer()
-                            
-                            Button {
-                                print("🔵 Block Mode 버튼 터치됨 - 현재 모드: \(viewModel.viewMode)")
-                                viewModel.input.toggleViewMode.send()
-                            } label: {
-                                Text(viewModel.viewMode == .list ? "Block Mode" : "List Mode")
-                                    .font(.pretendard(size: 14, weight: .regular))
-                                    .foregroundColor(DesignSystem.Colors.Gray.gray45)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(Color.gray.opacity(0.2))
-                                    .cornerRadius(8)
-                            }
-                            .zIndex(100)
-                            .buttonStyle(PlainButtonStyle())
-                        }
-                        .padding(.horizontal, 20)
-                    }
-                    .padding(.top, 30)
-                    
-                    // Filter Feed 리스트/블록 뷰
-                    if viewModel.viewMode == .list {
-                        FilterListView(
-                            filters: viewModel.displayedFilters,
-                            onLike: { filterId, shouldLike in
-                                viewModel.input.likeFilter.send((filterId, shouldLike))
-                            },
-                            onFilterTap: { filterId in
-                                router.pushToFilterDetail(filterId: filterId, from: .feed)
-                            },
-                            onLoadMore: {
-                                viewModel.input.loadMoreData.send()
-                            },
-                            isLoadingMore: viewModel.isLoadingMore
-                        )
-                    } else {
-                        SafePinterestBlockView(
-                            filters: viewModel.displayedFilters,
-                            onLike: { filterId, shouldLike in
-                                viewModel.input.likeFilter.send((filterId, shouldLike))
-                            },
-                            onFilterTap: { filterId in
-                                router.pushToFilterDetail(filterId: filterId, from: .feed)
-                            },
-                            onLoadMore: {
-                                viewModel.input.loadMoreData.send()
-                            },
-                            isLoadingMore: viewModel.isLoadingMore
-                        )
-                    }
-                    
-                    Color.clear.frame(height: 100)
+                    FilterContent
                 }
             }
             
@@ -171,32 +95,117 @@ struct FeedView: View {
                 viewModel.input.refreshData.send()
             }
         }
-        .compatibleOnChange(of: router.feedPath) { newPath in
-            let filterIds = newPath.map { route in
-                switch route {
-                case .filterDetail(let filterId):
-                    FilterDetailView(filterId: filterId)
-                case .userDetail(let userId, let userInfo):
-                    UserDetailView(
-                        userId: userId,
-                        userInfo: UserInfo(
-                            user_id: userInfo.user_id,
-                            nick: userInfo.nick,
-                            name: userInfo.name,
-                            introduction: userInfo.introduction,
-                            profileImage: userInfo.profileImage,
-                            hashTags: userInfo.hashTags
-                        )
-                    )
-                }
-            }
-            print("🔵 FeedView Navigation Path: \(filterIds)")
+        .onChange(of: router.feedPath) { newPath in
+            print("🔄 FeedView: Navigation path 변경됨 - \(newPath.count)개 화면")
         }
+    }
+    
+    @ViewBuilder
+    private var FilterContent: some View {
+        // 카테고리 버튼들
+        CategoryButtonsView(
+            selectedCategory: $selectedCategory,
+            onSelectCategory: { category in
+                selectedCategory = category
+                viewModel.input.selectCategory.send(category)
+            }
+        )
+        .padding(.top, 20)
+        
+        // Top Ranking 섹션 - 지연 로딩 적용
+        if !viewModel.allFilters.isEmpty {
+            NavigationLazyView(
+                TopRankingSection(
+                    filters: Array(viewModel.allFilters.prefix(5)),
+                    currentIndex: $currentTopRankingIndex,
+                    onFilterTap: { filterId in
+                        handleFilterTap(filterId: filterId)
+                    }
+                )
+            )
+            .padding(.top, 24)
+        }
+        
+        // 정렬 옵션과 뷰 모드 토글
+        VStack(spacing: 20) {
+            SortOptionTabs(
+                selectedOption: $viewModel.selectedSortOption,
+                onSelectOption: { option in
+                    viewModel.input.selectSortOption.send(option)
+                }
+            )
+            
+            HStack {
+                Text("Filter Feed")
+                    .font(.pretendard(size: 20, weight: .regular))
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                Button {
+                    print("🔵 Block Mode 버튼 터치됨 - 현재 모드: \(viewModel.viewMode)")
+                    viewModel.input.toggleViewMode.send()
+                } label: {
+                    Text(viewModel.viewMode == .list ? "Block Mode" : "List Mode")
+                        .font(.pretendard(size: 14, weight: .regular))
+                        .foregroundColor(DesignSystem.Colors.Gray.gray45)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.gray.opacity(0.2))
+                        .cornerRadius(8)
+                }
+                .zIndex(100)
+                .buttonStyle(PlainButtonStyle())
+            }
+            .padding(.horizontal, 20)
+        }
+        .padding(.top, 30)
+        
+        if !viewModel.displayedFilters.isEmpty {
+            if viewModel.viewMode == .list {
+                NavigationLazyView(
+                    OptimizedFilterListView(
+                        filters: viewModel.displayedFilters,
+                        onLike: { filterId, shouldLike in
+                            viewModel.input.likeFilter.send((filterId, shouldLike))
+                        },
+                        onFilterTap: { filterId in
+                            handleFilterTap(filterId: filterId)
+                        },
+                        onLoadMore: {
+                            viewModel.input.loadMoreData.send()
+                        },
+                        isLoadingMore: viewModel.isLoadingMore
+                    )
+                )
+            } else {
+                NavigationLazyView(
+                    FilterBlockView(
+                        filters: viewModel.displayedFilters,
+                        onLike: { filterId, shouldLike in
+                            viewModel.input.likeFilter.send((filterId, shouldLike))
+                        },
+                        onFilterTap: { filterId in
+                            handleFilterTap(filterId: filterId)
+                        },
+                        onLoadMore: {
+                            viewModel.input.loadMoreData.send()
+                        },
+                        isLoadingMore: viewModel.isLoadingMore
+                    )
+                )
+            }
+        }
+        
+        Color.clear.frame(height: 100)
+    }
+    
+    private func handleFilterTap(filterId: String) {
+        router.pushToFilterDetail(filterId: filterId, from: .feed)
     }
 }
 
-// MARK: - 안전한 Pinterest 스타일 Block View
-struct SafePinterestBlockView: View {
+struct FilterBlockView: View {
     let filters: [FilterItem]
     let onLike: (String, Bool) -> Void
     let onFilterTap: (String) -> Void
@@ -210,12 +219,11 @@ struct SafePinterestBlockView: View {
     
     var body: some View {
         LazyVStack(spacing: 0) {
-            // 간단한 2열 레이아웃으로 변경
             ForEach(Array(stride(from: 0, to: filters.count, by: 2)), id: \.self) { index in
                 HStack(alignment: .top, spacing: spacing) {
                     // 왼쪽 열
                     if index < filters.count {
-                        SafeFilterBlockItem(
+                        FilterBlockItem(
                             filter: filters[index],
                             columnWidth: columnWidth,
                             isLarge: shouldBeLarge(index: index),
@@ -231,7 +239,7 @@ struct SafePinterestBlockView: View {
                     
                     // 오른쪽 열
                     if index + 1 < filters.count {
-                        SafeFilterBlockItem(
+                        FilterBlockItem(
                             filter: filters[index + 1],
                             columnWidth: columnWidth,
                             isLarge: shouldBeLarge(index: index + 1),
@@ -261,15 +269,14 @@ struct SafePinterestBlockView: View {
         .padding(.top, 16)
     }
     
-    // 랜덤하게 큰 셀과 작은 셀 배치
     private func shouldBeLarge(index: Int) -> Bool {
         let patterns = [false, true, false, false, true, false, true, false]
         return patterns[index % patterns.count]
     }
 }
 
-// MARK: - 안전한 필터 블록 아이템
-struct SafeFilterBlockItem: View {
+
+struct FilterBlockItem: View {
     let filter: FilterItem
     let columnWidth: CGFloat
     let isLarge: Bool
@@ -277,13 +284,13 @@ struct SafeFilterBlockItem: View {
     let onFilterTap: (String) -> Void
     
     @State private var shouldLoadImage = false
-    @State private var isVisible = false
+    @State private var imageLoadFailed = false
     
     private var imageHeight: CGFloat {
         if isLarge {
-            return columnWidth * 1.4 // 세로 이미지용
+            return columnWidth * 1.4
         } else {
-            return columnWidth * 0.8 // 가로 이미지용
+            return columnWidth * 0.8
         }
     }
     
@@ -294,33 +301,9 @@ struct SafeFilterBlockItem: View {
                 Button {
                     onFilterTap(filter.filter_id)
                 } label: {
-                    Group {
-                        if shouldLoadImage && isVisible, let firstImagePath = filter.files.first {
-                            AuthenticatedImageView(
-                                imagePath: firstImagePath,
-                                contentMode: .fill,
-                                targetSize: CGSize(width: columnWidth * 2, height: imageHeight * 2)
-                            ) {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.gray.opacity(0.3))
-                                    .overlay(
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                            .scaleEffect(0.6)
-                                    )
-                            }
-                        } else {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.gray.opacity(0.3))
-                                .overlay(
-                                    Image(systemName: "photo")
-                                        .foregroundColor(.gray)
-                                        .font(.system(size: 28))
-                                )
-                        }
-                    }
-                    .frame(width: columnWidth, height: imageHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    imageContent
+                        .frame(width: columnWidth, height: imageHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(PlainButtonStyle())
                 
@@ -345,10 +328,7 @@ struct SafeFilterBlockItem: View {
                     HStack {
                         Spacer()
                         Button {
-                            // 메인스레드에서 실행 보장
-                            DispatchQueue.main.async {
-                                onLike(filter.filter_id, !filter.is_liked)
-                            }
+                            onLike(filter.filter_id, !filter.is_liked)
                         } label: {
                             HStack(spacing: 3) {
                                 Image(systemName: filter.is_liked ? "heart.fill" : "heart")
@@ -368,6 +348,26 @@ struct SafeFilterBlockItem: View {
                         .padding(.bottom, 6)
                     }
                 }
+                
+                // 재시도 버튼 (이미지 로드 실패 시)
+                if imageLoadFailed {
+                    VStack {
+                        Spacer()
+                        Button {
+                            imageLoadFailed = false
+                            shouldLoadImage = true
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 16))
+                                .foregroundColor(.white)
+                                .padding(8)
+                                .background(Color.black.opacity(0.6))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        Spacer()
+                    }
+                }
             }
             
             // 작가 이름
@@ -379,27 +379,136 @@ struct SafeFilterBlockItem: View {
         }
         .frame(width: columnWidth)
         .onAppear {
-            // 메인스레드에서 상태 업데이트
-            DispatchQueue.main.async {
-                isVisible = true
+            shouldLoadImage = true
+        }
+        .id(filter.filter_id)
+    }
+    
+    @ViewBuilder
+    private var imageContent: some View {
+        if shouldLoadImage && !imageLoadFailed, let firstImagePath = filter.files.first {
+            ImageView(
+                imagePath: firstImagePath,
+                targetSize: CGSize(width: columnWidth * 2, height: imageHeight * 2),
+                onError: {
+                    imageLoadFailed = true
+                }
+            ) {
+                placeholderContent
             }
-            
-            // 이미지 로딩 지연
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                shouldLoadImage = true
+        } else {
+            placeholderContent
+        }
+    }
+    
+    @ViewBuilder
+    private var placeholderContent: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(Color.gray.opacity(0.3))
+            .overlay(
+                Group {
+                    if imageLoadFailed {
+                        VStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 20))
+                                .foregroundColor(.orange)
+                            Text("로딩 실패")
+                                .font(.system(size: 10))
+                                .foregroundColor(.white)
+                        }
+                    } else if shouldLoadImage {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "photo")
+                            .foregroundColor(.gray)
+                            .font(.system(size: 28))
+                    }
+                }
+            )
+    }
+}
+
+struct ImageView: View {
+    let imagePath: String
+    let targetSize: CGSize?
+    let onError: () -> Void
+    let placeholder: () -> AnyView
+    
+    @State private var imageData: Data?
+    @State private var isLoading = false
+    @State private var hasError = false
+    
+    init(
+        imagePath: String,
+        targetSize: CGSize? = nil,
+        onError: @escaping () -> Void = {},
+        @ViewBuilder placeholder: @escaping () -> some View = {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+        }
+    ) {
+        self.imagePath = imagePath
+        self.targetSize = targetSize
+        self.onError = onError
+        self.placeholder = { AnyView(placeholder()) }
+    }
+    
+    var body: some View {
+        Group {
+            if let imageData = imageData, let uiImage = UIImage(data: imageData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else if isLoading {
+                placeholder()
+            } else if hasError {
+                placeholder()
+            } else {
+                Color.clear
+                    .onAppear {
+                        loadImage()
+                    }
             }
         }
-        .onDisappear {
-            // 메인스레드에서 상태 업데이트
-            DispatchQueue.main.async {
-                isVisible = false
-                shouldLoadImage = false
+    }
+    
+    private func loadImage() {
+        guard !imagePath.isEmpty else {
+            hasError = true
+            onError()
+            return
+        }
+        
+        guard !isLoading else { return }
+        
+        isLoading = true
+        hasError = false
+        
+        Task {
+            do {
+                let data = try await ImageLoader.shared.loadImage(
+                    from: imagePath,
+                    targetSize: targetSize
+                )
+                
+                await MainActor.run {
+                    self.imageData = data
+                    self.isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.hasError = true
+                    self.isLoading = false
+                    self.onError()
+                }
+                print("이미지 로드 실패: \(error)")
             }
         }
     }
 }
 
-// MARK: - 나머지 확장들 (카테고리, 랭킹, 정렬, 리스트뷰)
 extension FeedView {
     struct CategoryButtonsView: View {
         @Binding var selectedCategory: FilterCategory?
@@ -506,6 +615,7 @@ extension FeedView {
                                                 VerticalOvalCard(
                                                     filter: filter,
                                                     rank: index + 1,
+                                                    isActive: true,
                                                     onFilterTap: onFilterTap
                                                 )
                                                 .scaleEffect(scale)
@@ -514,6 +624,7 @@ extension FeedView {
                                                 MiniVerticalOvalCard(
                                                     filter: filter,
                                                     rank: index + 1,
+                                                    isActive: true,
                                                     onFilterTap: onFilterTap
                                                 )
                                                 .scaleEffect(scale)
@@ -568,7 +679,7 @@ extension FeedView {
         }
     }
     
-    struct FilterListView: View {
+    struct OptimizedFilterListView: View {
         let filters: [FilterItem]
         let onLike: (String, Bool) -> Void
         let onFilterTap: (String) -> Void
@@ -578,7 +689,7 @@ extension FeedView {
         var body: some View {
             LazyVStack(spacing: 20) {
                 ForEach(filters) { filter in
-                    FilterListItem(
+                    OptimizedFilterListItem(
                         filter: filter,
                         onLike: onLike,
                         onFilterTap: onFilterTap
@@ -608,12 +719,13 @@ extension FeedView {
         }
     }
     
-    struct FilterListItem: View {
+    struct OptimizedFilterListItem: View {
         let filter: FilterItem
         let onLike: (String, Bool) -> Void
         let onFilterTap: (String) -> Void
         
         @State private var shouldLoadImage = false
+        @State private var imageLoadFailed = false
         
         var body: some View {
             HStack(spacing: 16) {
@@ -621,40 +733,14 @@ extension FeedView {
                     Button {
                         onFilterTap(filter.filter_id)
                     } label: {
-                        if shouldLoadImage, let firstImagePath = filter.files.first {
-                            AuthenticatedImageView(
-                                imagePath: firstImagePath,
-                                contentMode: .fill,
-                                targetSize: CGSize(width: 80, height: 80)
-                            ) {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.gray.opacity(0.3))
-                                    .overlay(
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                            .scaleEffect(0.8)
-                                    )
-                            }
+                        listImageContent
                             .frame(width: 80, height: 80)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
-                        } else {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 80, height: 80)
-                                .overlay(
-                                    Image(systemName: "photo")
-                                        .foregroundColor(.gray)
-                                        .font(.system(size: 24))
-                                )
-                        }
                     }
                     .buttonStyle(PlainButtonStyle())
                     
                     Button {
-                        // 메인스레드에서 실행 보장
-                        DispatchQueue.main.async {
-                            onLike(filter.filter_id, !filter.is_liked)
-                        }
+                        onLike(filter.filter_id, !filter.is_liked)
                     } label: {
                         Image(systemName: filter.is_liked ? "heart.fill" : "heart")
                             .font(.system(size: 20, weight: .medium))
@@ -700,13 +786,53 @@ extension FeedView {
             }
             .frame(minHeight: 100)
             .onAppear {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    shouldLoadImage = true
+                shouldLoadImage = true
+            }
+        }
+        
+        @ViewBuilder
+        private var listImageContent: some View {
+            if shouldLoadImage && !imageLoadFailed, let firstImagePath = filter.files.first {
+                ImageView(
+                    imagePath: firstImagePath,
+                    targetSize: CGSize(width: 80, height: 80),
+                    onError: {
+                        imageLoadFailed = true
+                    }
+                ) {
+                    listPlaceholderContent
                 }
+            } else {
+                listPlaceholderContent
             }
-            .onDisappear {
-                shouldLoadImage = false
-            }
+        }
+        
+        @ViewBuilder
+        private var listPlaceholderContent: some View {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.gray.opacity(0.3))
+                .overlay(
+                    Group {
+                        if imageLoadFailed {
+                            VStack(spacing: 2) {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.orange)
+                                Text("실패")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.white)
+                            }
+                        } else if shouldLoadImage {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "photo")
+                                .foregroundColor(.gray)
+                                .font(.system(size: 24))
+                        }
+                    }
+                )
         }
     }
 }

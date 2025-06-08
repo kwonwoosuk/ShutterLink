@@ -18,7 +18,7 @@ protocol FilterUseCase {
      func createFilter(request: FilterCreateRequest) async throws -> FilterDetailResponse
 }
 
-class FilterUseCaseImpl: FilterUseCase {
+final class FilterUseCaseImpl: FilterUseCase {
     private let networkManager = NetworkManager.shared
     
     func getTodayFilter() async throws -> TodayFilterResponse {

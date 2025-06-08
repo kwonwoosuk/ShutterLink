@@ -7,7 +7,7 @@
 
 import Foundation
 
-class NetworkMiddleware {
+final class NetworkMiddleware {
     private let tokenManager: TokenManager
     
     init(tokenManager: TokenManager = TokenManager.shared) {

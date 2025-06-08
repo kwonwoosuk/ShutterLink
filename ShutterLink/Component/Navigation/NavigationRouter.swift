@@ -9,7 +9,7 @@ import SwiftUI
 import Combine
 
 // MARK: - 네비게이션 라우터
-class NavigationRouter: ObservableObject {
+final class NavigationRouter: ObservableObject {
     
     // MARK: - Published Properties
     @Published var selectedTab: Tab = .home

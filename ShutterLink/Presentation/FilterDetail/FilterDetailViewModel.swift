@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-class FilterDetailViewModel: ObservableObject {
+final class FilterDetailViewModel: ObservableObject {
     // MARK: - Input
     struct Input {
         let loadFilterDetail = PassthroughSubject<String, Never>()

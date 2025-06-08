@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-class ProfileViewModel: ObservableObject {
+final class ProfileViewModel: ObservableObject {
     // 기존 프로퍼티들
     @Published var profile: ProfileResponse?
     @Published var isLoading = false

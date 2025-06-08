@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-class SearchViewModel: ObservableObject {
+final class SearchViewModel: ObservableObject {
     struct Input {
         let searchUsers = PassthroughSubject<String, Never>()
         let clearResults = PassthroughSubject<Void, Never>()

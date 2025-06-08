@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-class FeedViewModel: ObservableObject {
+final class FeedViewModel: ObservableObject {
     struct Input {
         let loadMoreData = PassthroughSubject<Void, Never>()
         let selectCategory = PassthroughSubject<FilterCategory?, Never>()
@@ -40,17 +40,15 @@ class FeedViewModel: ObservableObject {
     
     private var hasEverLoaded = false
     private var lastLoadTime: Date?
-    private var lastLoadMoreTime: Date? // 추가: 마지막 더 로드한 시간
+    private var lastLoadMoreTime: Date?
     private let cacheValidDuration: TimeInterval = 300
-    private let loadMoreCooldown: TimeInterval = 1.0 // 추가: 로드 더 쿨다운
+    private let loadMoreCooldown: TimeInterval = 0.5 // 0.5초로 단축
     
     private var currentLoadTask: Task<Void, Never>?
     private var currentCategoryTask: Task<Void, Never>?
     private var currentMoreDataTask: Task<Void, Never>?
     
-    // 추가: 로딩 방지 플래그들
     private var isLoadMoreInProgress = false
-    private var loadMoreRequestCount = 0
     
     init(filterUseCase: FilterUseCase = FilterUseCaseImpl()) {
         self.filterUseCase = filterUseCase
@@ -58,9 +56,9 @@ class FeedViewModel: ObservableObject {
     }
     
     private func setupBindings() {
-        // 로드 더 요청 debounce 강화 및 중복 방지
+        
         input.loadMoreData
-            .debounce(for: 1.0, scheduler: RunLoop.main) // 1초로 증가
+            .debounce(for: 0.5, scheduler: RunLoop.main) // 0.5초로 단축
             .sink { [weak self] in
                 guard let self = self else { return }
                 
@@ -71,7 +69,6 @@ class FeedViewModel: ObservableObject {
                     return
                 }
                 
-                // 이미 진행 중인지 체크
                 guard !self.isLoadMoreInProgress else {
                     print("🚫 FeedViewModel: 이미 로드 더 진행 중 - 스킵")
                     return
@@ -82,8 +79,8 @@ class FeedViewModel: ObservableObject {
             .store(in: &cancellables)
         
         input.selectCategory
-            .debounce(for: 0.3, scheduler: RunLoop.main) // 0.3초로 증가
-            .removeDuplicates() // 중복 제거
+            .debounce(for: 0.2, scheduler: RunLoop.main) // 0.2초로 단축
+            .removeDuplicates()
             .sink { [weak self] category in
                 Task { [weak self] in
                     await MainActor.run {
@@ -95,7 +92,7 @@ class FeedViewModel: ObservableObject {
             .store(in: &cancellables)
         
         input.selectSortOption
-            .debounce(for: 0.3, scheduler: RunLoop.main)
+            .debounce(for: 0.2, scheduler: RunLoop.main) // 0.2초로 단축
             .removeDuplicates()
             .sink { [weak self] option in
                 Task { [weak self] in
@@ -108,7 +105,6 @@ class FeedViewModel: ObservableObject {
             .store(in: &cancellables)
         
         input.toggleViewMode
-            .debounce(for: 0.1, scheduler: RunLoop.main) // debounce 추가
             .sink { [weak self] in
                 Task { [weak self] in
                     await MainActor.run {
@@ -120,14 +116,14 @@ class FeedViewModel: ObservableObject {
             .store(in: &cancellables)
         
         input.likeFilter
-            .debounce(for: 0.2, scheduler: RunLoop.main) // debounce 추가
+            .debounce(for: 0.1, scheduler: RunLoop.main) // 0.1초로 단축
             .sink { [weak self] filterId, shouldLike in
                 self?.likeFilter(filterId: filterId, newLikeStatus: shouldLike)
             }
             .store(in: &cancellables)
         
         input.refreshData
-            .debounce(for: 0.5, scheduler: RunLoop.main)
+            .debounce(for: 0.3, scheduler: RunLoop.main) // 0.3초로 단축
             .sink { [weak self] in
                 self?.refreshData()
             }
@@ -154,8 +150,8 @@ class FeedViewModel: ObservableObject {
         print("🔵 FeedViewModel: 데이터 새로고침")
         hasEverLoaded = false
         lastLoadTime = nil
-        lastLoadMoreTime = nil // 추가
-        isLoadMoreInProgress = false // 추가
+        lastLoadMoreTime = nil
+        isLoadMoreInProgress = false
         loadInitialData()
     }
     
@@ -174,7 +170,7 @@ class FeedViewModel: ObservableObject {
             self.isLoading = true
             self.errorMessage = nil
             self.allFiltersNextCursor = ""
-            self.isLoadMoreInProgress = false // 리셋
+            self.isLoadMoreInProgress = false
             
             do {
                 let currentSortOption = self.selectedSortOption
@@ -224,7 +220,7 @@ class FeedViewModel: ObservableObject {
         
         await MainActor.run {
             self.hasMoreData = true
-            self.isLoadMoreInProgress = false // 리셋
+            self.isLoadMoreInProgress = false
         }
         self.nextCursor = ""
         
@@ -256,7 +252,6 @@ class FeedViewModel: ObservableObject {
         }
     }
     
-    // MARK: - 개선된 로드 더 로직
     private func loadMoreData() {
         Task {
             let canLoadMore = await MainActor.run {
@@ -265,7 +260,7 @@ class FeedViewModel: ObservableObject {
                 self.hasMoreData &&
                 !self.nextCursor.isEmpty &&
                 self.nextCursor != "0" &&
-                self.displayedFilters.count >= 5 // 최소 데이터 확보 후 로딩
+                self.displayedFilters.count >= 3 // 최소 데이터 요구량 줄임
             }
             
             guard canLoadMore else {
@@ -273,7 +268,6 @@ class FeedViewModel: ObservableObject {
                 return
             }
             
-            // 진행 상태 마킹
             await MainActor.run {
                 self.isLoadMoreInProgress = true
                 self.lastLoadMoreTime = Date()
@@ -300,7 +294,6 @@ class FeedViewModel: ObservableObject {
                     
                     try Task.checkCancellation()
                     
-                    // 중복 데이터 필터링
                     let newFilters = response.data.filter { newFilter in
                         !self.displayedFilters.contains { $0.filter_id == newFilter.filter_id }
                     }
@@ -395,7 +388,7 @@ class FeedViewModel: ObservableObject {
     }
 }
 
-// MARK: - ViewMode enum 추가
+// MARK: - ViewMode enum 확장
 extension FeedViewMode {
     var rawValue: String {
         switch self {
