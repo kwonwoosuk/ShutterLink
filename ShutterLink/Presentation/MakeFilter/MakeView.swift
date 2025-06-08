@@ -162,7 +162,7 @@ struct MakeView: View {
             ToolbarItem(placement: .principal) {
                 Text("필터 생성")
                     .font(.hakgyoansim(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.gray45)
             }
             
             ToolbarItem(placement: .navigationBarLeading) {

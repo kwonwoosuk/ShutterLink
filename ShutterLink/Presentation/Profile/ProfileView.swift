@@ -173,6 +173,14 @@ struct ProfileView: View {
                     FilterDetailView(filterId: filterId)
                 }
             }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("PROFILE")
+                        .font(.hakgyoansim(size: 18, weight: .bold))
+                        .foregroundColor(.gray45)
+                }
+            }
         }
         .onAppear {
             // 탭 전환 완료 후 로딩 시작
