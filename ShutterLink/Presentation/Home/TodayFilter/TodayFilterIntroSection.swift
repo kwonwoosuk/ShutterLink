@@ -28,7 +28,8 @@ struct TodayFilterIntroSection: View {
                 if let filter = filter, let firstImagePath = filter.files.first {
                     AuthenticatedImageView(
                         imagePath: firstImagePath,
-                        contentMode: .fill
+                        contentMode: .fill,
+                        targetSize: CGSize(width: 300, height: 300)
                     ) {
                         Rectangle()
                             .fill(Color.gray.opacity(0.3))

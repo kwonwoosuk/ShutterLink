@@ -125,9 +125,6 @@ struct HomeView: View {
             print("🔵 HomeView: onAppear - 처음만 로딩")
             viewModel.loadDataOnceIfNeeded()
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            // 백그라운드에서 돌아올 때만 캐시 정리
-            ImageLoader.shared.clearCache()
-        }
+   
     }
 }

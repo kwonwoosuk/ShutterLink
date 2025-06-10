@@ -23,7 +23,7 @@ struct AuthenticatedImageView: View {
     init(
         imagePath: String,
         contentMode: ContentMode = .fill,
-        targetSize: CGSize? = nil,
+        targetSize: CGSize? = CGSize(width: 250, height: 250),
         @ViewBuilder placeholder: @escaping () -> some View = {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: .white))

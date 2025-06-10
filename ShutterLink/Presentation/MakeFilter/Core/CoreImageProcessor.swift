@@ -257,7 +257,7 @@ extension CoreImageProcessor {
     
     // 비동기 필터 적용
     func applyFiltersAsync(with state: EditingState) async -> UIImage? {
-        return await Task.detached(priority: .userInitiated) {
+        return await Task.detached(priority: .high) {
             return self.applyFilters(with: state)
         }.value
     }
