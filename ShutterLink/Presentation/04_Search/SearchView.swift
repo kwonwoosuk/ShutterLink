@@ -36,6 +36,11 @@ struct SearchView: View {
                             Spacer()
                             LoadingIndicatorView()
                             Spacer()
+                        } else if searchText.isEmpty {
+                               // 검색어가 없을 때 초기 안내 메시지 표시
+                               Spacer()
+                               initialGuideMessageView()
+                               Spacer()
                         } else if viewModel.searchResults.isEmpty && !searchText.isEmpty && !viewModel.isLoading {
                             Spacer()
                             EmptySearchResultView()
@@ -105,6 +110,22 @@ struct SearchView: View {
         }
     }
 }
+
+private func initialGuideMessageView() -> some View {
+    VStack(spacing: 32) {
+        Image(systemName: "magnifyingglass")
+                   .font(.system(size: 32, weight: .medium))
+                   .foregroundColor(.white.opacity(0.7))
+
+        
+        Text("작가이름을 검색해 마음에 드는 필터를 찾아보세요!")
+            .font(.hakgyoansim(size: 16, weight: .regular))
+            .foregroundColor(.white)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 40)
+    }
+}
+
 
 // MARK: - 검색바 뷰
 struct SearchBarView: View {
