@@ -60,8 +60,9 @@ final class FilterUseCaseImpl: FilterUseCase {
             let uploadData = try await networkManager.uploadMultipleImages(
                 router,
                 images: [
-                    ("files", originalData, "original.jpg"),
-                    ("files", filteredData, "filtered.jpg")
+                    ("files", filteredData, "filtered.jpg"),
+                    ("files", originalData, "original.jpg")
+                  
                 ]
             )
             
