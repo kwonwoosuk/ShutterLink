@@ -27,7 +27,7 @@ final class ProfileViewModel: ObservableObject {
     
     // 페이지네이션 상태
     private var likedFiltersNextCursor = ""
-    private let likedFiltersPageLimit = 10
+    private let likedFiltersPageLimit = 9999
     
     // Task 관리용
     private var loadProfileTask: Task<Void, Never>?
