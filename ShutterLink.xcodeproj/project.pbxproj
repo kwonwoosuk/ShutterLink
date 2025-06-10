@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4D22AB512DF88B560058396D /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB502DF88B560058396D /* RealmSwift */; };
+		4D22AB542DF8911E0058396D /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB532DF8911E0058396D /* SocketIO */; };
 		4D857D8D2DD9B09A00496829 /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D8C2DD9B09A00496829 /* KakaoSDKAuth */; };
 		4D857D8F2DD9B09A00496829 /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D8E2DD9B09A00496829 /* KakaoSDKCommon */; };
 		4D857D912DD9B09A00496829 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D902DD9B09A00496829 /* KakaoSDKUser */; };
@@ -52,6 +53,7 @@
 				4D857D8D2DD9B09A00496829 /* KakaoSDKAuth in Frameworks */,
 				4D22AB512DF88B560058396D /* RealmSwift in Frameworks */,
 				4D857D912DD9B09A00496829 /* KakaoSDKUser in Frameworks */,
+				4D22AB542DF8911E0058396D /* SocketIO in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -108,6 +110,7 @@
 				4D857D8E2DD9B09A00496829 /* KakaoSDKCommon */,
 				4D857D902DD9B09A00496829 /* KakaoSDKUser */,
 				4D22AB502DF88B560058396D /* RealmSwift */,
+				4D22AB532DF8911E0058396D /* SocketIO */,
 			);
 			productName = ShutterLink;
 			productReference = 4DDEB2472DCF4CFC00C8BBEA /* ShutterLink.app */;
@@ -140,6 +143,7 @@
 			packageReferences = (
 				4D857D8B2DD9B09A00496829 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
 				4D22AB4F2DF88B560058396D /* XCRemoteSwiftPackageReference "realm-swift" */,
+				4D22AB522DF8911E0058396D /* XCRemoteSwiftPackageReference "socket" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4DDEB2482DCF4CFC00C8BBEA /* Products */;
@@ -398,6 +402,14 @@
 				version = 20.0.1;
 			};
 		};
+		4D22AB522DF8911E0058396D /* XCRemoteSwiftPackageReference "socket" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/socketio/socket.io-client-swift";
+			requirement = {
+				kind = exactVersion;
+				version = 16.1.0;
+			};
+		};
 		4D857D8B2DD9B09A00496829 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
@@ -413,6 +425,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 4D22AB4F2DF88B560058396D /* XCRemoteSwiftPackageReference "realm-swift" */;
 			productName = RealmSwift;
+		};
+		4D22AB532DF8911E0058396D /* SocketIO */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D22AB522DF8911E0058396D /* XCRemoteSwiftPackageReference "socket" */;
+			productName = SocketIO;
 		};
 		4D857D8C2DD9B09A00496829 /* KakaoSDKAuth */ = {
 			isa = XCSwiftPackageProductDependency;
