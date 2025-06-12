@@ -46,8 +46,9 @@ enum UserRoute: Route {
 // MARK: - 프로필 탭 라우트
 enum ProfileRoute: Route {
     case editProfile
-    case likedFilters // 추가: 좋아요한 필터 목록
-    case filterDetail(filterId: String) // 추가: 프로필에서 필터 상세로 이동
+    case likedFilters
+    case filterDetail(filterId: String)
+    case chatRoomList // 🆕 채팅방 목록
     
     var id: String {
         switch self {
@@ -57,6 +58,8 @@ enum ProfileRoute: Route {
             return "likedFilters"
         case .filterDetail(let filterId):
             return "filterDetail_\(filterId)"
+        case .chatRoomList:
+            return "chatRoomList"
         }
     }
 }

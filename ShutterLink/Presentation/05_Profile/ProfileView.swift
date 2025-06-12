@@ -103,7 +103,52 @@ struct ProfileView: View {
                             .padding(.horizontal)
                             .padding(.top, 10)
                             
-                            // 좋아요한 필터 섹션 추가
+                            // 📱 문의 내역 섹션 (새로 추가)
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("문의 내역")
+                                    .font(.pretendard(size: 18, weight: .semiBold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal)
+                                
+                                Button {
+                                    router.profilePath.append(.chatRoomList)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.blue)
+                                        
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("채팅 내역")
+                                                .font(.pretendard(size: 16, weight: .medium))
+                                                .foregroundColor(.white)
+                                            
+                                            Text("작가와의 채팅 내역을 확인하세요")
+                                                .font(.pretendard(size: 13, weight: .regular))
+                                                .foregroundColor(.gray)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(.gray)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                    .background(Color.black)
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .padding(.horizontal)
+                            }
+                            .padding(.top, 10)
+                            
+                            // 좋아요한 필터 섹션 (기존 유지)
                             LikedFiltersSection(
                                 filters: viewModel.likedFilters,
                                 isLoading: viewModel.isLoadingLikedFilters,
@@ -171,6 +216,8 @@ struct ProfileView: View {
                     EmptyView() // 필요시 전체 좋아요한 필터 리스트 뷰
                 case .filterDetail(let filterId):
                     FilterDetailView(filterId: filterId)
+                case .chatRoomList:
+                    ChatRoomListView()
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -212,7 +259,7 @@ struct ProfileView: View {
     }
 }
 
-// MARK: - 좋아요한 필터 섹션
+// MARK: - 좋아요한 필터 섹션 (기존 유지)
 struct LikedFiltersSection: View {
     let filters: [FilterItem]
     let isLoading: Bool
@@ -284,7 +331,7 @@ struct LikedFiltersSection: View {
     }
 }
 
-// MARK: - 프로필용 필터 카드 (FeedView 블록뷰와 동일한 스타일)
+// MARK: - 프로필용 필터 카드
 struct ProfileFilterCard: View {
     let filter: FilterItem
     let cardWidth: CGFloat

@@ -193,6 +193,13 @@ final class NavigationRouter: ObservableObject {
         print("🧭 NavigationRouter: 좋아요한 필터 상세로 이동 - \(filterId)")
     }
     
+    // 🆕 채팅방 목록으로 이동
+    func pushToChatRoomList() {
+        let route = ProfileRoute.chatRoomList
+        profilePath.append(route)
+        print("🧭 NavigationRouter: 채팅방 목록으로 이동")
+    }
+    
     func popProfileRoute() {
         if !profilePath.isEmpty {
             profilePath.removeLast()
@@ -203,7 +210,7 @@ final class NavigationRouter: ObservableObject {
         profilePath.removeAll()
     }
     
-    // MARK: - Navigation Actions for Make Routes (수정됨)
+    // MARK: - Navigation Actions for Make Routes
     
     /// 필터 생성 화면으로 이동
     func pushToCreateFilter() {

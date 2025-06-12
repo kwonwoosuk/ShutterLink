@@ -48,6 +48,10 @@ struct AppContainerView: View {
                                 .font(.hakgyoansim(size: 24, weight: .bold))
                                 .foregroundColor(.white)
                             
+                            Text("자동 로그인 중 입니다...")
+                                .font(.hakgyoansim(size: 18, weight: .bold))
+                                .foregroundColor(.white)
+                            
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 .scaleEffect(1.2)

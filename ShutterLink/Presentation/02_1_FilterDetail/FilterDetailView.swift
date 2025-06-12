@@ -1,5 +1,5 @@
 //
-//  FilterDetailView.swift
+//  FilterDetailView.swift (채팅 기능만 추가)
 //  ShutterLink
 //
 //  Created by 권우석 on 5/26/25.
@@ -24,6 +24,23 @@ struct FilterDetailView: View {
     @State private var imageSectionHeight: CGFloat = 0
     @State private var imageLoadTask: Task<Void, Never>?
     @State private var hasLoadedImages = false // 중복 로딩 방지
+    
+    // 🆕 채팅 관련 State 추가
+    @State private var chatRoomId: String? // 생성된 채팅방 ID
+    @State private var isCreatingChatRoom = false // 채팅방 생성 중 상태
+    @State private var chatError: String? // 채팅 에러 메시지
+    @State private var showChatError = false // 채팅 에러 알림 표시
+    @State private var selectedParticipant: Users? // 선택된 채팅 상대방
+    
+    // 🆕 채팅 관련 UseCase
+    private let chatUseCase: ChatUseCaseImpl
+    
+    init(filterId: String) {
+        self.filterId = filterId
+        // 채팅 UseCase 초기화
+        let localRepository = try! RealmChatRepository()
+        self.chatUseCase = ChatUseCaseImpl(localRepository: localRepository)
+    }
     
     var body: some View {
         ZStack {
@@ -69,9 +86,10 @@ struct FilterDetailView: View {
                             .frame(height: 1)
                             .padding(.horizontal, 20)
                         
-                        // 크리에이터 프로필 섹션 (수정된 버전)
+                        // 크리에이터 프로필 섹션 (채팅 기능 연결)
                         CreatorProfileSection(
                             creator: filterDetail.creator,
+                            isCreatingChatRoom: isCreatingChatRoom, // 🆕 상태 전달
                             onCreatorTap: {
                                 // UserDetailView로 이동
                                 let userInfo = UserInfo(
@@ -89,7 +107,8 @@ struct FilterDetailView: View {
                                 )
                             },
                             onChatTap: {
-                                showChatOuterView = true
+                                // 🆕 채팅 시작
+                                startChatWithCreator(filterDetail.creator)
                             }
                         )
                         
@@ -103,6 +122,11 @@ struct FilterDetailView: View {
                 ErrorStateView(errorMessage: errorMessage) {
                     viewModel.input.loadFilterDetail.send(filterId)
                 }
+            }
+            
+            // 🆕 채팅방 생성 로딩 오버레이
+            if isCreatingChatRoom {
+                chatCreationLoadingOverlay
             }
             
             // 성공/에러 메시지 토스트
@@ -168,48 +192,151 @@ struct FilterDetailView: View {
         .onAppear {
             if !hasAppeared {
                 hasAppeared = true
+                print("🔵 FilterDetailView: 화면 나타남 - \(filterId)")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     viewModel.input.loadFilterDetail.send(filterId)
                 }
             }
         }
         .onDisappear {
+            print("🔴 FilterDetailView: 화면 사라짐 - \(filterId)")
             cleanUpResources()
         }
         .onReceive(viewModel.$filterDetail) { filterDetail in
-            // 한 번만 로딩하도록 제한
-            if let filterDetail = filterDetail, !hasLoadedImages {
+            if let filterDetail = filterDetail,
+               !hasLoadedImages,
+               imageLoadTask == nil,
+               originalImage == nil,
+               filteredImage == nil {
                 hasLoadedImages = true
                 loadImages(filterDetail: filterDetail)
             }
         }
         .sheet(isPresented: $showChatOuterView) {
-            // 채팅 뷰
-            NavigationStack {
-                VStack {
-                    Text("채팅 기능")
-                        .font(.title)
-                        .foregroundColor(.white)
-                    Text("곧 출시됩니다!")
-                        .foregroundColor(.gray)
+            if let chatRoomId = chatRoomId,
+               let participant = selectedParticipant {
+                NavigationStack {
+                    ChatView(roomId: chatRoomId, participantInfo: participant)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black)
-                .navigationTitle("채팅")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("닫기") {
-                            showChatOuterView = false
+            } else {
+                // 로딩 중이거나 오류 시 임시 화면
+                NavigationStack {
+                    VStack {
+                        if isCreatingChatRoom {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            Text("채팅방을 생성하는 중...")
+                                .foregroundColor(.white)
+                                .padding(.top, 8)
+                        } else {
+                            Text("채팅을 시작할 수 없습니다")
+                                .font(.title)
+                                .foregroundColor(.white)
+                            Text("잠시 후 다시 시도해주세요")
+                                .foregroundColor(.gray)
                         }
-                        .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black)
+                    .navigationTitle("채팅")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("닫기") {
+                                showChatOuterView = false
+                            }
+                            .foregroundColor(.white)
+                        }
                     }
                 }
             }
         }
+        // 🆕 채팅 에러 알림
+        .alert("채팅 오류", isPresented: $showChatError) {
+            Button("확인") {
+                showChatError = false
+                chatError = nil
+            }
+        } message: {
+            Text(chatError ?? "채팅방 생성에 실패했습니다.")
+        }
     }
     
-    // MARK: - 새로운 imageSection (참고 코드 방식 적용)
+    // MARK: - 🆕 채팅방 생성 로딩 오버레이
+    
+    private var chatCreationLoadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.7)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 16) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .scaleEffect(1.5)
+                
+                Text("채팅방을 생성하는 중...")
+                    .font(.pretendard(size: 16, weight: .medium))
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 40)
+            .padding(.vertical, 24)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.gray.opacity(0.9))
+            )
+        }
+    }
+    
+    // MARK: - 🆕 채팅 관련 메서드
+    
+    private func startChatWithCreator(_ creator: CreatorInfo) {
+        // 🔒 중복 실행 방지
+        guard !isCreatingChatRoom else {
+            print("🔄 이미 채팅방 생성 중입니다")
+            return
+        }
+        
+        print("🔵 FilterDetailView: 채팅 시작 - 크리에이터: \(creator.name)")
+        
+        Task { @MainActor in
+            isCreatingChatRoom = true
+            chatError = nil
+            
+            do {
+                // 채팅방 생성 또는 기존 채팅방 조회
+                let chatRoom = try await chatUseCase.createOrGetChatRoom(opponentId: creator.user_id)
+                
+                print("✅ FilterDetailView: 채팅방 생성/조회 완료 - roomId: \(chatRoom.roomId)")
+                
+                // 채팅 상대방 정보 설정
+                selectedParticipant = Users(
+                    userId: creator.user_id,
+                    nick: creator.nick,
+                    name: creator.name,
+                    introduction: creator.introduction,
+                    profileImage: creator.profileImage,
+                    hashTags: creator.hashTags
+                )
+                
+                // 채팅방 ID 저장 후 채팅 화면 표시
+                chatRoomId = chatRoom.roomId
+                
+                // 🔒 약간의 지연을 두어 상태 안정화
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.showChatOuterView = true
+                }
+                
+            } catch {
+                print("❌ FilterDetailView: 채팅방 생성 실패 - \(error)")
+                chatError = error.localizedDescription
+                showChatError = true
+            }
+            
+            isCreatingChatRoom = false
+        }
+    }
+    
+    // MARK: - imageSection
     @ViewBuilder
     private var imageSection: some View {
         GeometryReader { geometry in
@@ -251,7 +378,7 @@ struct FilterDetailView: View {
                         .overlay(
                             Image("DivideButton")
                                 .resizable()
-                                .scaledToFit() 
+                                .scaledToFit()
                                 .frame(width: 20, height: 20)
                         )
                     
@@ -290,9 +417,11 @@ struct FilterDetailView: View {
     
     // MARK: - 이미지 로딩 함수
     private func loadImages(filterDetail: FilterDetailResponse) {
-        // 이미 로딩 중이면 중단
-        guard imageLoadTask == nil else {
-            print("🔄 이미지 로딩이 이미 진행 중입니다.")
+        guard imageLoadTask == nil,
+              originalImage == nil,
+              filteredImage == nil,
+              hasLoadedImages else {
+            print("🔄 이미지 로딩이 이미 진행 중이거나 완료됨")
             return
         }
         
@@ -300,9 +429,12 @@ struct FilterDetailView: View {
         
         imageLoadTask = Task {
             do {
-                // 원본 이미지만 로딩 (필터된 이미지는 나중에 서버에서 제공받을 때 추가)
-                let originalImg = try await fetchImage(urlString: filterDetail.files.first)
-                let filteredImg = try await fetchImage(urlString: filterDetail.files.last)
+                // 원본 이미지와 필터된 이미지 동시 로딩
+                async let originalImg = fetchImage(urlString: filterDetail.files.first)
+                async let filteredImg = fetchImage(urlString: filterDetail.files.last)
+                
+                let (original, filtered) = try await (originalImg, filteredImg)
+                
                 // Task가 취소되지 않았는지 확인
                 guard !Task.isCancelled else {
                     print("🔄 이미지 로딩 Task 취소됨")
@@ -310,12 +442,13 @@ struct FilterDetailView: View {
                 }
                 
                 await MainActor.run {
-                    self.originalImage = originalImg
-                    self.filteredImage = filteredImg
+                    // 한 번에 모든 이미지 설정
+                    self.originalImage = original
+                    self.filteredImage = filtered
                     self.imageLoadTask = nil
+                    print("✅ 이미지 로딩 성공")
                 }
                 
-                print("✅ 이미지 로딩 성공")
             } catch {
                 await MainActor.run {
                     self.imageLoadTask = nil
@@ -358,18 +491,17 @@ struct FilterDetailView: View {
     private func cleanUpResources() {
         print("🧹 FilterDetailView: 리소스 정리 시작")
         
-        // 1. 이미지 메모리 정리
-        originalImage = nil
-        filteredImage = nil
-        
-        // 2. 진행 중인 Task 취소
+        // 1. 진행 중인 Task 먼저 취소
         imageLoadTask?.cancel()
         imageLoadTask = nil
         
-        // 3. 상태 초기화
+        // 2. 이미지 메모리 정리
+        originalImage = nil
+        filteredImage = nil
+        
+        // 3. 상태 초기화 (hasLoadedImages는 유지하여 재로딩 방지)
         filterPivot = 0
         imageSectionHeight = 0
-        hasLoadedImages = false // 로딩 상태 초기화
         
         print("🧹 FilterDetailView: 리소스 정리 완료")
     }
@@ -424,7 +556,7 @@ struct ToastMessageView: View {
     }
 }
 
-// MARK: - 결제/다운로드 버튼 (기존과 동일)
+// MARK: - 결제/다운로드 버튼
 struct PurchaseDownloadButton: View {
     let price: Int
     let isPurchased: Bool
@@ -485,7 +617,7 @@ struct PurchaseDownloadButton: View {
     }
 }
 
-// MARK: - 필터 정보와 통계 섹션 (기존과 동일)
+// MARK: - 필터 정보와 통계 섹션
 struct FilterInfoWithStatsSection: View {
     let filterDetail: FilterDetailResponse
     
@@ -559,7 +691,7 @@ struct FilterInfoWithStatsSection: View {
     }
 }
 
-// MARK: - 수정된 PhotoMetadataSection (옵셔널 필드 안전 처리)
+// MARK: - PhotoMetadataSection
 struct PhotoMetadataSection: View {
     let metadata: PhotoMetadata
     @State private var address: String = ""
@@ -880,7 +1012,7 @@ struct FilterPresetItemData {
     ]
 }
 
-// MARK: - 필터 프리셋 아이템 (수정됨)
+// MARK: - 필터 프리셋 아이템
 struct FilterPresetItem: View {
     let iconName: String
     let value: Double
@@ -924,6 +1056,7 @@ struct FilterPresetItem: View {
 // MARK: - 수정된 크리에이터 프로필 섹션
 struct CreatorProfileSection: View {
     let creator: CreatorInfo
+    let isCreatingChatRoom: Bool // 🆕 채팅방 생성 상태 추가
     let onCreatorTap: () -> Void
     let onChatTap: () -> Void
     
@@ -995,6 +1128,7 @@ struct CreatorProfileSection: View {
                 
                 Spacer()
                 
+                // 🆕 채팅 버튼 (로딩 상태 표시)
                 Button {
                     onChatTap()
                 } label: {
@@ -1002,12 +1136,19 @@ struct CreatorProfileSection: View {
                         .fill(DesignSystem.Colors.Brand.deepTurquoise.opacity(0.5))
                         .frame(width: 45, height: 45)
                         .overlay {
-                            Image(systemName: "paperplane.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(DesignSystem.Colors.Gray.gray15)
+                            if isCreatingChatRoom {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.Gray.gray15))
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "paperplane.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(DesignSystem.Colors.Gray.gray15)
+                            }
                         }
                         .cornerRadius(8)
                 }
+                .disabled(isCreatingChatRoom)
                 .frame(height: 60, alignment: .center)
                 .padding(.top, 0)
                 .padding(.trailing, 16)

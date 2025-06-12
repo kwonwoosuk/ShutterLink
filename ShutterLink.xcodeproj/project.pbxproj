@@ -9,12 +9,27 @@
 /* Begin PBXBuildFile section */
 		4D22AB512DF88B560058396D /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB502DF88B560058396D /* RealmSwift */; };
 		4D22AB542DF8911E0058396D /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB532DF8911E0058396D /* SocketIO */; };
+		4D22AB7C2DF8B9050058396D /* RealmSwift in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB502DF88B560058396D /* RealmSwift */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		4D857D8D2DD9B09A00496829 /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D8C2DD9B09A00496829 /* KakaoSDKAuth */; };
 		4D857D8F2DD9B09A00496829 /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D8E2DD9B09A00496829 /* KakaoSDKCommon */; };
 		4D857D912DD9B09A00496829 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D902DD9B09A00496829 /* KakaoSDKUser */; };
 		4D857E952DD9DB1C00496829 /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D857E942DD9DB1C00496829 /* AuthenticationServices.framework */; };
 		4DDEB2562DCF4DAD00C8BBEA /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 4DDEB2552DCF4DAD00C8BBEA /* .gitignore */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4D22AB7D2DF8B9050058396D /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				4D22AB7C2DF8B9050058396D /* RealmSwift in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		4D857E942DD9DB1C00496829 /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
@@ -96,6 +111,7 @@
 				4DDEB2432DCF4CFC00C8BBEA /* Sources */,
 				4DDEB2442DCF4CFC00C8BBEA /* Frameworks */,
 				4DDEB2452DCF4CFC00C8BBEA /* Resources */,
+				4D22AB7D2DF8B9050058396D /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
