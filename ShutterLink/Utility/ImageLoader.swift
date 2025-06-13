@@ -50,7 +50,7 @@ final class ImageLoader {
         memoryCache.totalCostLimit = 25 * 1024 * 1024
     }
     
-    func loadImage(from imagePath: String, targetSize: CGSize? = CGSize(width: 200, height: 200),) async throws -> Data {
+    func loadImage(from imagePath: String, targetSize: CGSize? = CGSize(width: 500, height: 500),) async throws -> Data {
         // 빈 경로 체크
         guard !imagePath.isEmpty else {
             throw URLError(.badURL)

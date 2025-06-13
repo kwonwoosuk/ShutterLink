@@ -105,10 +105,7 @@ struct ProfileView: View {
                             
                             // 📱 문의 내역 섹션 (새로 추가)
                             VStack(alignment: .leading, spacing: 16) {
-                                Text("문의 내역")
-                                    .font(.pretendard(size: 18, weight: .semiBold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal)
+                                
                                 
                                 Button {
                                     router.profilePath.append(.chatRoomList)
@@ -116,7 +113,7 @@ struct ProfileView: View {
                                     HStack(spacing: 12) {
                                         Image(systemName: "bubble.left.and.bubble.right.fill")
                                             .font(.system(size: 20))
-                                            .foregroundColor(.blue)
+                                            .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
                                         
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text("채팅 내역")
