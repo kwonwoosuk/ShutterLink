@@ -219,8 +219,14 @@ final class ChatUseCaseImpl: ChatUseCase {
     // MARK: - 유틸리티
     
     private func getCurrentUserId() -> String {
-        // TODO: TokenManager에서 현재 사용자 ID 가져오기
-        return tokenManager.getCurrentUserId() ?? ""
+        // ✅ 실제 TokenManager에서 현재 사용자 ID 가져오기
+        if let userId = tokenManager.getCurrentUserId() {
+            print("✅ ChatUseCase: 현재 사용자 ID - \(userId)")
+            return userId
+        } else {
+            print("⚠️ ChatUseCase: 사용자 ID를 가져올 수 없음, 토큰이 없거나 유효하지 않음")
+            return ""
+        }
     }
     
     private func formatDateForAPI(_ date: Date) -> String {
@@ -230,3 +236,85 @@ final class ChatUseCaseImpl: ChatUseCase {
     }
 }
 
+extension ChatUseCaseImpl {
+    // MARK: - 유틸리티
+    
+  
+    
+    // ✅ 추가: 현재 사용자인지 확인하는 유틸리티 메서드
+    private func isCurrentUser(userId: String) -> Bool {
+        let currentUserId = getCurrentUserId()
+        let isCurrentUser = currentUserId == userId
+        
+        if !currentUserId.isEmpty {
+            print("🔍 ChatUseCase: 사용자 확인 - currentUserId: \(currentUserId), targetUserId: \(userId), isCurrentUser: \(isCurrentUser)")
+        }
+        
+        return isCurrentUser
+    }
+    
+    // ✅ 추가: 메시지의 isFromCurrentUser 설정을 위한 유틸리티
+    private func markMessageAsFromCurrentUser(_ message: ChatMessage) -> ChatMessage {
+        let isFromCurrentUser = isCurrentUser(userId: message.sender.userId)
+        
+        // ChatMessage는 struct이므로 새 인스턴스를 생성해야 함
+        return ChatMessage(
+            chatId: message.chatId,
+            roomId: message.roomId,
+            content: message.content,
+            createdAt: message.createdAt,
+            updatedAt: message.updatedAt,
+            sender: message.sender,
+            files: message.files,
+            isFromCurrentUser: isFromCurrentUser
+        )
+    }
+}
+
+// MARK: - ChatMessageResponse extension 수정
+
+extension ChatMessageResponse {
+    func toDomain(currentUserId: String) -> ChatMessage {
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        // ✅ 현재 사용자인지 정확히 판단
+        let isFromCurrentUser = sender.userId == currentUserId
+        
+        print("🔍 ChatMessageResponse: 메시지 변환 - senderId: \(sender.userId), currentUserId: \(currentUserId), isFromCurrentUser: \(isFromCurrentUser)")
+        
+        return ChatMessage(
+            chatId: chatId,
+            roomId: roomId,
+            content: content,
+            createdAt: isoFormatter.date(from: createdAt) ?? Date(),
+            updatedAt: isoFormatter.date(from: updatedAt) ?? Date(),
+            sender: sender.toDomain(),
+            files: files,
+            isFromCurrentUser: isFromCurrentUser
+        )
+    }
+}
+
+// MARK: - ChatRoomResponse extension 수정
+
+extension ChatRoomResponse {
+    func toDomain(currentUserId: String) -> ChatRoom {
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        print("🔍 ChatRoomResponse: 채팅방 변환 - roomId: \(roomId), currentUserId: \(currentUserId)")
+        print("📋 ChatRoomResponse: 참가자 목록:")
+        for (index, participant) in participants.enumerated() {
+            print("  \(index): userId=\(participant.userId), name=\(participant.name ?? "nil"), nick=\(participant.nick)")
+        }
+        
+        return ChatRoom(
+            roomId: roomId,
+            createdAt: isoFormatter.date(from: createdAt) ?? Date(),
+            updatedAt: isoFormatter.date(from: updatedAt) ?? Date(),
+            participants: participants.map { $0.toDomain() },
+            lastChat: lastChat?.toDomain(currentUserId: currentUserId)
+        )
+    }
+}

@@ -13,6 +13,9 @@ struct ChatRoomListView: View {
     @State private var showingChatView = false
     @State private var selectedChatRoom: ChatRoom?
     
+    // ✅ TokenManager 인스턴스 추가
+    private let tokenManager = TokenManager.shared
+    
     init() {
         // 의존성 주입 (실제 구현에서는 DI 컨테이너 사용)
         let localRepository = try! RealmChatRepository()
@@ -172,9 +175,15 @@ struct ChatRoomListView: View {
         return chatRoom.participants.first { $0.userId != currentUserId }
     }
     
+    // ✅ 실제 TokenManager를 사용하여 현재 사용자 ID 가져오기
     private func getCurrentUserId() -> String {
-        // TODO: TokenManager에서 현재 사용자 ID 가져오기
-        return "current_user_id"
+        if let userId = tokenManager.getCurrentUserId() {
+            print("✅ ChatRoomListView: 현재 사용자 ID - \(userId)")
+            return userId
+        } else {
+            print("⚠️ ChatRoomListView: 사용자 ID를 가져올 수 없음, 빈 문자열 반환")
+            return ""
+        }
     }
 }
 
@@ -184,8 +193,38 @@ struct ChatRoomCell: View {
     let chatRoom: ChatRoom
     let currentUserId: String
     
+    // ✅ 상대방 찾기 로직 개선
     private var otherParticipant: Users? {
-        chatRoom.participants.first { $0.userId != currentUserId }
+        let otherParticipants = chatRoom.participants.filter { $0.userId != currentUserId }
+        let participant = otherParticipants.first
+        
+        if let participant = participant {
+            print("✅ ChatRoomCell: 상대방 찾음 - userId: \(participant.userId), name: \(participant.name), nick: \(participant.nick)")
+        } else {
+            print("⚠️ ChatRoomCell: 상대방을 찾을 수 없음 - currentUserId: \(currentUserId)")
+            print("📋 ChatRoomCell: 참가자 목록:")
+            for (index, p) in chatRoom.participants.enumerated() {
+                print("  \(index): userId=\(p.userId), name=\(p.name), nick=\(p.nick)")
+            }
+        }
+        
+        return participant
+    }
+    
+    // ✅ 표시할 이름 로직 개선 (name 없으면 nick 사용)
+    private var displayName: String {
+        guard let participant = otherParticipant else {
+            return "알 수 없는 사용자"
+        }
+        
+        // name이 비어있지 않으면 name 사용, 아니면 nick 사용
+        if !participant.name.isEmpty {
+            return participant.name
+        } else if !participant.nick.isEmpty {
+            return participant.nick
+        } else {
+            return "사용자"
+        }
     }
     
     var body: some View {
@@ -196,8 +235,8 @@ struct ChatRoomCell: View {
             // 채팅방 정보
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    // 이름
-                    Text(otherParticipant?.name ?? "알 수 없는 사용자")
+                    // ✅ 개선된 이름 표시
+                    Text(displayName)
                         .font(.pretendard(size: 16, weight: .semiBold))
                         .foregroundColor(.white)
                     
@@ -241,6 +280,7 @@ struct ChatRoomCell: View {
                     .overlay(
                         Image(systemName: "person.fill")
                             .foregroundColor(.gray)
+                            .font(.title2)
                     )
             }
             .frame(width: 52, height: 52)

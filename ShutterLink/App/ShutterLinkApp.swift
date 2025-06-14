@@ -8,11 +8,22 @@
 import SwiftUI
 import KakaoSDKCommon
 import KakaoSDKAuth
+import FirebaseCore
+
+class AppDelegate: NSObject, UIApplicationDelegate {
+  func application(_ application: UIApplication,
+                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+    FirebaseApp.configure()
+
+    return true
+  }
+}
 
 @main
 struct ShutterLinkApp: App {
     @StateObject private var notificationHandler = NotificationHandler.shared
     @StateObject private var authState = AuthState.shared
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
     init() {
         KakaoSDK.initSDK(appKey: "6673881ea6a5986552bce8d37739b5e2")

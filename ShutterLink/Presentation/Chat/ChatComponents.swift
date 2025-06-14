@@ -31,6 +31,44 @@ struct ChatStartNotice: View {
     }
 }
 
+// MARK: - 실시간 연결 상태 인디케이터
+
+struct RealtimeStatusIndicator: View {
+    let isConnected: Bool
+    @State private var isPulsing = false
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(isConnected ? Color.green : Color.red)
+                .frame(width: 6, height: 6)
+                .scaleEffect(isPulsing ? 1.2 : 1.0)
+                .animation(
+                    isConnected ?
+                        .easeInOut(duration: 1.0).repeatForever(autoreverses: true) :
+                        .none,
+                    value: isPulsing
+                )
+                .onAppear {
+                    isPulsing = isConnected
+                }
+                .onChange(of: isConnected) { newValue in
+                    isPulsing = newValue
+                }
+            
+            Text(isConnected ? "실시간" : "오프라인")
+                .font(.pretendard(size: 10, weight: .medium))
+                .foregroundColor(isConnected ? .green : .red)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(
+            Capsule()
+                .fill(Color.gray.opacity(0.2))
+        )
+    }
+}
+
 // MARK: - 날짜 구분선
 
 struct ChatDateSeparator: View {
@@ -122,6 +160,27 @@ struct ChatConnectionStatusView: View {
     }
 }
 
+// MARK: - 새 메시지 알림 배지
+
+struct NewMessageIndicator: View {
+    let count: Int
+    
+    var body: some View {
+        if count > 0 {
+            Text("\(count)")
+                .font(.pretendard(size: 11, weight: .bold))
+                .foregroundColor(.black)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(
+                    Capsule()
+                        .fill(Color.yellow)
+                )
+                .transition(.scale.combined(with: .opacity))
+        }
+    }
+}
+
 // MARK: - 채팅 입력 상태 표시
 
 struct ChatTypingIndicator: View {
@@ -185,12 +244,77 @@ struct ChatTypingIndicator: View {
     }
 }
 
+// MARK: - 메시지 상태 인디케이터
+
+struct MessageStatusIndicator: View {
+    enum Status {
+        case sending
+        case sent
+        case delivered
+        case read
+        case failed
+    }
+    
+    let status: Status
+    
+    var body: some View {
+        Group {
+            switch status {
+            case .sending:
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .gray))
+                    .scaleEffect(0.6)
+            case .sent:
+                Image(systemName: "checkmark")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            case .delivered:
+                Image(systemName: "checkmark.circle")
+                    .font(.caption2)
+                    .foregroundColor(.blue)
+            case .read:
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.caption2)
+                    .foregroundColor(.blue)
+            case .failed:
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+            }
+        }
+    }
+}
+
+// MARK: - 채팅 스크롤 인디케이터
+
+struct ChatScrollToBottomButton: View {
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            Image(systemName: "arrow.down")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.white)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(Color.black.opacity(0.7))
+                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                )
+        }
+        .transition(.scale.combined(with: .opacity))
+    }
+}
+
 // MARK: - 미리보기
 
 struct ChatComponents_Previews: PreviewProvider {
     static var previews: some View {
         VStack(spacing: 20) {
             ChatStartNotice(participantName: "김철수")
+            
+            RealtimeStatusIndicator(isConnected: true)
+            RealtimeStatusIndicator(isConnected: false)
             
             ChatDateSeparator(date: Date())
             
@@ -199,6 +323,16 @@ struct ChatComponents_Previews: PreviewProvider {
             ChatConnectionStatusView(status: .disconnected)
             
             ChatTypingIndicator(userName: "김철수")
+            
+            NewMessageIndicator(count: 3)
+            
+            MessageStatusIndicator(status: .sending)
+            MessageStatusIndicator(status: .sent)
+            MessageStatusIndicator(status: .read)
+            
+            ChatScrollToBottomButton {
+                print("Scroll to bottom")
+            }
             
             Spacer()
         }

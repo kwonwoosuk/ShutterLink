@@ -10,6 +10,9 @@
 		4D22AB512DF88B560058396D /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB502DF88B560058396D /* RealmSwift */; };
 		4D22AB542DF8911E0058396D /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB532DF8911E0058396D /* SocketIO */; };
 		4D22AB7C2DF8B9050058396D /* RealmSwift in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB502DF88B560058396D /* RealmSwift */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		4D22AB852DFA7C2B0058396D /* JWTDecode in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB842DFA7C2B0058396D /* JWTDecode */; };
+		4D22AB872DFD02290058396D /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 4D22AB862DFD02290058396D /* GoogleService-Info.plist */; };
+		4D22AB8A2DFD052E0058396D /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB892DFD052E0058396D /* FirebaseMessaging */; };
 		4D857D8D2DD9B09A00496829 /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D8C2DD9B09A00496829 /* KakaoSDKAuth */; };
 		4D857D8F2DD9B09A00496829 /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D8E2DD9B09A00496829 /* KakaoSDKCommon */; };
 		4D857D912DD9B09A00496829 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = 4D857D902DD9B09A00496829 /* KakaoSDKUser */; };
@@ -32,6 +35,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4D22AB862DFD02290058396D /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		4D857E942DD9DB1C00496829 /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
 		4DDEB2472DCF4CFC00C8BBEA /* ShutterLink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ShutterLink.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DDEB2552DCF4DAD00C8BBEA /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
@@ -63,12 +67,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D22AB8A2DFD052E0058396D /* FirebaseMessaging in Frameworks */,
 				4D857E952DD9DB1C00496829 /* AuthenticationServices.framework in Frameworks */,
 				4D857D8F2DD9B09A00496829 /* KakaoSDKCommon in Frameworks */,
 				4D857D8D2DD9B09A00496829 /* KakaoSDKAuth in Frameworks */,
 				4D22AB512DF88B560058396D /* RealmSwift in Frameworks */,
 				4D857D912DD9B09A00496829 /* KakaoSDKUser in Frameworks */,
 				4D22AB542DF8911E0058396D /* SocketIO in Frameworks */,
+				4D22AB852DFA7C2B0058396D /* JWTDecode in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -90,6 +96,7 @@
 				4DDEB2492DCF4CFC00C8BBEA /* ShutterLink */,
 				4D857E932DD9DB1B00496829 /* Frameworks */,
 				4DDEB2482DCF4CFC00C8BBEA /* Products */,
+				4D22AB862DFD02290058396D /* GoogleService-Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
@@ -127,6 +134,8 @@
 				4D857D902DD9B09A00496829 /* KakaoSDKUser */,
 				4D22AB502DF88B560058396D /* RealmSwift */,
 				4D22AB532DF8911E0058396D /* SocketIO */,
+				4D22AB842DFA7C2B0058396D /* JWTDecode */,
+				4D22AB892DFD052E0058396D /* FirebaseMessaging */,
 			);
 			productName = ShutterLink;
 			productReference = 4DDEB2472DCF4CFC00C8BBEA /* ShutterLink.app */;
@@ -160,6 +169,8 @@
 				4D857D8B2DD9B09A00496829 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
 				4D22AB4F2DF88B560058396D /* XCRemoteSwiftPackageReference "realm-swift" */,
 				4D22AB522DF8911E0058396D /* XCRemoteSwiftPackageReference "socket" */,
+				4D22AB832DFA7C2B0058396D /* XCRemoteSwiftPackageReference "JWTDecode" */,
+				4D22AB882DFD052E0058396D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4DDEB2482DCF4CFC00C8BBEA /* Products */;
@@ -177,6 +188,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4DDEB2562DCF4DAD00C8BBEA /* .gitignore in Resources */,
+				4D22AB872DFD02290058396D /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -426,6 +438,22 @@
 				version = 16.1.0;
 			};
 		};
+		4D22AB832DFA7C2B0058396D /* XCRemoteSwiftPackageReference "JWTDecode" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/auth0/JWTDecode.swift";
+			requirement = {
+				kind = exactVersion;
+				version = 3.0.0;
+			};
+		};
+		4D22AB882DFD052E0058396D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.14.0;
+			};
+		};
 		4D857D8B2DD9B09A00496829 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
@@ -446,6 +474,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 4D22AB522DF8911E0058396D /* XCRemoteSwiftPackageReference "socket" */;
 			productName = SocketIO;
+		};
+		4D22AB842DFA7C2B0058396D /* JWTDecode */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D22AB832DFA7C2B0058396D /* XCRemoteSwiftPackageReference "JWTDecode" */;
+			productName = JWTDecode;
+		};
+		4D22AB892DFD052E0058396D /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D22AB882DFD052E0058396D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
 		};
 		4D857D8C2DD9B09A00496829 /* KakaoSDKAuth */ = {
 			isa = XCSwiftPackageProductDependency;

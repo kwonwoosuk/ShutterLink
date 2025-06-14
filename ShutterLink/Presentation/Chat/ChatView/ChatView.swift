@@ -85,27 +85,64 @@ struct ChatView: View {
     
     @ViewBuilder
     private var connectionStatusBar: some View {
-        HStack {
-            Circle()
-                .fill(viewModel.connectionStatusColor)
-                .frame(width: 8, height: 8)
-            
-            Text(viewModel.connectionStatusText)
-                .font(.pretendard(size: 12, weight: .medium))
-                .foregroundColor(.white)
-            
-            Spacer()
+        if showConnectionStatus {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(viewModel.connectionStatusColor)
+                    .frame(width: 8, height: 8)
+                
+                Text(viewModel.connectionStatusText)
+                    .font(.pretendard(size: 12, weight: .medium))
+                    .foregroundColor(.white)
+                
+                // ✅ 실시간 업데이트 상태 표시
+                if viewModel.socketConnected {
+                    HStack(spacing: 4) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 6))
+                            .foregroundColor(.green)
+                            .opacity(0.8)
+                        
+                        Text("실시간")
+                            .font(.pretendard(size: 11, weight: .medium))
+                            .foregroundColor(.green)
+                    }
+                } else {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10))
+                            .foregroundColor(.orange)
+                        
+                        Text("동기화 중")
+                            .font(.pretendard(size: 11, weight: .medium))
+                            .foregroundColor(.orange)
+                    }
+                }
+                
+                Spacer()
+                
+                // 닫기 버튼
+                Button {
+                    withAnimation {
+                        showConnectionStatus = false
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10))
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color.gray.opacity(0.2))
+            .transition(.opacity)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(Color.gray.opacity(0.2))
-        .transition(.opacity)
     }
     
     // MARK: - 메시지 스크롤뷰
     
     private var messagesScrollView: some View {
-        ScrollViewReader { scrollProxy in
+        ScrollViewReader { (scrollProxy: ScrollViewProxy) in
             ScrollView {
                 LazyVStack(spacing: 0) {
                     // 채팅 시작 안내 (메시지가 없을 때)
@@ -124,6 +161,12 @@ struct ChatView: View {
                                 isMyMessage: message.isFromCurrentUser
                             )
                             .id(message.chatId)
+                            // ✅ 새 메시지 애니메이션
+                            .transition(.asymmetric(
+                                insertion: .move(edge: message.isFromCurrentUser ? .trailing : .leading)
+                                    .combined(with: .opacity),
+                                removal: .opacity
+                            ))
                         }
                     }
                     
@@ -138,6 +181,11 @@ struct ChatView: View {
                         .padding(.vertical, 20)
                     }
                     
+                    // ✅ 하단 앵커 포인트 (explicit identity)
+                    Color.clear
+                        .frame(height: 1)
+                        .id("bottom_anchor")
+                    
                     // 하단 여백 (키보드 높이 고려)
                     Color.clear
                         .frame(height: 10)
@@ -147,14 +195,27 @@ struct ChatView: View {
             .refreshable {
                 viewModel.input.refreshMessages.send()
             }
-            // ✅ 실시간 메시지 업데이트 시 스크롤
-            .onChange(of: viewModel.messages.count) { _ in
-                scrollToBottom(scrollProxy: scrollProxy)
+            // ✅ 실시간 메시지 업데이트 시 스크롤 (애니메이션 개선)
+            .onChange(of: viewModel.messages.count) { newCount in
+                print("📱 ChatView: 메시지 개수 변화 감지 - \(newCount)개")
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    scrollToBottom(scrollProxy: scrollProxy)
+                }
             }
             // ✅ 키보드 올라올 때 스크롤
             .onChange(of: keyboardHeight) { newHeight in
                 if newHeight > 0 {
                     scrollToBottom(scrollProxy: scrollProxy, delay: 0.1)
+                }
+            }
+            // ✅ 소켓 연결 상태 변화 시 시각적 피드백
+            .onChange(of: viewModel.socketConnected) { isConnected in
+                if isConnected {
+                    print("✅ ChatView: 실시간 연결 활성화")
+                    // 연결되면 최신 메시지로 스크롤
+                    scrollToBottom(scrollProxy: scrollProxy, delay: 0.5)
+                } else {
+                    print("⚠️ ChatView: 실시간 연결 비활성화")
                 }
             }
         }
@@ -224,12 +285,55 @@ struct ChatView: View {
     
     private var connectionStatusButton: some View {
         Button {
-            withAnimation {
+            withAnimation(.easeInOut(duration: 0.3)) {
                 showConnectionStatus.toggle()
             }
         } label: {
-            Image(systemName: viewModel.socketConnected ? "wifi" : "wifi.slash")
-                .foregroundColor(viewModel.socketConnected ? .green : .red)
+            HStack(spacing: 4) {
+                // ✅ 연결 상태에 따른 아이콘 변경
+                if viewModel.socketConnected {
+                    Image(systemName: "wifi")
+                        .foregroundColor(.green)
+                } else if viewModel.socketStatus == .connecting {
+                    Image(systemName: "wifi.exclamationmark")
+                        .foregroundColor(.yellow)
+                } else {
+                    Image(systemName: "wifi.slash")
+                        .foregroundColor(.red)
+                }
+                
+                // ✅ 실시간 상태 텍스트 (선택적 표시)
+                if showConnectionStatus || !viewModel.socketConnected {
+                    Text(viewModel.socketConnected ? "실시간" : "오프라인")
+                        .font(.pretendard(size: 11, weight: .medium))
+                        .foregroundColor(viewModel.socketConnected ? .green : .red)
+                        .transition(.opacity)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule()
+                    .fill(Color.gray.opacity(0.2))
+                    .opacity(showConnectionStatus ? 1 : 0)
+            )
+        }
+        // ✅ 연결 상태 변화 시 자동으로 상태바 표시
+        .onChange(of: viewModel.socketConnected) { isConnected in
+            if !isConnected {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showConnectionStatus = true
+                }
+                
+                // 5초 후 자동으로 숨김
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                    if !viewModel.socketConnected {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showConnectionStatus = false
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -249,20 +353,19 @@ struct ChatView: View {
     // MARK: - 스크롤 유틸리티
     
     private func scrollToBottom(scrollProxy: ScrollViewProxy, delay: TimeInterval = 0) {
-        if let lastMessage = viewModel.messages.last {
-            let scrollAction = {
-                withAnimation(.easeOut(duration: 0.3)) {
-                    scrollProxy.scrollTo(lastMessage.chatId, anchor: .bottom)
-                }
+        let scrollAction = {
+            withAnimation(.easeOut(duration: 0.3)) {
+                // ✅ explicit identity 사용 - 항상 일관된 하단 위치로 스크롤
+                scrollProxy.scrollTo("bottom_anchor", anchor: UnitPoint.top)
             }
-            
-            if delay > 0 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    scrollAction()
-                }
-            } else {
+        }
+        
+        if delay > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 scrollAction()
             }
+        } else {
+            scrollAction()
         }
     }
     

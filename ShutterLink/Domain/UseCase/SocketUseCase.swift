@@ -15,7 +15,8 @@ enum SocketConnectionStatus: Equatable {
     case connected
     case disconnected
     case error(String)
-
+    
+    // ✅ Equatable 구현
     static func == (lhs: SocketConnectionStatus, rhs: SocketConnectionStatus) -> Bool {
         switch (lhs, rhs) {
         case (.connecting, .connecting),
@@ -68,7 +69,7 @@ final class SocketUseCaseImpl: SocketUseCase {
     private let chatUseCase: ChatUseCase
     private var cancellables = Set<AnyCancellable>()
     
-    // ✅ 실시간 메시지 스트림
+    // ✅ 실시간 메시지 스트림 - PassthroughSubject 사용
     private let realtimeMessageSubject = PassthroughSubject<ChatMessage, Never>()
     
     init(
@@ -103,47 +104,49 @@ final class SocketUseCaseImpl: SocketUseCase {
     // MARK: - 메시지 처리 설정
     
     private func setupMessageHandling() {
-        // ✅ 소켓으로 받은 메시지 처리
+        // ✅ 소켓으로 받은 메시지 처리 - 이중 스트림 방식
         socketManager.messagePublisher
             .sink { [weak self] message in
+                print("📨 SocketUseCase: 메시지 수신 - chatId: \(message.chatId), 내용: \(message.content)")
                 self?.handleReceivedMessage(message)
             }
             .store(in: &cancellables)
     }
     
-    // ✅ 수신 메시지 처리 (로컬 저장 + UI 알림)
+    // ✅ 수신 메시지 처리 (로컬 저장 + 즉시 UI 알림)
     private func handleReceivedMessage(_ message: ChatMessage) {
-        print("📨 SocketUseCase: 메시지 수신 - chatId: \(message.chatId), 내용: \(message.content)")
+        // 1. ✅ 먼저 UI에 즉시 반영 (가장 빠른 업데이트)
+        Task { @MainActor in
+            print("⚡ SocketUseCase: 즉시 UI 업데이트 - chatId: \(message.chatId)")
+            realtimeMessageSubject.send(message)
+        }
         
+        // 2. ✅ 백그라운드에서 로컬 저장 (실패해도 UI는 이미 업데이트됨)
         Task {
             do {
-                // 1. 로컬 DB에 저장
                 try await chatUseCase.saveMessage(message)
                 print("✅ SocketUseCase: 수신 메시지 로컬 저장 완료 - chatId: \(message.chatId)")
                 
-                // 2. UI 업데이트를 위해 실시간 스트림에 전송
-                await MainActor.run {
-                    realtimeMessageSubject.send(message)
-                }
-                print("✅ SocketUseCase: 실시간 UI 업데이트 신호 전송 완료")
-                
             } catch {
-                print("❌ SocketUseCase: 수신 메시지 처리 실패 - \(error)")
-                
-                // 저장 실패해도 UI 업데이트는 시도 (임시 메시지로 표시)
-                await MainActor.run {
-                    realtimeMessageSubject.send(message)
-                }
+                print("❌ SocketUseCase: 수신 메시지 로컬 저장 실패 - \(error)")
+                // 저장 실패해도 UI는 이미 업데이트되었으므로 사용자는 메시지를 볼 수 있음
+                // 필요시 재시도 로직 추가 가능
+                await scheduleRetryMessageSave(message)
             }
         }
     }
-}
-
-// MARK: - TokenManager Extension (임시)
-extension TokenManager {
-    func getCurrentUserId() -> String? {
-        // TODO: 실제 구현에서는 JWT 토큰을 디코딩하여 사용자 ID 추출
-        // 또는 별도의 사용자 정보 저장소에서 가져오기
-        return nil
+    
+    // ✅ 메시지 저장 재시도 스케줄링
+    private func scheduleRetryMessageSave(_ message: ChatMessage) async {
+        // 3초 후 재시도
+        try? await Task.sleep(nanoseconds: 3_000_000_000)
+        
+        do {
+            try await chatUseCase.saveMessage(message)
+            print("✅ SocketUseCase: 메시지 저장 재시도 성공 - chatId: \(message.chatId)")
+        } catch {
+            print("❌ SocketUseCase: 메시지 저장 재시도 실패 - chatId: \(message.chatId), 에러: \(error)")
+            // 최종 실패 시 로그만 남기고 넘어감 (UI는 이미 업데이트됨)
+        }
     }
 }

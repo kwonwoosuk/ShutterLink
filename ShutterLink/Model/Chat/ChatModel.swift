@@ -274,38 +274,8 @@ extension UserEntity {
     }
 }
 
-extension ChatRoomResponse {
-    func toDomain(currentUserId: String) -> ChatRoom {
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        
-        return ChatRoom(
-            roomId: roomId,
-            createdAt: isoFormatter.date(from: createdAt) ?? Date(),
-            updatedAt: isoFormatter.date(from: updatedAt) ?? Date(),
-            participants: participants.map { $0.toDomain() },
-            lastChat: lastChat?.toDomain(currentUserId: currentUserId)
-        )
-    }
-}
 
-extension ChatMessageResponse {
-    func toDomain(currentUserId: String) -> ChatMessage {
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        
-        return ChatMessage(
-            chatId: chatId,
-            roomId: roomId,
-            content: content,
-            createdAt: isoFormatter.date(from: createdAt) ?? Date(),
-            updatedAt: isoFormatter.date(from: updatedAt) ?? Date(),
-            sender: sender.toDomain(),
-            files: files,
-            isFromCurrentUser: sender.userId == currentUserId
-        )
-    }
-}
+
 
 extension UserResponse {
     func toDomain() -> Users {
