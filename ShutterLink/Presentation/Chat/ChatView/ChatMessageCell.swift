@@ -81,7 +81,7 @@ struct ChatMessageCell: View {
     @ViewBuilder
     private var senderName: some View {
         if !isMyMessage {
-            Text(message.sender.name.isEmpty ? message.sender.nick : message.sender.name)
+            Text(message.sender.nick.isEmpty ? message.sender.name : message.sender.nick)
                 .font(.pretendard(size: 12, weight: .medium))
                 .foregroundColor(.gray)
                 .padding(.leading, 4)

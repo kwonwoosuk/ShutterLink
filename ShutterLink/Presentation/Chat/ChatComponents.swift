@@ -7,29 +7,6 @@
 
 import SwiftUI
 
-// MARK: - 채팅 시작 안내
-
-struct ChatStartNotice: View {
-    let participantName: String
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.largeTitle)
-                .foregroundColor(.gray)
-            
-            Text("\(participantName)님과의 채팅을 시작합니다")
-                .font(.pretendard(size: 16, weight: .medium))
-                .foregroundColor(.gray)
-            
-            Text("서로 존중하며 대화해주세요")
-                .font(.pretendard(size: 14, weight: .regular))
-                .foregroundColor(.gray.opacity(0.8))
-        }
-        .padding(.vertical, 40)
-        .frame(maxWidth: .infinity)
-    }
-}
 
 // MARK: - 실시간 연결 상태 인디케이터
 

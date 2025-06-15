@@ -15,6 +15,8 @@ final class ChatRoomListViewModel: ObservableObject {
         let loadChatRooms = PassthroughSubject<Void, Never>()
         let refreshChatRooms = PassthroughSubject<Void, Never>()
         let createChatRoom = PassthroughSubject<String, Never>() // opponentId
+        // ✅ 채팅방 삭제 Input 추가
+        let deleteChatRoom = PassthroughSubject<String, Never>() // roomId
     }
     
     @Published var chatRooms: [ChatRoom] = []
@@ -25,7 +27,7 @@ final class ChatRoomListViewModel: ObservableObject {
     
     let input = Input()
     private var cancellables = Set<AnyCancellable>()
-    private let chatUseCase: ChatUseCase
+    let chatUseCase: ChatUseCase
     
     init(chatUseCase: ChatUseCase) {
         self.chatUseCase = chatUseCase
@@ -52,6 +54,13 @@ final class ChatRoomListViewModel: ObservableObject {
         input.createChatRoom
             .sink { [weak self] opponentId in
                 self?.createChatRoom(opponentId: opponentId)
+            }
+            .store(in: &cancellables)
+        
+        // ✅ 채팅방 삭제
+        input.deleteChatRoom
+            .sink { [weak self] roomId in
+                self?.deleteChatRoom(roomId: roomId)
             }
             .store(in: &cancellables)
     }
@@ -132,6 +141,27 @@ final class ChatRoomListViewModel: ObservableObject {
             }
             
             isLoading = false
+        }
+    }
+    
+    // ✅ 채팅방 삭제 기능
+    private func deleteChatRoom(roomId: String) {
+        Task { @MainActor in
+            print("🗑️ ChatRoomListViewModel: 채팅방 삭제 시작 - roomId: \(roomId)")
+            
+            do {
+                try await chatUseCase.deleteChatRoom(roomId: roomId)
+                print("✅ ChatRoomListViewModel: 채팅방 삭제 완료 - roomId: \(roomId)")
+                
+                // 삭제 후 채팅방 목록 새로고침
+                let syncedChatRooms = try await chatUseCase.getChatRooms()
+                chatRooms = syncedChatRooms
+                
+            } catch {
+                print("❌ ChatRoomListViewModel: 채팅방 삭제 실패 - \(error)")
+                errorMessage = "채팅방 삭제에 실패했습니다."
+                showError = true
+            }
         }
     }
 }

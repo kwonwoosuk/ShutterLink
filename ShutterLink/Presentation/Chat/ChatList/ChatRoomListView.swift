@@ -12,6 +12,8 @@ struct ChatRoomListView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingChatView = false
     @State private var selectedChatRoom: ChatRoom?
+    @State private var roomToDelete: ChatRoom?
+    @State private var showDeleteAlert = false
     
     // ✅ TokenManager 인스턴스 추가
     private let tokenManager = TokenManager.shared
@@ -62,6 +64,18 @@ struct ChatRoomListView: View {
             }
         } message: {
             Text(viewModel.errorMessage ?? "알 수 없는 오류가 발생했습니다.")
+        }
+        .alert("채팅방 삭제", isPresented: $showDeleteAlert) {
+            Button("취소", role: .cancel) {
+                roomToDelete = nil
+            }
+            Button("삭제", role: .destructive) {
+                if let room = roomToDelete {
+                    deleteChatRoom(room)
+                }
+            }
+        } message: {
+            Text("이 채팅방을 삭제하시겠습니까? 모든 메시지가 영구적으로 삭제됩니다.")
         }
     }
     
@@ -150,6 +164,15 @@ struct ChatRoomListView: View {
                     .onTapGesture {
                         openChatRoom(chatRoom)
                     }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button {
+                            roomToDelete = chatRoom
+                            showDeleteAlert = true
+                        } label: {
+                            Label("삭제", systemImage: "trash")
+                        }
+                        .tint(.red)
+                    }
                     
                     // 구분선
                     if chatRoom.roomId != viewModel.chatRooms.last?.roomId {
@@ -175,7 +198,6 @@ struct ChatRoomListView: View {
         return chatRoom.participants.first { $0.userId != currentUserId }
     }
     
-    // ✅ 실제 TokenManager를 사용하여 현재 사용자 ID 가져오기
     private func getCurrentUserId() -> String {
         if let userId = tokenManager.getCurrentUserId() {
             print("✅ ChatRoomListView: 현재 사용자 ID - \(userId)")
@@ -183,6 +205,32 @@ struct ChatRoomListView: View {
         } else {
             print("⚠️ ChatRoomListView: 사용자 ID를 가져올 수 없음, 빈 문자열 반환")
             return ""
+        }
+    }
+    
+    // ✅ 수정된 채팅방 삭제 기능
+    private func deleteChatRoom(_ chatRoom: ChatRoom) {
+        Task {
+            do {
+                // ✅ 직접 repository에서 삭제
+                let localRepository = try! RealmChatRepository()
+                try await localRepository.deleteChatRoom(roomId: chatRoom.roomId)
+                
+                print("✅ ChatRoomListView: 채팅방 삭제 완료 - roomId: \(chatRoom.roomId)")
+                
+                // 목록 새로고침
+                await MainActor.run {
+                    viewModel.input.refreshChatRooms.send()
+                    roomToDelete = nil
+                }
+            } catch {
+                print("❌ ChatRoomListView: 채팅방 삭제 실패 - \(error)")
+                await MainActor.run {
+                    viewModel.errorMessage = "채팅방 삭제에 실패했습니다."
+                    viewModel.showError = true
+                    roomToDelete = nil
+                }
+            }
         }
     }
 }
@@ -211,17 +259,17 @@ struct ChatRoomCell: View {
         return participant
     }
     
-    // ✅ 표시할 이름 로직 개선 (name 없으면 nick 사용)
+    // ✅ 표시할 이름 로직 개선 (nick 우선 표시)
     private var displayName: String {
         guard let participant = otherParticipant else {
             return "알 수 없는 사용자"
         }
         
-        // name이 비어있지 않으면 name 사용, 아니면 nick 사용
-        if !participant.name.isEmpty {
-            return participant.name
-        } else if !participant.nick.isEmpty {
+        // nick이 비어있지 않으면 nick 사용, 아니면 name 사용
+        if !participant.nick.isEmpty {
             return participant.nick
+        } else if !participant.name.isEmpty {
+            return participant.name
         } else {
             return "사용자"
         }
@@ -235,7 +283,7 @@ struct ChatRoomCell: View {
             // 채팅방 정보
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    // ✅ 개선된 이름 표시
+                    // ✅ 개선된 이름 표시 (nick 우선)
                     Text(displayName)
                         .font(.pretendard(size: 16, weight: .semiBold))
                         .foregroundColor(.white)

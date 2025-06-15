@@ -85,21 +85,28 @@ final class RealmChatRepository: ChatLocalRepository {
     }
     
     func deleteChatRoom(roomId: String) async throws {
-        try await Task { @MainActor in
-            // 채팅방의 모든 메시지 삭제
-            let messages = realm.objects(ChatMessageEntity.self)
-                .filter("roomId == %@", roomId)
-            
-            // 채팅방 삭제
-            if let chatRoom = realm.object(ofType: ChatRoomEntity.self, forPrimaryKey: roomId) {
-                try realm.write {
-                    realm.delete(messages)
-                    realm.delete(chatRoom)
+            try await Task { @MainActor in
+                print("🗑️ RealmChatRepository: 채팅방 삭제 시작 - roomId: \(roomId)")
+                
+                // 1. 해당 채팅방의 모든 메시지 삭제
+                let messages = realm.objects(ChatMessageEntity.self)
+                    .filter("roomId == %@", roomId)
+                
+                // 2. 채팅방 삭제
+                if let chatRoom = realm.object(ofType: ChatRoomEntity.self, forPrimaryKey: roomId) {
+                    try realm.write {
+                        // 메시지 먼저 삭제
+                        realm.delete(messages)
+                        // 채팅방 삭제
+                        realm.delete(chatRoom)
+                    }
+                    print("✅ RealmChatRepository: 채팅방 및 메시지 삭제 완료 - roomId: \(roomId), 삭제된 메시지: \(messages.count)개")
+                } else {
+                    print("⚠️ RealmChatRepository: 삭제할 채팅방을 찾을 수 없음 - roomId: \(roomId)")
+                    throw NSError(domain: "ChatRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "채팅방을 찾을 수 없습니다."])
                 }
-                print("✅ RealmChatRepository: 채팅방 삭제 완료 - roomId: \(roomId)")
-            }
-        }.value
-    }
+            }.value
+        }
     
     // MARK: - 채팅 메시지 관련
     

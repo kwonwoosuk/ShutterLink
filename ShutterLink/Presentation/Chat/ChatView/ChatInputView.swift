@@ -27,10 +27,14 @@ struct ChatInputView: View {
     @State private var selectedImages: [PhotosPickerItem] = []
     @FocusState private var isTextFieldFocused: Bool
     
-    // 상수
-    private let minTextHeight: CGFloat = 40
-    private let maxTextHeight: CGFloat = 120
+    // ✅ 플레이스홀더 상태 추가
+    @State private var isShowingPlaceholder = true
+    
+    // 상수 - 3줄 제한 및 스크롤 구현
+    private let minTextHeight: CGFloat = 40  // 1줄 최소 높이
+    private let maxTextHeight: CGFloat = 120 // 3줄 최대 높이 (40 * 3)
     private let cornerRadius: CGFloat = 20
+    private let placeholderText = "메시지를 입력하세요..."
     
     var body: some View {
         VStack(spacing: 0) {
@@ -46,7 +50,7 @@ struct ChatInputView: View {
                 // 파일 첨부 버튼
                 attachmentButton
                 
-                // 텍스트 입력 영역
+                // ✅ 개선된 텍스트 입력 영역
                 textInputArea
                 
                 // 전송 버튼
@@ -64,24 +68,24 @@ struct ChatInputView: View {
         )
         .fileImporter(
             isPresented: $showDocumentPicker,
-            allowedContentTypes: [.pdf, .text, .data],
+            allowedContentTypes: [.pdf, .plainText, .data],
             allowsMultipleSelection: true
         ) { result in
             handleDocumentSelection(result)
         }
-        .onChange(of: selectedImages) { newImages in
-            handleImageSelection(newImages)
-        }
         .confirmationDialog("파일 첨부", isPresented: $showFileMenu) {
-            Button("사진/동영상") {
+            Button("사진 선택") {
                 showImagePicker = true
             }
-            
-            Button("문서") {
+            Button("문서 선택") {
                 showDocumentPicker = true
             }
-            
             Button("취소", role: .cancel) { }
+        }
+        .onChange(of: selectedImages) { newImages in
+            if !newImages.isEmpty {
+                handleImageSelection(newImages)
+            }
         }
     }
     
@@ -91,17 +95,17 @@ struct ChatInputView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 ForEach(Array(uploadedFiles.enumerated()), id: \.offset) { index, file in
-                    uploadedFileItem(file: file, index: index)
+                    uploadedFileCard(file: file, index: index)
                 }
             }
             .padding(.horizontal, 4)
         }
     }
     
-    private func uploadedFileItem(file: (String, String), index: Int) -> some View {
-        VStack(spacing: 6) {
+    private func uploadedFileCard(file: (String, String), index: Int) -> some View {
+        VStack(spacing: 8) {
             ZStack(alignment: .topTrailing) {
-                // 파일 미리보기
+                // 파일 타입별 미리보기
                 if isImageFile(file.0) {
                     AuthenticatedImageView(
                         imagePath: file.0,
@@ -109,7 +113,10 @@ struct ChatInputView: View {
                     ) {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.gray.opacity(0.3))
-                            .frame(width: 60, height: 60)
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .foregroundColor(.gray)
+                            )
                     }
                     .frame(width: 60, height: 60)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -129,23 +136,24 @@ struct ChatInputView: View {
                     onRemoveFile(index)
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.caption)
+                        .font(.system(size: 20))
                         .foregroundColor(.red)
-                        .background(Circle().fill(Color.white))
+                        .background(Color.white, in: Circle())
                 }
-                .offset(x: 4, y: -4)
+                .offset(x: 8, y: -8)
             }
             
             // 파일명
             Text(file.1)
-                .font(.pretendard(size: 10, weight: .medium))
+                .font(.pretendard(size: 10, weight: .regular))
                 .foregroundColor(.gray)
                 .lineLimit(1)
-                .frame(width: 60)
+                .frame(maxWidth: 60)
         }
+        .frame(width: 70, height: 90)
     }
     
-    // MARK: - 첨부 파일 버튼
+    // MARK: - 첨부 버튼
     
     private var attachmentButton: some View {
         Button {
@@ -153,43 +161,40 @@ struct ChatInputView: View {
         } label: {
             Image(systemName: "plus")
                 .font(.title3)
-                .foregroundColor(.white)
+                .foregroundColor(.gray)
                 .frame(width: 36, height: 36)
                 .background(Circle().fill(Color.gray.opacity(0.3)))
         }
-        .disabled(isUploading || isSending)
+        .disabled(isUploading)
     }
     
-    // MARK: - 텍스트 입력 영역
+    // MARK: - ✅ 개선된 텍스트 입력 영역
     
     private var textInputArea: some View {
         ZStack(alignment: .leading) {
-            // ✅ 배경 (키보드와 함께 움직임)
+            // 배경
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(Color.gray.opacity(0.15))
-                .frame(height: textHeight)
+                .frame(height: max(minTextHeight, textHeight))
             
-            // ✅ 플레이스홀더
-            if messageText.isEmpty {
-                Text("메시지를 입력하세요...")
-                    .font(.pretendard(size: 16, weight: .regular))
-                    .foregroundColor(.gray)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-            }
-            
-            // ✅ 자동 크기 조절 텍스트뷰
-            AutoSizingTextView(
+            CustomTextView(
                 text: $messageText,
-                textHeight: $textHeight,
-                minHeight: minTextHeight,
+                height: $textHeight,
                 maxHeight: maxTextHeight,
-                font: UIFont.systemFont(ofSize: 16, weight: .regular),
+                textFont: UIFont.systemFont(ofSize: 16, weight: .regular),
                 textColor: UIColor.white,
-                backgroundColor: UIColor.clear
+                cornerRadius: 0,
+                borderWidth: 0,
+                isScrollEnabled: textHeight >= maxTextHeight,
+                lineFragmentPadding: 0,
+                textContainerInset: UIEdgeInsets(top: 10, left: 16, bottom: 10, right: 16),
+                placeholder: placeholderText,
+                placeholderColor: UIColor.systemGray,
+                // ✅ 플레이스홀더 상태 바인딩 추가
+                isShowingPlaceholder: $isShowingPlaceholder
             )
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .frame(height: max(minTextHeight, textHeight))
+            .background(Color.clear)
             .focused($isTextFieldFocused)
         }
         .animation(.easeInOut(duration: 0.2), value: textHeight)
@@ -229,7 +234,7 @@ struct ChatInputView: View {
     private func sendMessage() {
         guard canSendMessage else { return }
         
-        let content = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let content = getActualMessageText()
         let files = uploadedFiles.map { $0.0 }
         
         guard !content.isEmpty || !files.isEmpty else { return }
@@ -237,14 +242,24 @@ struct ChatInputView: View {
         // 메시지 전송
         onSendMessage(content, files)
         
-        // 입력 필드 초기화
+        // ✅ 입력 필드 완전 초기화
         messageText = ""
         textHeight = minTextHeight
+        isShowingPlaceholder = true
         
-        // 키보드 포커스 유지 (사용자 경험 향상)
+        // ✅ 포커스 해제 후 다시 설정하여 플레이스홀더 강제 적용
+        isTextFieldFocused = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             isTextFieldFocused = true
         }
+    }
+    
+    // ✅ 실제 메시지 텍스트 가져오기 (플레이스홀더 제외)
+    private func getActualMessageText() -> String {
+        if isShowingPlaceholder || messageText == placeholderText {
+            return ""
+        }
+        return messageText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     // MARK: - 파일 처리
@@ -260,7 +275,6 @@ struct ChatInputView: View {
                 if let data = try? await item.loadTransferable(type: Data.self) {
                     imageDataArray.append(data)
                     
-                    // 파일명 생성
                     let fileName = "image_\(Date().timeIntervalSince1970).jpg"
                     imageNames.append(fileName)
                 }
@@ -273,7 +287,6 @@ struct ChatInputView: View {
             }
         }
         
-        // 선택 초기화
         selectedImages.removeAll()
     }
     
@@ -301,10 +314,11 @@ struct ChatInputView: View {
     
     // MARK: - 유틸리티
     
+    // ✅ 개선된 canSendMessage 로직
     private var canSendMessage: Bool {
-        let hasText = !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasActualText = !getActualMessageText().isEmpty
         let hasFiles = !uploadedFiles.isEmpty
-        return hasText || hasFiles
+        return hasActualText || hasFiles
     }
     
     private func isImageFile(_ filePath: String) -> Bool {
@@ -329,90 +343,198 @@ struct ChatInputView: View {
             return "doc"
         }
     }
-}
-
-// MARK: - 첨부 파일 모델
-
-struct AttachedFile {
-    let data: Data
-    let name: String
-    let isImage: Bool
-    let thumbnail: UIImage?
-}
-
-// MARK: - 자동 크기 조절 텍스트뷰 (UIKit 래핑)
-
-struct AutoSizingTextView: UIViewRepresentable {
-    @Binding var text: String
-    @Binding var textHeight: CGFloat
     
-    let minHeight: CGFloat
-    let maxHeight: CGFloat
-    let font: UIFont
-    let textColor: UIColor
-    let backgroundColor: UIColor
+    private func getSafeAreaBottom() -> CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first?.safeAreaInsets.bottom ?? 0
+    }
+}
+
+// MARK: - ✅ 개선된 CustomTextView
+
+struct CustomTextView: UIViewRepresentable {
+    @Binding var text: String
+    @Binding var height: CGFloat
+    var maxHeight: CGFloat
+    var textFont: UIFont
+    var textColor: UIColor = .white
+    var textLimit: Int = 1000
+    var cornerRadius: CGFloat? = nil
+    var borderWidth: CGFloat? = nil
+    var borderColor: CGColor? = nil
+    var isScrollEnabled: Bool = true
+    var isEditable: Bool = true
+    var isUserInteractionEnabled: Bool = true
+    var lineFragmentPadding: CGFloat = 0
+    var textContainerInset: UIEdgeInsets = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+    var placeholder: String? = nil
+    var placeholderColor: UIColor = .systemGray
+    
+    // ✅ 플레이스홀더 상태 바인딩 추가
+    @Binding var isShowingPlaceholder: Bool
     
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
-        textView.font = font
-        textView.textColor = textColor
-        textView.backgroundColor = backgroundColor
-        textView.isScrollEnabled = false
-        textView.textContainer.lineFragmentPadding = 0
-        textView.textContainerInset = .zero
-        textView.delegate = context.coordinator
-        textView.returnKeyType = .default
-        textView.enablesReturnKeyAutomatically = false
         
-        // ✅ 키보드 타입 설정
+        // 스타일 설정
+        if let cornerRadius = cornerRadius {
+            textView.layer.cornerRadius = cornerRadius
+            textView.layer.masksToBounds = true
+        }
+        
+        if let borderWidth = borderWidth {
+            textView.layer.borderWidth = borderWidth
+        }
+        
+        if let borderColor = borderColor {
+            textView.layer.borderColor = borderColor
+        }
+        
+        textView.font = textFont
+        textView.isScrollEnabled = isScrollEnabled
+        textView.isEditable = isEditable
+        textView.isUserInteractionEnabled = isUserInteractionEnabled
+        textView.textContainer.lineFragmentPadding = lineFragmentPadding
+        textView.textContainerInset = textContainerInset
+        textView.delegate = context.coordinator
+        textView.backgroundColor = .clear
+        
+        // 키보드 설정
         textView.keyboardType = .default
         textView.autocorrectionType = .default
         textView.spellCheckingType = .default
+        textView.returnKeyType = .default
+        
+        // ✅ 초기 플레이스홀더 설정
+        setupPlaceholder(textView)
         
         return textView
     }
     
     func updateUIView(_ uiView: UITextView, context: Context) {
-        if uiView.text != text {
+        // ✅ delegate를 임시로 제거하여 textViewDidChange 방지
+        let currentDelegate = uiView.delegate
+        uiView.delegate = nil
+        
+        // 플레이스홀더 상태에 따른 업데이트
+        if isShowingPlaceholder && uiView.text != placeholder {
+            uiView.text = placeholder ?? ""
+            uiView.textColor = placeholderColor
+        } else if !isShowingPlaceholder && uiView.text != text {
             uiView.text = text
+            uiView.textColor = textColor
         }
+        
+        // delegate 복원
+        uiView.delegate = currentDelegate
         
         updateHeight(uiView)
     }
     
     func makeCoordinator() -> Coordinator {
-        Coordinator(self)
+        return Coordinator(parent: self)
     }
     
-    private func updateHeight(_ textView: UITextView) {
-        let size = textView.sizeThatFits(CGSize(width: textView.frame.width, height: .greatestFiniteMagnitude))
-        let newHeight = max(minHeight, min(maxHeight, size.height))
+    // ✅ 초기 플레이스홀더 설정
+    private func setupPlaceholder(_ textView: UITextView) {
+        // delegate 임시 제거
+        let currentDelegate = textView.delegate
+        textView.delegate = nil
         
-        if abs(textHeight - newHeight) > 1 {
+        if text.isEmpty {
+            textView.text = placeholder ?? ""
+            textView.textColor = placeholderColor
             DispatchQueue.main.async {
-                self.textHeight = newHeight
+                isShowingPlaceholder = true
+            }
+        } else {
+            textView.text = text
+            textView.textColor = textColor
+            DispatchQueue.main.async {
+                isShowingPlaceholder = false
             }
         }
         
-        // 최대 높이에 도달하면 스크롤 활성화
-        textView.isScrollEnabled = size.height > maxHeight
+        // delegate 복원
+        textView.delegate = currentDelegate
+    }
+    
+    private func updateHeight(_ uiView: UITextView) {
+        let size = uiView.sizeThatFits(CGSize(width: uiView.frame.width, height: .infinity))
+        let newHeight = min(maxHeight, size.height)
+        
+        DispatchQueue.main.async {
+            if abs(height - newHeight) > 1 {
+                height = newHeight
+            }
+            uiView.isScrollEnabled = size.height > maxHeight
+        }
     }
     
     class Coordinator: NSObject, UITextViewDelegate {
-        let parent: AutoSizingTextView
+        var parent: CustomTextView
         
-        init(_ parent: AutoSizingTextView) {
+        init(parent: CustomTextView) {
             self.parent = parent
         }
         
         func textViewDidChange(_ textView: UITextView) {
-            parent.text = textView.text
+            // ✅ 플레이스홀더 텍스트인지 확인
+            if textView.text == parent.placeholder {
+                return // 플레이스홀더 텍스트는 무시
+            }
+            
+            // ✅ 플레이스홀더 상태가 아닐 때만 텍스트 업데이트
+            if !parent.isShowingPlaceholder {
+                // 텍스트 길이 제한
+                if textView.text.count > parent.textLimit {
+                    textView.text = String(textView.text.prefix(parent.textLimit))
+                }
+                parent.text = textView.text
+            }
+            
             parent.updateHeight(textView)
         }
         
-        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-            // 줄바꿈 허용
-            return true
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            // ✅ 플레이스홀더 제거
+            if parent.isShowingPlaceholder {
+                // delegate 임시 제거
+                let currentDelegate = textView.delegate
+                textView.delegate = nil
+                
+                textView.text = ""
+                textView.textColor = parent.textColor
+                
+                // delegate 복원
+                textView.delegate = currentDelegate
+                
+                DispatchQueue.main.async {
+                    self.parent.isShowingPlaceholder = false
+                    self.parent.text = ""
+                }
+            }
+        }
+        
+        func textViewDidEndEditing(_ textView: UITextView) {
+            // ✅ 텍스트가 비어있으면 플레이스홀더 표시
+            if textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // delegate 임시 제거
+                let currentDelegate = textView.delegate
+                textView.delegate = nil
+                
+                textView.text = parent.placeholder ?? ""
+                textView.textColor = parent.placeholderColor
+                
+                // delegate 복원
+                textView.delegate = currentDelegate
+                
+                DispatchQueue.main.async {
+                    self.parent.isShowingPlaceholder = true
+                    self.parent.text = ""
+                }
+            }
         }
     }
 }

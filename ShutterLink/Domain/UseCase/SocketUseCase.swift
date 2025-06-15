@@ -16,7 +16,6 @@ enum SocketConnectionStatus: Equatable {
     case disconnected
     case error(String)
     
-    // ✅ Equatable 구현
     static func == (lhs: SocketConnectionStatus, rhs: SocketConnectionStatus) -> Bool {
         switch (lhs, rhs) {
         case (.connecting, .connecting),
@@ -62,15 +61,19 @@ protocol SocketUseCase {
     func observeMessages() -> AnyPublisher<ChatMessage, Never>
 }
 
-// MARK: - Socket UseCase Implementation
+// MARK: - ✅ 강화된 Socket UseCase Implementation
 
 final class SocketUseCaseImpl: SocketUseCase {
     private let socketManager: SocketIOManager
     private let chatUseCase: ChatUseCase
     private var cancellables = Set<AnyCancellable>()
     
-    // ✅ 실시간 메시지 스트림 - PassthroughSubject 사용
+    // ✅ 강화된 실시간 메시지 스트림
     private let realtimeMessageSubject = PassthroughSubject<ChatMessage, Never>()
+    
+    // ✅ 메시지 처리 상태 추적
+    private var isProcessingMessage = false
+    private let messageProcessingQueue = DispatchQueue(label: "com.shutterlink.socket.processing", qos: .userInitiated)
     
     init(
         socketManager: SocketIOManager = SocketIOManager(),
@@ -79,7 +82,7 @@ final class SocketUseCaseImpl: SocketUseCase {
         self.socketManager = socketManager
         self.chatUseCase = chatUseCase
         
-        // 소켓 메시지 수신 처리 설정
+        print("🏗️ SocketUseCase 초기화")
         setupMessageHandling()
     }
     
@@ -89,7 +92,7 @@ final class SocketUseCaseImpl: SocketUseCase {
     }
     
     func disconnect() {
-        print("🔵 SocketUseCase: 소켓 연결 해제")
+        print("🔴 SocketUseCase: 소켓 연결 해제")
         socketManager.disconnect()
     }
     
@@ -101,52 +104,169 @@ final class SocketUseCaseImpl: SocketUseCase {
         return realtimeMessageSubject.eraseToAnyPublisher()
     }
     
-    // MARK: - 메시지 처리 설정
+    // MARK: - ✅ 강화된 메시지 처리 설정
     
     private func setupMessageHandling() {
-        // ✅ 소켓으로 받은 메시지 처리 - 이중 스트림 방식
+        print("🔧 SocketUseCase: 메시지 처리 설정 시작")
+        
+        // ✅ 소켓 메시지 수신 처리 - 우선순위 기반 처리
         socketManager.messagePublisher
+            .receive(on: messageProcessingQueue) // 백그라운드에서 처리
             .sink { [weak self] message in
-                print("📨 SocketUseCase: 메시지 수신 - chatId: \(message.chatId), 내용: \(message.content)")
-                self?.handleReceivedMessage(message)
+                self?.handleIncomingMessage(message)
             }
             .store(in: &cancellables)
+        
+        print("✅ SocketUseCase: 메시지 처리 설정 완료")
     }
     
-    // ✅ 수신 메시지 처리 (로컬 저장 + 즉시 UI 알림)
-    private func handleReceivedMessage(_ message: ChatMessage) {
-        // 1. ✅ 먼저 UI에 즉시 반영 (가장 빠른 업데이트)
-        Task { @MainActor in
-            print("⚡ SocketUseCase: 즉시 UI 업데이트 - chatId: \(message.chatId)")
-            realtimeMessageSubject.send(message)
-        }
+    // MARK: - ✅ 강화된 메시지 처리 로직
+    
+    private func handleIncomingMessage(_ message: ChatMessage) {
+        print("📨 SocketUseCase: 메시지 수신 처리 시작")
+        print("   - chatId: \(message.chatId)")
+        print("   - 발송자: \(message.sender.nick)")
+        print("   - 내용: \(message.content)")
+        print("   - 현재 사용자 메시지: \(message.isFromCurrentUser)")
+        print("   - 파일 개수: \(message.files.count)")
         
-        // 2. ✅ 백그라운드에서 로컬 저장 (실패해도 UI는 이미 업데이트됨)
+        // ✅ 1단계: 즉시 UI 업데이트 (최우선)
+        immediateUIUpdate(message)
+        
+        // ✅ 2단계: 백그라운드 로컬 저장 (독립적)
+        backgroundSave(message)
+    }
+    
+    // ✅ 1단계: 즉시 UI 업데이트
+    private func immediateUIUpdate(_ message: ChatMessage) {
+        DispatchQueue.main.async { [weak self] in
+            print("⚡ SocketUseCase: 즉시 UI 업데이트 - chatId: \(message.chatId)")
+            self?.realtimeMessageSubject.send(message)
+        }
+    }
+    
+    // ✅ 2단계: 백그라운드 로컬 저장
+    private func backgroundSave(_ message: ChatMessage) {
         Task {
+            await saveMessageWithRetry(message, maxRetries: 3)
+        }
+    }
+    
+    // ✅ 재시도 로직을 포함한 메시지 저장
+    private func saveMessageWithRetry(_ message: ChatMessage, maxRetries: Int) async {
+        for attempt in 1...maxRetries {
             do {
                 try await chatUseCase.saveMessage(message)
-                print("✅ SocketUseCase: 수신 메시지 로컬 저장 완료 - chatId: \(message.chatId)")
+                print("✅ SocketUseCase: 메시지 저장 성공 (시도 \(attempt)) - chatId: \(message.chatId)")
+                return
                 
             } catch {
-                print("❌ SocketUseCase: 수신 메시지 로컬 저장 실패 - \(error)")
-                // 저장 실패해도 UI는 이미 업데이트되었으므로 사용자는 메시지를 볼 수 있음
-                // 필요시 재시도 로직 추가 가능
-                await scheduleRetryMessageSave(message)
+                print("❌ SocketUseCase: 메시지 저장 실패 (시도 \(attempt)/\(maxRetries)) - \(error)")
+                
+                if attempt == maxRetries {
+                    print("💥 SocketUseCase: 메시지 저장 최종 실패 - chatId: \(message.chatId)")
+                    await handleSaveFailure(message, error: error)
+                } else {
+                    // 지수 백오프로 재시도 지연
+                    let delay = pow(2.0, Double(attempt - 1))
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                }
             }
         }
     }
     
-    // ✅ 메시지 저장 재시도 스케줄링
-    private func scheduleRetryMessageSave(_ message: ChatMessage) async {
-        // 3초 후 재시도
-        try? await Task.sleep(nanoseconds: 3_000_000_000)
+    // ✅ 저장 실패 처리
+    private func handleSaveFailure(_ message: ChatMessage, error: Error) async {
+        print("💥 SocketUseCase: 메시지 저장 실패 처리")
+        
+        // 실패한 메시지를 임시 큐에 저장하거나 다른 처리 로직 구현 가능
+        // 현재는 로그만 남김 (UI는 이미 업데이트됨)
+        
+        // 필요시 사용자에게 알림 (예: 네트워크 연결 확인 요청)
+        await notifyPersistenceFailure(message, error: error)
+    }
+    
+    // ✅ 저장 실패 알림 (선택적)
+    private func notifyPersistenceFailure(_ message: ChatMessage, error: Error) async {
+        // 실제 구현에서는 NotificationCenter나 다른 방식으로 알림 가능
+        print("🔔 SocketUseCase: 저장 실패 알림 - chatId: \(message.chatId)")
+        
+        // 예시: 연결 상태 확인 후 재시도 스케줄링
+        await scheduleRetryWhenNetworkAvailable(message)
+    }
+    
+    // ✅ 네트워크 복구 시 재시도 스케줄링
+    private func scheduleRetryWhenNetworkAvailable(_ message: ChatMessage) async {
+        // 네트워크 연결 상태를 모니터링하고 복구 시 재시도
+        // 현재는 단순히 10초 후 재시도
+        
+        try? await Task.sleep(nanoseconds: 10_000_000_000) // 10초
         
         do {
             try await chatUseCase.saveMessage(message)
-            print("✅ SocketUseCase: 메시지 저장 재시도 성공 - chatId: \(message.chatId)")
+            print("🔄 SocketUseCase: 지연된 메시지 저장 성공 - chatId: \(message.chatId)")
         } catch {
-            print("❌ SocketUseCase: 메시지 저장 재시도 실패 - chatId: \(message.chatId), 에러: \(error)")
-            // 최종 실패 시 로그만 남기고 넘어감 (UI는 이미 업데이트됨)
+            print("🔄 SocketUseCase: 지연된 메시지 저장도 실패 - chatId: \(message.chatId)")
         }
+    }
+}
+
+// MARK: - ✅ 메시지 처리 상태 관리
+
+extension SocketUseCaseImpl {
+    
+    // ✅ 현재 처리 중인 메시지 수 추적 (디버깅용)
+    private func trackMessageProcessing(_ action: String, messageId: String) {
+        print("📊 SocketUseCase: 메시지 처리 추적 - \(action) - \(messageId)")
+    }
+    
+    // ✅ 메시지 처리 성능 모니터링 (선택적)
+    private func measureProcessingTime<T>(_ operation: () async throws -> T, label: String) async rethrows -> T {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        let result = try await operation()
+        let timeElapsed = CFAbsoluteTimeGetCurrent() - startTime
+        
+        print("⏱️ SocketUseCase: \(label) 처리 시간: \(String(format: "%.3f", timeElapsed))초")
+        
+        return result
+    }
+}
+
+// MARK: - ✅ 생명주기 및 앱 상태 관리
+
+extension SocketUseCaseImpl {
+    
+    func handleAppWillEnterForeground() {
+        print("📱 SocketUseCase: 앱 포그라운드 진입")
+        socketManager.handleAppWillEnterForeground()
+    }
+    
+    func handleAppDidEnterBackground() {
+        print("📱 SocketUseCase: 앱 백그라운드 진입")
+        socketManager.handleAppDidEnterBackground()
+    }
+    
+    func handleNetworkStatusChanged(isConnected: Bool) {
+        print("🌐 SocketUseCase: 네트워크 상태 변경 - 연결: \(isConnected)")
+        socketManager.handleNetworkStatusChanged(isConnected: isConnected)
+    }
+}
+
+// MARK: - ✅ 디버깅 및 모니터링
+
+extension SocketUseCaseImpl {
+    
+    func getCurrentConnectionInfo() -> String {
+        let status = socketManager.connectionStatus
+        return """
+        📊 SocketUseCase 연결 정보:
+        - 상태: \(status.description)
+        - 연결됨: \(status.isConnected)
+        - 메시지 처리 중: \(isProcessingMessage)
+        """
+    }
+    
+    func printDebugInfo() {
+        print(getCurrentConnectionInfo())
     }
 }

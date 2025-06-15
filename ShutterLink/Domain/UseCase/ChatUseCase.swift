@@ -29,6 +29,7 @@ protocol ChatUseCase {
     // 실시간 관찰
     func observeMessages(roomId: String) -> AnyPublisher<[ChatMessage], Never>
     func observeChatRooms() -> AnyPublisher<[ChatRoom], Never>
+    func deleteChatRoom(roomId: String) async throws
 }
 
 final class ChatUseCaseImpl: ChatUseCase {
@@ -47,6 +48,22 @@ final class ChatUseCaseImpl: ChatUseCase {
     }
     
     // MARK: - 채팅방 관련
+    
+    // ✅ 채팅방 삭제 기능 - 이 메서드만 추가하면 됨
+      func deleteChatRoom(roomId: String) async throws {
+          print("🗑️ ChatUseCase: 채팅방 삭제 시작 - roomId: \(roomId)")
+          
+          do {
+              // 로컬 데이터베이스에서 삭제 (메시지와 채팅방 모두)
+              try await localRepository.deleteChatRoom(roomId: roomId)
+              
+              print("✅ ChatUseCase: 채팅방 삭제 완료 - roomId: \(roomId)")
+              
+          } catch {
+              print("❌ ChatUseCase: 채팅방 삭제 실패 - \(error)")
+              throw error
+          }
+      }
     
     func createOrGetChatRoom(opponentId: String) async throws -> ChatRoom {
         print("🔵 ChatUseCase: 채팅방 생성/조회 시작 - opponentId: \(opponentId)")
