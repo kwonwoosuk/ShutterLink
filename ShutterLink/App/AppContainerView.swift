@@ -79,6 +79,9 @@ struct AppContainerView: View {
             // 앱 전체에서 기본 탭바 숨김 처리
             UITabBar.appearance().isHidden = true
             
+            // 🆕 추가 - 네비게이션 바 어둡게 설정
+            setupNavigationBarAppearance()
+            
             // 초기화 마크
             if !hasInitialized {
                 hasInitialized = true
@@ -98,5 +101,27 @@ struct AppContainerView: View {
         .onChange(of: authState.isLoading) { newValue in
             print("🔄 로딩 상태 변경: \(newValue)")
         }
+    }
+    
+    private func setupNavigationBarAppearance() {
+        let navBarAppearance = UINavigationBarAppearance()
+        navBarAppearance.configureWithOpaqueBackground()
+        navBarAppearance.backgroundColor = UIColor.black.withAlphaComponent(0.9)
+        navBarAppearance.shadowColor = UIColor.black.withAlphaComponent(0.3)
+        
+        // 타이틀 색상
+        navBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+        navBarAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+        
+        // 버튼 색상
+        navBarAppearance.buttonAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.white]
+        navBarAppearance.backButtonAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.white]
+        
+        // 모든 상태에 적용
+        UINavigationBar.appearance().standardAppearance = navBarAppearance
+        UINavigationBar.appearance().compactAppearance = navBarAppearance
+        UINavigationBar.appearance().scrollEdgeAppearance = navBarAppearance
+        
+        print("✅ 네비게이션 바 어둡게 설정 완료")
     }
 }
