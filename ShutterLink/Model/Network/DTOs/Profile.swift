@@ -8,7 +8,7 @@
 import Foundation
 
 // 프로필 응답 모델
-struct ProfileResponse: Decodable {
+struct ProfileResponse: Decodable ,Equatable {
     let user_id: String
     let email: String
     let nick: String

@@ -8,55 +8,46 @@
 import SwiftUI
 
 struct ProfileEditView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = ProfileViewModel()
-    @State private var nickname: String = ""
-    @State private var name: String = ""
-    @State private var introduction: String = ""
-    @State private var phoneNumber: String = ""
-    @State private var hashtags: String = ""
+    @Environment(\.dismiss) private var dismiss
     @State private var showImagePicker = false
+    
+    @State private var nickname = ""
+    @State private var name = ""
+    @State private var introduction = ""
+    @State private var phoneNumber = ""
+    @State private var hashtags = ""
+    @State private var hasInitialized = false
     
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
-                    // 프로필 이미지 선택
-                    Button {
-                        showImagePicker = true
-                    } label: {
-                        ZStack {
-                            if let selectedImage = viewModel.selectedImage {
-                                Image(uiImage: selectedImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 100, height: 100)
-                                    .clipShape(Circle())
-                            } else if let profileImageURL = viewModel.profile?.profileImage, !profileImageURL.isEmpty {
-                                AuthenticatedImageView(
-                                    imagePath: profileImageURL,
-                                    contentMode: .fill
-                                ) {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                }
+                VStack(spacing: 20) {
+                    // 프로필 이미지 섹션
+                    VStack {
+                        if let selectedImage = viewModel.selectedImage {
+                            Image(uiImage: selectedImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
                                 .frame(width: 100, height: 100)
                                 .clipShape(Circle())
-                            } else {
+                        } else if let profileImageURL = viewModel.profile?.profileImage, !profileImageURL.isEmpty {
+                            AuthenticatedImageView(
+                                imagePath: profileImageURL,
+                                contentMode: .fill
+                            ) {
                                 Circle()
                                     .fill(Color.gray.opacity(0.3))
-                                    .frame(width: 100, height: 100)
                                     .overlay(
-                                        Image(systemName: "person.fill")
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(width: 50)
-                                            .foregroundColor(.gray)
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                     )
                             }
-                            
+                            .frame(width: 100, height: 100)
+                            .clipShape(Circle())
+                        } else {
                             Circle()
-                                .stroke(Color.white, lineWidth: 2)
+                                .fill(Color.gray.opacity(0.3))
                                 .frame(width: 100, height: 100)
                             
                             Image(systemName: "camera.fill")
@@ -66,10 +57,15 @@ struct ProfileEditView: View {
                                 .clipShape(Circle())
                                 .offset(x: 30, y: 30)
                         }
+                        
+                        Button("사진 변경") {
+                            showImagePicker = true
+                        }
+                        .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
+                        .padding(.top, 8)
                     }
-                    .padding(.top)
                     
-                    // 입력 폼
+                    // 입력 필드들
                     VStack(spacing: 16) {
                         // 닉네임
                         VStack(alignment: .leading) {
@@ -152,7 +148,7 @@ struct ProfileEditView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.blue)
+                            .background(DesignSystem.Colors.Brand.brightTurquoise)
                             .foregroundColor(.white)
                             .cornerRadius(10)
                             .padding(.horizontal)
@@ -179,35 +175,49 @@ struct ProfileEditView: View {
             .sheet(isPresented: $showImagePicker) {
                 ImagePicker(image: $viewModel.selectedImage)
             }
-            .task {
-                if viewModel.profile == nil {
-                    viewModel.loadProfile()
-                    
-                    // 프로필 데이터 로드 후 입력 필드 초기화를 위한 감시
-                    await waitForProfileLoad()
+            .onAppear {
+                print("🔵 ProfileEditView: 화면 나타남")
+                loadProfileAndInitializeFields()
+            }
+            // 🆕 추가 - 프로필 데이터가 로드되면 필드 초기화
+            .onChange(of: viewModel.profile) { newProfile in
+                if !hasInitialized, let profile = newProfile {
+                    initializeFields(with: profile)
                 }
             }
         }
     }
     
-    // MARK: - Private Methods
+    // MARK: - 🆕 추가 메서드들
     
-    private func waitForProfileLoad() async {
-        // 프로필이 로드될 때까지 대기
-        while viewModel.profile == nil && viewModel.isLoading {
-            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초 대기
+    private func loadProfileAndInitializeFields() {
+        // 프로필이 없으면 로드
+        if viewModel.profile == nil {
+            viewModel.loadProfile()
+        } else {
+            // 이미 로드된 경우 바로 초기화
+            initializeFields(with: viewModel.profile!)
         }
+    }
+    
+    private func initializeFields(with profile: ProfileResponse) {
+        guard !hasInitialized else { return }
         
-        // 프로필 데이터가 로드되면 입력 필드 초기화
-        if let profile = viewModel.profile {
-            await MainActor.run {
-                nickname = profile.nick
-                name = profile.name ?? ""
-                introduction = profile.introduction ?? ""
-                phoneNumber = profile.phoneNum ?? ""
-                hashtags = profile.hashTags.map { $0.replacingOccurrences(of: "#", with: "") }.joined(separator: ",")
-            }
+        print("🔵 ProfileEditView: 기존 정보로 필드 초기화")
+        
+        nickname = profile.nick
+        name = profile.name ?? ""
+        introduction = profile.introduction ?? ""
+        phoneNumber = profile.phoneNum ?? ""
+        
+        // 해시태그에서 # 제거하고 쉼표로 연결
+        let cleanHashtags = profile.hashTags.map {
+            $0.replacingOccurrences(of: "#", with: "")
         }
+        hashtags = cleanHashtags.joined(separator: ", ")
+        
+        hasInitialized = true
+        print("✅ ProfileEditView: 필드 초기화 완료 - 닉네임: \(nickname)")
     }
     
     private func handleSave() async {
@@ -228,7 +238,12 @@ struct ProfileEditView: View {
         
         // 프로필 정보 업데이트
         print("🔵 ProfileEditView: 프로필 정보 업데이트 시작")
-        let hashTagsList = hashtags.split(separator: ",").map { "#" + String($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        
+        // 해시태그 처리 - 쉼표로 분리하고 # 추가
+        let hashTagsList = hashtags
+            .split(separator: ",")
+            .map { "#" + String($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            .filter { $0.count > 1 } // "#"만 있는 것 제외
         
         let updateTask = viewModel.updateProfile(
             nick: nickname,
