@@ -18,6 +18,7 @@ final class NavigationRouter: ObservableObject {
     @Published var searchPath: [UserRoute] = []
     @Published var profilePath: [ProfileRoute] = []
     @Published var makePath: [MakeRoute] = []
+    @Published var isTabBarHidden: Bool = false // 🆕 추가 - 탭바 숨김 상태
     
     // MARK: - Sheet States
     @Published var presentedSheet: PresentedSheet?
@@ -200,6 +201,13 @@ final class NavigationRouter: ObservableObject {
         print("🧭 NavigationRouter: 채팅방 목록으로 이동")
     }
     
+    // 🆕 추가 메서드 - 채팅방으로 이동
+    func pushToChatView(roomId: String, participantInfo: Users) {
+        let route = ProfileRoute.chatView(roomId: roomId, participantInfo: participantInfo)
+        profilePath.append(route)
+        print("🧭 NavigationRouter: 채팅방으로 이동 - roomId: \(roomId)")
+    }
+    
     func popProfileRoute() {
         if !profilePath.isEmpty {
             profilePath.removeLast()
@@ -277,6 +285,22 @@ final class NavigationRouter: ObservableObject {
         return getCurrentPathCount() > 0
     }
     
+    // MARK: - TabBar Management
+    
+    func hideTabBar() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isTabBarHidden = true
+        }
+        print("🙈 NavigationRouter: 탭바 숨김")
+    }
+    
+    func showTabBar() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isTabBarHidden = false
+        }
+        print("👀 NavigationRouter: 탭바 표시")
+    }
+    
     // MARK: - Debug Methods
     func printCurrentState() {
         print("🧭 NavigationRouter 현재 상태:")
@@ -294,7 +318,6 @@ final class NavigationRouter: ObservableObject {
 enum PresentedSheet: Identifiable, CustomStringConvertible, Equatable  {
     case userFilters(userId: String, userNick: String)
     case profileEdit
-    case chatView(userId: String)
     
     var id: String {
         switch self {
@@ -302,19 +325,14 @@ enum PresentedSheet: Identifiable, CustomStringConvertible, Equatable  {
             return "userFilters_\(userId)"
         case .profileEdit:
             return "profileEdit"
-        case .chatView(let userId):
-            return "chatView_\(userId)"
-        }
-    }
+        }}
     
-    var description: String {
-        switch self {
-        case .userFilters(_, let userNick):
-            return "유저 필터 목록 (\(userNick))"
-        case .profileEdit:
-            return "프로필 편집"
-        case .chatView:
-            return "채팅 뷰"
+        var description: String {
+            switch self {
+            case .userFilters(_, let userNick):
+                return "유저 필터 목록 (\(userNick))"
+            case .profileEdit:
+                return "프로필 편집"
+            }
         }
-    }
 }

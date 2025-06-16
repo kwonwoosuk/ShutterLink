@@ -218,6 +218,8 @@ struct ProfileView: View {
                     FilterDetailView(filterId: filterId)
                 case .chatRoomList:
                     ChatRoomListView()
+                case .chatView(roomId: let roomId, participantInfo: let participantInfo):
+                    ChatView(roomId: roomId, participantInfo: participantInfo)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)

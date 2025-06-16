@@ -10,8 +10,7 @@ import SwiftUI
 struct ChatRoomListView: View {
     @StateObject private var viewModel: ChatRoomListViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var showingChatView = false
-    @State private var selectedChatRoom: ChatRoom?
+    @EnvironmentObject private var router: NavigationRouter
     @State private var roomToDelete: ChatRoom?
     @State private var showDeleteAlert = false
     
@@ -49,14 +48,6 @@ struct ChatRoomListView: View {
         }
         .refreshable {
             viewModel.input.refreshChatRooms.send()
-        }
-        .sheet(isPresented: $showingChatView) {
-            if let selectedChatRoom = selectedChatRoom,
-               let participant = getOtherParticipant(from: selectedChatRoom) {
-                NavigationStack {
-                    ChatView(roomId: selectedChatRoom.roomId, participantInfo: participant)
-                }
-            }
         }
         .alert("오류", isPresented: $viewModel.showError) {
             Button("확인") {
@@ -96,17 +87,6 @@ struct ChatRoomListView: View {
                 .foregroundColor(.white)
             
             Spacer()
-            
-            // 새로고침 버튼
-            Button {
-                viewModel.input.refreshChatRooms.send()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.title3)
-                    .foregroundColor(.white)
-            }
-            .disabled(viewModel.isRefreshing)
-            .opacity(viewModel.isRefreshing ? 0.6 : 1.0)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -154,43 +134,39 @@ struct ChatRoomListView: View {
     // MARK: - 채팅방 목록
     
     private var chatRoomsList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(viewModel.chatRooms) { chatRoom in
-                    ChatRoomCell(
-                        chatRoom: chatRoom,
-                        currentUserId: getCurrentUserId()
-                    )
-                    .onTapGesture {
-                        openChatRoom(chatRoom)
-                    }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button {
-                            roomToDelete = chatRoom
-                            showDeleteAlert = true
-                        } label: {
-                            Label("삭제", systemImage: "trash")
-                        }
-                        .tint(.red)
-                    }
-                    
-                    // 구분선
-                    if chatRoom.roomId != viewModel.chatRooms.last?.roomId {
-                        Divider()
-                            .background(Color.gray.opacity(0.3))
-                            .padding(.leading, 80)
-                    }
+        List {
+            ForEach(viewModel.chatRooms) { chatRoom in
+                ChatRoomCell(
+                    chatRoom: chatRoom,
+                    currentUserId: getCurrentUserId()
+                )
+                .onTapGesture {
+                    openChatRoom(chatRoom)
                 }
+                .listRowBackground(Color.black)
+                .listRowSeparator(.hidden)
             }
-            .padding(.top, 8)
+            .onDelete(perform: deleteRows)
         }
+        .listStyle(PlainListStyle())
+        .background(Color.black)
+        .scrollContentBackground(.hidden)
     }
     
     // MARK: - 액션 메서드
     
     private func openChatRoom(_ chatRoom: ChatRoom) {
-        selectedChatRoom = chatRoom
-        showingChatView = true
+        if let participant = getOtherParticipant(from: chatRoom) {
+            router.pushToChatView(roomId: chatRoom.roomId, participantInfo: participant)
+        }
+    }
+    
+    private func deleteRows(at offsets: IndexSet) {
+        for index in offsets {
+            let chatRoom = viewModel.chatRooms[index]
+            roomToDelete = chatRoom
+            showDeleteAlert = true
+        }
     }
     
     private func getOtherParticipant(from chatRoom: ChatRoom) -> Users? {
@@ -218,7 +194,7 @@ struct ChatRoomListView: View {
                 
                 print("✅ ChatRoomListView: 채팅방 삭제 완료 - roomId: \(chatRoom.roomId)")
                 
-                // 목록 새로고침
+                // 목록 새로고침 - 기존 Combine 시스템 활용
                 await MainActor.run {
                     viewModel.input.refreshChatRooms.send()
                     roomToDelete = nil
@@ -235,7 +211,6 @@ struct ChatRoomListView: View {
     }
 }
 
-// MARK: - 채팅방 셀
 
 struct ChatRoomCell: View {
     let chatRoom: ChatRoom

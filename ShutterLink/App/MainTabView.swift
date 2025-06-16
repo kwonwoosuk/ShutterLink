@@ -32,18 +32,21 @@ struct MainTabView: View {
             }
             .toolbar(.hidden, for: .tabBar)
             
-            // 커스텀 탭바
-            CustomTabBar(
-                selectedTab: Binding(
-                    get: { router.selectedTab.rawValue },
-                    set: { _ in }
-                ),
-                onTabTapped: { tappedTab in
-                    if let tab = Tab(rawValue: tappedTab) {
-                        router.selectTab(tab)
+            // 🆕 수정 - 조건부 커스텀 탭바 표시
+            if !router.isTabBarHidden {
+                CustomTabBar(
+                    selectedTab: Binding(
+                        get: { router.selectedTab.rawValue },
+                        set: { _ in }
+                    ),
+                    onTabTapped: { tappedTab in
+                        if let tab = Tab(rawValue: tappedTab) {
+                            router.selectTab(tab)
+                        }
                     }
-                }
-            )
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .ignoresSafeArea(edges: .bottom)
         .sheet(item: $router.presentedSheet) { sheet in
@@ -58,29 +61,6 @@ struct MainTabView: View {
             UserFiltersView(userId: userId, userNick: userNick)
         case .profileEdit:
             ProfileEditView()
-        case .chatView:
-            // 향후 채팅 뷰 구현
-            NavigationStack {
-                VStack {
-                    Text("채팅 기능")
-                        .font(.title)
-                        .foregroundColor(.white)
-                    Text("곧 출시됩니다!")
-                        .foregroundColor(.gray)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black)
-                .navigationTitle("채팅")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("닫기") {
-                            router.dismissSheet()
-                        }
-                        .foregroundColor(.white)
-                    }
-                }
-            }
         }
     }
 }

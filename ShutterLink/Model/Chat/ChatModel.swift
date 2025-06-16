@@ -88,7 +88,7 @@ struct ChatMessage: Equatable, Identifiable {
     }
 }
 
-struct Users: Equatable, Identifiable {
+struct Users: Equatable, Identifiable, Hashable {
     var id: String { userId }
     let userId: String
     let nick: String

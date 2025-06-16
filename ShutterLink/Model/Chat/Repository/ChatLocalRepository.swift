@@ -27,6 +27,7 @@ protocol ChatLocalRepository {
     // 실시간 관찰
     func observeMessages(roomId: String) -> AnyPublisher<[ChatMessage], Never>
     func observeChatRooms() -> AnyPublisher<[ChatRoom], Never>
+    
 }
 
 final class RealmChatRepository: ChatLocalRepository {
@@ -88,9 +89,10 @@ final class RealmChatRepository: ChatLocalRepository {
             try await Task { @MainActor in
                 print("🗑️ RealmChatRepository: 채팅방 삭제 시작 - roomId: \(roomId)")
                 
-                // 1. 해당 채팅방의 모든 메시지 삭제
+                // 1. 해당 채팅방의 모든 메시지 조회
                 let messages = realm.objects(ChatMessageEntity.self)
                     .filter("roomId == %@", roomId)
+           
                 
                 // 2. 채팅방 삭제
                 if let chatRoom = realm.object(ofType: ChatRoomEntity.self, forPrimaryKey: roomId) {
@@ -100,7 +102,7 @@ final class RealmChatRepository: ChatLocalRepository {
                         // 채팅방 삭제
                         realm.delete(chatRoom)
                     }
-                    print("✅ RealmChatRepository: 채팅방 및 메시지 삭제 완료 - roomId: \(roomId), 삭제된 메시지: \(messages.count)개")
+                    print("✅ RealmChatRepository: 채팅방, 메시지 및 로컬 파일 삭제 완료 - roomId: \(roomId), 삭제된 메시지: \(messages.count)개")
                 } else {
                     print("⚠️ RealmChatRepository: 삭제할 채팅방을 찾을 수 없음 - roomId: \(roomId)")
                     throw NSError(domain: "ChatRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "채팅방을 찾을 수 없습니다."])

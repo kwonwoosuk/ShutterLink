@@ -6,16 +6,17 @@
 //
 
 import SwiftUI
+import Combine
 
 struct ChatView: View {
     let roomId: String
     let participantInfo: Users
     
     @StateObject private var viewModel: ChatViewModel
-    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: NavigationRouter
     @State private var keyboardHeight: CGFloat = 0
-    @State private var showConnectionStatus = false
     @State private var showDeleteAlert = false
+    @State private var showConnectionStatus = false // 🆕 추가 - 연결 상태 표시
     
     // 스크롤 상태 추적
     @State private var scrollProxy: ScrollViewProxy?
@@ -40,11 +41,11 @@ struct ChatView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
+                // 🆕 추가 - 연결 상태 바
                 if showConnectionStatus {
                     connectionStatusBar
                 }
                 
-                // 강화된 메시지 목록
                 enhancedMessagesScrollView
                 
                 // 입력 영역
@@ -53,6 +54,15 @@ struct ChatView: View {
             .background(Color.black)
             .offset(y: -keyboardHeight)
             .animation(.easeOut(duration: 0.3), value: keyboardHeight)
+        }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onAppear {
+            // 🆕 추가 - 탭바 숨기기
+            router.hideTabBar()
+        }
+        .onDisappear {
+            // 🆕 추가 - 탭바 다시 보이기
+            router.showTabBar()
         }
         .navigationTitle(participantInfo.nick)
         .navigationBarTitleDisplayMode(.inline)
@@ -64,8 +74,8 @@ struct ChatView: View {
             
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 12) {
-                    connectionStatusButton
-                    deleteButton
+                    connectionStatusButton // 🆕 수정 - 연결 상태 버튼으로 변경
+                    exitButton
                 }
             }
         }
@@ -91,15 +101,15 @@ struct ChatView: View {
         } message: {
             Text(viewModel.errorMessage ?? "알 수 없는 오류가 발생했습니다.")
         }
-        .alert("채팅방 삭제", isPresented: $showDeleteAlert) {
+        .alert("채팅방 나가기", isPresented: $showDeleteAlert) {
             Button("취소", role: .cancel) { }
-            Button("삭제", role: .destructive) {
+            Button("나가기", role: .destructive) {
                 Task {
                     await deleteRoom()
                 }
             }
         } message: {
-            Text("채팅방을 삭제하시겠습니까?\n삭제된 채팅방은 복구할 수 없습니다.")
+            Text("채팅방을 나가시겠습니까?\n나간 채팅방은 복구할 수 없습니다.")
         }
         .ignoresSafeArea(.keyboard, edges: .all)
     }
@@ -251,14 +261,14 @@ struct ChatView: View {
     private var connectionStatusBar: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(viewModel.connectionStatusColor)
+                .fill(viewModel.socketConnected ? .green : .red)
                 .frame(width: 8, height: 8)
                 .scaleEffect(viewModel.socketConnected ? 1.2 : 1.0)
                 .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: viewModel.socketConnected)
             
-            Text(viewModel.connectionStatusText)
+            Text(viewModel.socketConnected ? "실시간 연결됨" : "연결 끊김")
                 .font(.pretendard(size: 12, weight: .medium))
-                .foregroundColor(viewModel.connectionStatusColor)
+                .foregroundColor(viewModel.socketConnected ? .green : .red)
             
             Spacer()
             
@@ -276,7 +286,7 @@ struct ChatView: View {
     
     private var backButton: some View {
         Button {
-            dismiss()
+            router.popProfileRoute()
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "chevron.left")
@@ -292,19 +302,19 @@ struct ChatView: View {
                 showConnectionStatus.toggle()
             }
         } label: {
-            Image(systemName: viewModel.socketConnected ? "wifi" : "wifi.slash")
-                .font(.title3)
-                .foregroundColor(viewModel.connectionStatusColor)
+            Image(systemName: "circle.fill")
+                .font(.system(size: 8))
+                .foregroundColor(viewModel.socketConnected ? .green : .red)
         }
     }
     
-    private var deleteButton: some View {
+    private var exitButton: some View {
         Button {
             showDeleteAlert = true
         } label: {
-            Image(systemName: "trash")
-                .font(.title3)
-                .foregroundColor(.red)
+            Text("나가기")
+                .font(.pretendard(size: 12, weight: .medium))
+                .foregroundColor(.white)
         }
     }
     
@@ -323,21 +333,20 @@ struct ChatView: View {
     
     private func deleteRoom() async {
         do {
-            try await deleteRoomFromLocal(roomId: roomId)
+            // 직접 UseCase를 통해 삭제
+            let localRepository = try! RealmChatRepository()
+            let chatUseCase = ChatUseCaseImpl(localRepository: localRepository)
+            try await chatUseCase.deleteChatRoom(roomId: roomId)
+            
             await MainActor.run {
-                dismiss()
+                router.popProfileRoute()
             }
         } catch {
             await MainActor.run {
-                viewModel.errorMessage = "채팅방 삭제에 실패했습니다: \(error.localizedDescription)"
+                viewModel.errorMessage = "채팅방 나가기에 실패했습니다: \(error.localizedDescription)"
                 viewModel.showError = true
             }
         }
-    }
-    
-    private func deleteRoomFromLocal(roomId: String) async throws {
-        let localRepository = try! RealmChatRepository()
-        try await localRepository.deleteChatRoom(roomId: roomId)
     }
     
     // MARK: - 키보드 관찰자
@@ -402,6 +411,7 @@ struct MessageGroup {
     let date: Date
     let messages: [ChatMessage]
 }
+
 
 // MARK: - 미리보기
 

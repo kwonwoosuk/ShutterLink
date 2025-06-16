@@ -48,7 +48,8 @@ enum ProfileRoute: Route {
     case editProfile
     case likedFilters
     case filterDetail(filterId: String)
-    case chatRoomList // 🆕 채팅방 목록
+    case chatRoomList
+    case chatView(roomId: String, participantInfo: Users)
     
     var id: String {
         switch self {
@@ -60,6 +61,8 @@ enum ProfileRoute: Route {
             return "filterDetail_\(filterId)"
         case .chatRoomList:
             return "chatRoomList"
+        case .chatView(let roomId, _):
+            return "chatView_\(roomId)"
         }
     }
 }
