@@ -254,6 +254,48 @@ final class MakeViewModel: ObservableObject {
         undoStack.removeAll()
         redoStack.removeAll()
         hasEditedImage = false
+        print("🔄 MakeViewModel: 편집 상태만 초기화")
+    }
+    
+    // 🆕 추가 메서드 - 모든 데이터 초기화
+    func clearAllData() {
+        print("🧹 MakeViewModel: 모든 데이터 초기화 시작")
+        
+        // 진행 중인 Task들 취소
+        filterTask?.cancel()
+        saveTask?.cancel()
+        filterUpdateTimer?.invalidate()
+        
+        // 이미지 데이터 초기화
+        originalImage = nil
+        filteredImage = nil
+        
+        // 편집 상태 초기화
+        editingState = EditingState.defaultState
+        undoStack.removeAll()
+        redoStack.removeAll()
+        hasEditedImage = false
+        isPreviewingOriginal = false
+        
+        // 필터 프로세서 초기화
+        filterProcessor.clearCache()
+        
+        // 필터 정보 초기화
+        filterTitle = ""
+        selectedCategory = "푸드"
+        filterPrice = 0
+        filterDescription = ""
+        photoMetadata = nil
+        
+        // 상태 초기화
+        isLoading = false
+        isUploading = false
+        isSaving = false
+        isShowingImagePicker = false
+        errorMessage = nil
+        successMessage = nil
+        
+        print("✅ MakeViewModel: 모든 데이터 초기화 완료")
     }
     
     // MARK: - Before/After Preview
@@ -375,8 +417,8 @@ final class MakeViewModel: ObservableObject {
                     self.isSaving = false
                     self.successMessage = "필터가 성공적으로 저장되었습니다!"
                     
-                    // 폼 리셋
-                    self.resetForm()
+                    // 🆕 수정 - 저장 성공 시 전체 데이터 초기화
+                    self.clearAllData()
                 }
                 
                 // 3초 후 성공 메시지 제거
@@ -470,4 +512,3 @@ private extension EditingState {
         return self == EditingState.defaultState
     }
 }
-

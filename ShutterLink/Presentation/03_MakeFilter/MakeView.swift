@@ -43,6 +43,11 @@ struct MakeView: View {
                     }
                 }
         }
+        .onDisappear {
+            
+            print("🧹 MakeView: 화면 사라짐 - 이미지 초기화")
+            clearAllImages()
+        }
     }
     
     @ViewBuilder
@@ -202,6 +207,11 @@ struct MakeView: View {
                 hasAppeared = true
                 print("🔵 MakeView: 필터 생성 화면 표시")
             }
+        }
+        .onDisappear {
+            // 🆕 추가 - 필터 생성 화면을 떠날 때도 이미지 초기화
+            print("🧹 MakeView: 필터 생성 화면 사라짐 - 이미지 초기화")
+            clearAllImages()
         }
     }
     
@@ -468,6 +478,16 @@ struct MakeView: View {
             viewModel.filterPrice,
             trimmedDescription
         ))
+    }
+    
+    // 🆕 추가 메서드 - 모든 이미지 초기화
+    private func clearAllImages() {
+        print("🧹 MakeView: 모든 이미지 데이터 초기화 시작")
+        
+        // ViewModel의 전체 데이터 초기화
+        viewModel.clearAllData()
+        
+        print("✅ MakeView: 모든 이미지 데이터 초기화 완료")
     }
 }
 
