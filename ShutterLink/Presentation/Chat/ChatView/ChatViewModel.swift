@@ -14,9 +14,6 @@ final class ChatViewModel: ObservableObject {
         let refreshMessages = PassthroughSubject<Void, Never>()
         let sendMessage = PassthroughSubject<(String, [String]), Never>()
         let uploadFiles = PassthroughSubject<([Data], [String]), Never>()
-        // ✅ 디버깅용 Input 추가
-        let testSocketConnection = PassthroughSubject<Void, Never>()
-        let changeSocketURL = PassthroughSubject<Int, Never>() // URL 패턴 변경
     }
     
     @Published var messages: [ChatMessage] = []
@@ -28,13 +25,7 @@ final class ChatViewModel: ObservableObject {
     @Published var uploadedFiles: [(String, String)] = []
     @Published var socketConnected = false
     @Published var socketStatus: SocketConnectionStatus = .disconnected
-    
-    // ✅ 디버깅용 Published 변수들
-    @Published var realtimeMessages: [ChatMessage] = []
     @Published var lastMessageUpdate = Date()
-    @Published var debugInfo = ""
-    @Published var receivedEventsCount = 0
-    @Published var socketURLPattern = 0 // 0~3 다양한 URL 패턴
     
     let input = Input()
     private var cancellables = Set<AnyCancellable>()
@@ -43,7 +34,6 @@ final class ChatViewModel: ObservableObject {
     private let socketUseCase: SocketUseCase
     
     private var messageIds = Set<String>()
-    private var debugEventTimer: Timer?
     
     init(roomId: String, chatUseCase: ChatUseCase, socketUseCase: SocketUseCase) {
         self.roomId = roomId
@@ -52,29 +42,8 @@ final class ChatViewModel: ObservableObject {
         
         setupBindings()
         setupObservers()
-        startDebugTimer()
         
         print("🏗️ ChatViewModel 초기화 - roomId: \(roomId)")
-    }
-    
-    // MARK: - ✅ 디버깅 타이머
-    
-    private func startDebugTimer() {
-        debugEventTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            self?.updateDebugInfo()
-        }
-    }
-    
-    private func updateDebugInfo() {
-        debugInfo = """
-        🔍 ChatViewModel 디버그 정보:
-        - 룸 ID: \(roomId)
-        - 소켓 상태: \(socketStatus.description)
-        - 수신 메시지 수: \(messages.count)
-        - 실시간 이벤트 수: \(receivedEventsCount)
-        - 소켓 URL 패턴: \(socketURLPattern)
-        - 마지막 업데이트: \(DateFormatter.shortTime.string(from: lastMessageUpdate))
-        """
     }
     
     // MARK: - 바인딩 설정
@@ -103,22 +72,9 @@ final class ChatViewModel: ObservableObject {
                 self?.uploadFiles(data: data, names: names)
             }
             .store(in: &cancellables)
-        
-        // ✅ 디버깅용 바인딩
-        input.testSocketConnection
-            .sink { [weak self] in
-                self?.testSocketConnection()
-            }
-            .store(in: &cancellables)
-        
-        input.changeSocketURL
-            .sink { [weak self] pattern in
-                self?.changeSocketURLPattern(pattern)
-            }
-            .store(in: &cancellables)
     }
     
-    // MARK: - ✅ 강화된 관찰자 설정
+    // MARK: - 관찰자 설정
     
     private func setupObservers() {
         print("🔧 ChatViewModel: 관찰자 설정 시작")
@@ -143,7 +99,6 @@ final class ChatViewModel: ObservableObject {
                 print("🔌 ChatViewModel: 소켓 상태 변경 - \(status)")
                 self?.socketStatus = status
                 self?.socketConnected = status.isConnected
-                self?.updateDebugInfo()
             }
             .store(in: &cancellables)
         
@@ -160,15 +115,13 @@ final class ChatViewModel: ObservableObject {
         print("✅ ChatViewModel: 관찰자 설정 완료")
     }
     
-    // MARK: - ✅ 실시간 메시지 처리 강화
+    // MARK: - 실시간 메시지 처리
     
     private func handleRealtimeMessage(_ message: ChatMessage) {
         print("💬 ChatViewModel: 실시간 메시지 처리 시작")
         print("   - 메시지 ID: \(message.chatId)")
         print("   - 방 ID 일치: \(message.roomId == roomId)")
         print("   - 현재 메시지 수: \(messages.count)")
-        
-        receivedEventsCount += 1
         
         guard message.roomId == roomId else {
             print("⚠️ ChatViewModel: 다른 채팅방 메시지 무시")
@@ -200,7 +153,7 @@ final class ChatViewModel: ObservableObject {
         }
     }
     
-    // MARK: - ✅ UI 업데이트 메서드 강화
+    // MARK: - UI 업데이트 메서드
     
     private func addMessageToUI(_ message: ChatMessage) {
         guard !messageIds.contains(message.chatId) else { return }
@@ -216,8 +169,6 @@ final class ChatViewModel: ObservableObject {
         print("   - 총 메시지 수: \(messages.count)")
         print("   - 새 메시지: \(message.content)")
         print("   - 발송자: \(message.sender.nick)")
-        
-        updateDebugInfo()
     }
     
     private func saveMessageInBackground(_ message: ChatMessage) {
@@ -231,36 +182,7 @@ final class ChatViewModel: ObservableObject {
         }
     }
     
-    // MARK: - ✅ 디버깅 메서드들
-    
-    private func testSocketConnection() {
-        print("🧪 ChatViewModel: 소켓 연결 테스트 시작")
-        
-        // 현재 소켓 연결 해제 후 재연결
-        socketUseCase.disconnect()
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            print("🧪 ChatViewModel: 소켓 재연결 시도")
-            self.socketUseCase.connect(roomId: self.roomId)
-        }
-    }
-    
-    private func changeSocketURLPattern(_ pattern: Int) {
-        print("🔄 ChatViewModel: 소켓 URL 패턴 변경 - \(pattern)")
-        
-        socketURLPattern = pattern
-        
-        // 소켓 재연결로 새 URL 패턴 적용
-        socketUseCase.disconnect()
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.socketUseCase.connect(roomId: self.roomId)
-        }
-        
-        updateDebugInfo()
-    }
-    
-    // MARK: - 기존 메서드들 (수정된 부분만)
+    // MARK: - 채팅방 로드 및 관리
     
     private func loadChatRoom() {
         Task { @MainActor in
@@ -285,7 +207,7 @@ final class ChatViewModel: ObservableObject {
                 updateMessagesInitially(syncedMessages)
                 print("🔄 ChatViewModel: 메시지 동기화 완료 - 전체: \(syncedMessages.count)개")
                 
-                // ✅ 소켓 연결 (지연 추가)
+                // 소켓 연결 (지연 추가)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     print("🔌 ChatViewModel: 소켓 연결 시도")
                     self.socketUseCase.connect(roomId: self.roomId)
@@ -298,7 +220,6 @@ final class ChatViewModel: ObservableObject {
             }
             
             isLoading = false
-            updateDebugInfo()
         }
     }
     
@@ -308,7 +229,6 @@ final class ChatViewModel: ObservableObject {
         messageIds = Set(uniqueMessages.map { $0.chatId })
         
         print("📊 ChatViewModel: 초기 메시지 설정 완료 - \(messages.count)개")
-        updateDebugInfo()
     }
     
     private func sendMessage(content: String, files: [String]) {
@@ -340,8 +260,6 @@ final class ChatViewModel: ObservableObject {
             isSending = false
         }
     }
-    
-    // MARK: - 기존 유틸리티 메서드들 유지
     
     private func refreshMessages() {
         Task { @MainActor in
@@ -411,7 +329,6 @@ final class ChatViewModel: ObservableObject {
     func onDisappear() {
         print("👋 ChatViewModel: 채팅 화면 사라짐")
         socketUseCase.disconnect()
-        debugEventTimer?.invalidate()
     }
     
     func onAppWillEnterForeground() {
@@ -460,14 +377,4 @@ final class ChatViewModel: ObservableObject {
             return .red
         }
     }
-}
-
-// MARK: - ✅ 디버깅용 DateFormatter 확장
-
-extension DateFormatter {
-    static let shortTime: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        return formatter
-    }()
 }

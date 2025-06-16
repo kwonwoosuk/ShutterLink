@@ -17,10 +17,6 @@ struct ChatView: View {
     @State private var showConnectionStatus = false
     @State private var showDeleteAlert = false
     
-    // ✅ 디버깅용 상태 변수들
-    @State private var showDebugPanel = false
-    @State private var debugPanelHeight: CGFloat = 0
-    
     // 스크롤 상태 추적
     @State private var scrollProxy: ScrollViewProxy?
     @State private var isUserScrolling = false
@@ -48,12 +44,6 @@ struct ChatView: View {
                     connectionStatusBar
                 }
                 
-                // ✅ 디버그 패널
-                if showDebugPanel {
-                    debugPanel
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-                
                 // 강화된 메시지 목록
                 enhancedMessagesScrollView
                 
@@ -74,7 +64,6 @@ struct ChatView: View {
             
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 12) {
-                    debugButton
                     connectionStatusButton
                     deleteButton
                 }
@@ -113,104 +102,6 @@ struct ChatView: View {
             Text("채팅방을 삭제하시겠습니까?\n삭제된 채팅방은 복구할 수 없습니다.")
         }
         .ignoresSafeArea(.keyboard, edges: .all)
-    }
-    
-    // MARK: - ✅ 디버그 패널
-    
-    private var debugPanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // 디버그 정보 표시
-            ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("🔍 실시간 디버그 정보")
-                        .font(.pretendard(size: 14, weight: .bold))
-                        .foregroundColor(.yellow)
-                    
-                    Text(viewModel.debugInfo)
-                        .font(.pretendard(size: 10, weight: .regular))
-                        .foregroundColor(.white)
-                        .textSelection(.enabled)
-                    
-                    Divider().background(Color.gray)
-                    
-                    // 연결 상태 표시
-                    HStack {
-                        Circle()
-                            .fill(viewModel.connectionStatusColor)
-                            .frame(width: 12, height: 12)
-                        
-                        Text(viewModel.connectionStatusText)
-                            .font(.pretendard(size: 12, weight: .medium))
-                            .foregroundColor(viewModel.connectionStatusColor)
-                        
-                        Spacer()
-                        
-                        Text("수신 이벤트: \(viewModel.receivedEventsCount)")
-                            .font(.pretendard(size: 10, weight: .regular))
-                            .foregroundColor(.gray)
-                    }
-                }
-                .padding(.horizontal, 12)
-            }
-            .frame(maxHeight: 120)
-            
-            // 디버그 컨트롤
-            VStack(spacing: 8) {
-                // 소켓 테스트 버튼들
-                HStack(spacing: 8) {
-                    Button("소켓 재연결") {
-                        viewModel.input.testSocketConnection.send()
-                    }
-                    .font(.pretendard(size: 10, weight: .medium))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.blue.opacity(0.8))
-                    .foregroundColor(.white)
-                    .cornerRadius(4)
-                    
-                    Button("메시지 새로고침") {
-                        viewModel.input.refreshMessages.send()
-                    }
-                    .font(.pretendard(size: 10, weight: .medium))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.green.opacity(0.8))
-                    .foregroundColor(.white)
-                    .cornerRadius(4)
-                    
-                    Spacer()
-                }
-                
-                // URL 패턴 변경
-                HStack {
-                    Text("소켓 URL 패턴:")
-                        .font(.pretendard(size: 10, weight: .medium))
-                        .foregroundColor(.gray)
-                    
-                    ForEach(0..<4, id: \.self) { pattern in
-                        Button("\(pattern)") {
-                            viewModel.input.changeSocketURL.send(pattern)
-                        }
-                        .font(.pretendard(size: 10, weight: .medium))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(viewModel.socketURLPattern == pattern ? Color.yellow : Color.gray.opacity(0.5))
-                        .foregroundColor(viewModel.socketURLPattern == pattern ? .black : .white)
-                        .cornerRadius(3)
-                    }
-                    
-                    Spacer()
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
-        }
-        .background(Color.black.opacity(0.9))
-        .cornerRadius(8)
-        .padding(.horizontal, 16)
-        .onAppear {
-            debugPanelHeight = 200
-        }
     }
     
     // MARK: - 강화된 메시지 스크롤뷰
@@ -374,10 +265,6 @@ struct ChatView: View {
             Text("메시지 \(viewModel.messages.count)개")
                 .font(.pretendard(size: 10, weight: .regular))
                 .foregroundColor(.gray)
-            
-            Text("이벤트 \(viewModel.receivedEventsCount)개")
-                .font(.pretendard(size: 10, weight: .regular))
-                .foregroundColor(.gray)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -396,19 +283,6 @@ struct ChatView: View {
                     .font(.title3)
                     .foregroundColor(.white)
             }
-        }
-    }
-    
-    // ✅ 디버그 버튼 추가
-    private var debugButton: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showDebugPanel.toggle()
-            }
-        } label: {
-            Image(systemName: "ladybug")
-                .font(.title3)
-                .foregroundColor(showDebugPanel ? .yellow : .gray)
         }
     }
     

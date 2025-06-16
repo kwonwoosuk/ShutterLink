@@ -94,16 +94,15 @@ final class SocketIOManager: ObservableObject {
             ]
         )
         
-        socket = manager?.defaultSocket
-        
-        // ✅ 연결 전에 이벤트 핸들러 먼저 등록
-        setupSocketEvents()
-        
-        connectionStatus = .connecting
-        socket?.connect()
-        
-        print("🔌 SocketIOManager: 연결 시도 - URL: \(socketURL)")
-        print("🔌 SocketIOManager: Authorization: \(accessToken.prefix(20))...")
+         socket = manager?.socket(forNamespace: "/chats-\(roomId)")
+         print("🔧 SocketIOManager: 네임스페이스 설정 - /chats-\(roomId)")
+         
+         setupSocketEvents()
+         connectionStatus = .connecting
+         socket?.connect()
+         
+         print("🔌 SocketIOManager: 연결 시도 - URL: \(socketURL)")
+         print("🔌 SocketIOManager: 네임스페이스: /chats-\(roomId)")
     }
     
     func disconnect() {
