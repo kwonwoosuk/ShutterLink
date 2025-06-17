@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4D226E892E0150330042FC68 /* iamport-ios in Frameworks */ = {isa = PBXBuildFile; productRef = 4D226E882E0150330042FC68 /* iamport-ios */; };
 		4D22AB512DF88B560058396D /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB502DF88B560058396D /* RealmSwift */; };
 		4D22AB542DF8911E0058396D /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB532DF8911E0058396D /* SocketIO */; };
 		4D22AB7C2DF8B9050058396D /* RealmSwift in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 4D22AB502DF88B560058396D /* RealmSwift */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -67,6 +68,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D226E892E0150330042FC68 /* iamport-ios in Frameworks */,
 				4D22AB8A2DFD052E0058396D /* FirebaseMessaging in Frameworks */,
 				4D857E952DD9DB1C00496829 /* AuthenticationServices.framework in Frameworks */,
 				4D857D8F2DD9B09A00496829 /* KakaoSDKCommon in Frameworks */,
@@ -136,6 +138,7 @@
 				4D22AB532DF8911E0058396D /* SocketIO */,
 				4D22AB842DFA7C2B0058396D /* JWTDecode */,
 				4D22AB892DFD052E0058396D /* FirebaseMessaging */,
+				4D226E882E0150330042FC68 /* iamport-ios */,
 			);
 			productName = ShutterLink;
 			productReference = 4DDEB2472DCF4CFC00C8BBEA /* ShutterLink.app */;
@@ -171,6 +174,7 @@
 				4D22AB522DF8911E0058396D /* XCRemoteSwiftPackageReference "socket" */,
 				4D22AB832DFA7C2B0058396D /* XCRemoteSwiftPackageReference "JWTDecode" */,
 				4D22AB882DFD052E0058396D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				4D226E872E0150330042FC68 /* XCRemoteSwiftPackageReference "iamport-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4DDEB2482DCF4CFC00C8BBEA /* Products */;
@@ -422,6 +426,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		4D226E872E0150330042FC68 /* XCRemoteSwiftPackageReference "iamport-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/iamport/iamport-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.7;
+			};
+		};
 		4D22AB4F2DF88B560058396D /* XCRemoteSwiftPackageReference "realm-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/realm/realm-swift.git";
@@ -465,6 +477,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		4D226E882E0150330042FC68 /* iamport-ios */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D226E872E0150330042FC68 /* XCRemoteSwiftPackageReference "iamport-ios" */;
+			productName = "iamport-ios";
+		};
 		4D22AB502DF88B560058396D /* RealmSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4D22AB4F2DF88B560058396D /* XCRemoteSwiftPackageReference "realm-swift" */;
