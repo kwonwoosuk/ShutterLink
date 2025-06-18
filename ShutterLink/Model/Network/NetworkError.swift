@@ -76,3 +76,4 @@ enum NetworkError: Error, Equatable {
         }
     }
 }
+  

@@ -1,5 +1,5 @@
 //
-//  FilterDetailView.swift (채팅 기능만 추가)
+//  FilterDetailView.swift (결제 기능 완전 통합)
 //  ShutterLink
 //
 //  Created by 권우석 on 5/26/25.
@@ -8,6 +8,7 @@
 import SwiftUI
 import MapKit
 import CoreLocation
+import WebKit
 
 struct FilterDetailView: View {
     let filterId: String
@@ -25,14 +26,14 @@ struct FilterDetailView: View {
     @State private var imageLoadTask: Task<Void, Never>?
     @State private var hasLoadedImages = false // 중복 로딩 방지
     
-    // 🆕 채팅 관련 State 추가
+    // 채팅 관련 State 추가
     @State private var chatRoomId: String? // 생성된 채팅방 ID
     @State private var isCreatingChatRoom = false // 채팅방 생성 중 상태
     @State private var chatError: String? // 채팅 에러 메시지
     @State private var showChatError = false // 채팅 에러 알림 표시
     @State private var selectedParticipant: Users? // 선택된 채팅 상대방
     
-    // 🆕 채팅 관련 UseCase
+    // 채팅 관련 UseCase
     private let chatUseCase: ChatUseCaseImpl
     
     init(filterId: String) {
@@ -50,7 +51,7 @@ struct FilterDetailView: View {
             if let filterDetail = viewModel.filterDetail {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 24) {
-                        // InteractiveBeforeAfterView 대신 새로운 imageSection 사용
+                        // 이미지 섹션
                         imageSection
                             .frame(height: 400)
                             .padding(.top, 40)
@@ -63,13 +64,13 @@ struct FilterDetailView: View {
                             PhotoMetadataSection(metadata: photoMetadata)
                         }
                         
-                        // 필터 프리셋 섹션
+                        // 필터 프리셋 섹션 (결제 상태에 따라 표시)
                         FilterPresetsSection(
                             filterValues: filterDetail.filterValues,
                             isPurchased: filterDetail.is_downloaded
                         )
                         
-                        // 결제/다운로드 버튼
+                        // 결제/다운로드 버튼 (결제 기능 연동)
                         PurchaseDownloadButton(
                             price: filterDetail.price,
                             isPurchased: filterDetail.is_downloaded,
@@ -89,7 +90,7 @@ struct FilterDetailView: View {
                         // 크리에이터 프로필 섹션 (채팅 기능 연결)
                         CreatorProfileSection(
                             creator: filterDetail.creator,
-                            isCreatingChatRoom: isCreatingChatRoom, // 🆕 상태 전달
+                            isCreatingChatRoom: isCreatingChatRoom,
                             onCreatorTap: {
                                 // UserDetailView로 이동
                                 let userInfo = UserInfo(
@@ -107,7 +108,7 @@ struct FilterDetailView: View {
                                 )
                             },
                             onChatTap: {
-                                // 🆕 채팅 시작
+                                // 채팅 시작
                                 startChatWithCreator(filterDetail.creator)
                             }
                         )
@@ -124,12 +125,23 @@ struct FilterDetailView: View {
                 }
             }
             
-            // 🆕 채팅방 생성 로딩 오버레이
+            // 채팅방 생성 로딩 오버레이
             if isCreatingChatRoom {
                 chatCreationLoadingOverlay
             }
             
-            // 성공/에러 메시지 토스트
+            // 결제 진행 오버레이
+            if viewModel.isPurchasing && !viewModel.paymentProgress.isEmpty {
+                Color.black.opacity(0.7)
+                    .ignoresSafeArea()
+                
+                PaymentProgressView(
+                    isVisible: viewModel.isPurchasing,
+                    message: viewModel.paymentProgress
+                )
+            }
+            
+            // 에러 메시지 토스트
             if let errorMessage = viewModel.errorMessage, !viewModel.isLoading {
                 VStack {
                     ToastMessageView(
@@ -193,9 +205,8 @@ struct FilterDetailView: View {
             if !hasAppeared {
                 hasAppeared = true
                 print("🔵 FilterDetailView: 화면 나타남 - \(filterId)")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    viewModel.input.loadFilterDetail.send(filterId)
-                }
+                // 즉시 호출 (delay 제거)
+                viewModel.input.loadFilterDetail.send(filterId)
             }
         }
         .onDisappear {
@@ -203,15 +214,34 @@ struct FilterDetailView: View {
             cleanUpResources()
         }
         .onReceive(viewModel.$filterDetail) { filterDetail in
-            if let filterDetail = filterDetail,
-               !hasLoadedImages,
-               imageLoadTask == nil,
-               originalImage == nil,
-               filteredImage == nil {
-                hasLoadedImages = true
-                loadImages(filterDetail: filterDetail)
+            // 이미지 로딩 조건을 더 엄격하게 체크
+            guard let filterDetail = filterDetail,
+                  !hasLoadedImages,
+                  imageLoadTask == nil,
+                  originalImage == nil,
+                  filteredImage == nil,
+                  !filterDetail.files.isEmpty else {
+                print("🔄 FilterDetailView: 이미지 로딩 조건 불충족")
+                return
             }
+            
+            print("🔄 FilterDetailView: 이미지 로딩 조건 충족 - 로딩 시작")
+            loadImages(filterDetail: filterDetail)
         }
+        // 결제 웹뷰 시트
+        .sheet(isPresented: $viewModel.showPaymentSheet) {
+            PaymentSheetView(
+                webView: $viewModel.paymentWebView,
+                isPresented: $viewModel.showPaymentSheet,
+                progressMessage: viewModel.paymentProgress,
+                onDismiss: {
+                    viewModel.dismissPaymentSheet()
+                }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        // 채팅 시트
         .sheet(isPresented: $showChatOuterView) {
             if let chatRoomId = chatRoomId,
                let participant = selectedParticipant {
@@ -251,7 +281,7 @@ struct FilterDetailView: View {
                 }
             }
         }
-        // 🆕 채팅 에러 알림
+        // 채팅 에러 알림
         .alert("채팅 오류", isPresented: $showChatError) {
             Button("확인") {
                 showChatError = false
@@ -262,8 +292,7 @@ struct FilterDetailView: View {
         }
     }
     
-    // MARK: - 🆕 채팅방 생성 로딩 오버레이
-    
+    // MARK: - 채팅방 생성 로딩 오버레이
     private var chatCreationLoadingOverlay: some View {
         ZStack {
             Color.black.opacity(0.7)
@@ -287,10 +316,9 @@ struct FilterDetailView: View {
         }
     }
     
-    // MARK: - 🆕 채팅 관련 메서드
-    
+    // MARK: - 채팅 관련 메서드
     private func startChatWithCreator(_ creator: CreatorInfo) {
-        // 🔒 중복 실행 방지
+        // 중복 실행 방지
         guard !isCreatingChatRoom else {
             print("🔄 이미 채팅방 생성 중입니다")
             return
@@ -320,8 +348,7 @@ struct FilterDetailView: View {
                 
                 // 채팅방 ID 저장 후 채팅 화면 표시
                 chatRoomId = chatRoom.roomId
-                
-                // 🔒 약간의 지연을 두어 상태 안정화
+            
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     self.showChatOuterView = true
                 }
@@ -417,13 +444,17 @@ struct FilterDetailView: View {
     
     // MARK: - 이미지 로딩 함수
     private func loadImages(filterDetail: FilterDetailResponse) {
+        // 중복 로딩 방지 (hasLoadedImages 체크 제거)
         guard imageLoadTask == nil,
               originalImage == nil,
               filteredImage == nil,
-              hasLoadedImages else {
-            print("🔄 이미지 로딩이 이미 진행 중이거나 완료됨")
+              !filterDetail.files.isEmpty else {
+            print("🔄 이미지 로딩이 이미 진행 중이거나 조건 불충족")
             return
         }
+        
+        // 로딩 시작 시 상태 설정
+        hasLoadedImages = true
         
         print("🔄 이미지 로딩 시작: \(filterDetail.files.first ?? "없음")")
         
@@ -452,6 +483,8 @@ struct FilterDetailView: View {
             } catch {
                 await MainActor.run {
                     self.imageLoadTask = nil
+                    // 로딩 실패 시 hasLoadedImages를 false로 재설정 (재시도 가능하게)
+                    self.hasLoadedImages = false
                 }
                 
                 // 취소 에러가 아닌 경우만 로그 출력
@@ -499,11 +532,68 @@ struct FilterDetailView: View {
         originalImage = nil
         filteredImage = nil
         
-        // 3. 상태 초기화 (hasLoadedImages는 유지하여 재로딩 방지)
+        hasLoadedImages = false
         filterPivot = 0
         imageSectionHeight = 0
         
         print("🧹 FilterDetailView: 리소스 정리 완료")
+    }
+}
+
+// MARK: - 결제 시트 뷰
+struct PaymentSheetView: View {
+    @Binding var webView: WKWebView?
+    @Binding var isPresented: Bool
+    let progressMessage: String
+    let onDismiss: () -> Void
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // 헤더
+                HStack {
+                    Button("취소") {
+                        onDismiss()
+                    }
+                    .foregroundColor(.red)
+                    
+                    Spacer()
+                    
+                    Text("결제하기")
+                        .font(.pretendard(size: 18, weight: .semiBold))
+                    
+                    Spacer()
+                    
+                    // 균형을 위한 투명 버튼
+                    Button("취소") {
+                        // 아무것도 하지 않음
+                    }
+                    .opacity(0)
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                
+                // 진행 상태 표시
+                if !progressMessage.isEmpty {
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        
+                        Text(progressMessage)
+                            .font(.pretendard(size: 14, weight: .medium))
+                            .foregroundColor(.gray)
+                        
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                }
+                
+                // 웹뷰
+                PaymentWebView(webView: $webView)
+                    .background(Color.white)
+            }
+        }
     }
 }
 
@@ -518,6 +608,7 @@ private extension Image {
     }
 }
 
+// MARK: - 토스트 메시지 뷰
 struct ToastMessageView: View {
     let message: String
     let isSuccess: Bool
@@ -886,6 +977,7 @@ struct MapPreviewView: UIViewRepresentable {
     }
 }
 
+// MARK: - 필터 프리셋 섹션
 struct FilterPresetsSection: View {
     let filterValues: FilterValues
     let isPurchased: Bool
@@ -1053,10 +1145,10 @@ struct FilterPresetItem: View {
     }
 }
 
-// MARK: - 수정된 크리에이터 프로필 섹션
+// MARK: - 크리에이터 프로필 섹션
 struct CreatorProfileSection: View {
     let creator: CreatorInfo
-    let isCreatingChatRoom: Bool // 🆕 채팅방 생성 상태 추가
+    let isCreatingChatRoom: Bool
     let onCreatorTap: () -> Void
     let onChatTap: () -> Void
     
@@ -1128,7 +1220,7 @@ struct CreatorProfileSection: View {
                 
                 Spacer()
                 
-                // 🆕 채팅 버튼 (로딩 상태 표시)
+                // 채팅 버튼 (로딩 상태 표시)
                 Button {
                     onChatTap()
                 } label: {

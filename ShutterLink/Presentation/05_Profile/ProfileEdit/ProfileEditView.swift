@@ -49,13 +49,6 @@ struct ProfileEditView: View {
                             Circle()
                                 .fill(Color.gray.opacity(0.3))
                                 .frame(width: 100, height: 100)
-                            
-                            Image(systemName: "camera.fill")
-                                .foregroundColor(.white)
-                                .padding(8)
-                                .background(Color.black.opacity(0.5))
-                                .clipShape(Circle())
-                                .offset(x: 30, y: 30)
                         }
                         
                         Button("사진 변경") {

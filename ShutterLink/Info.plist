@@ -27,7 +27,7 @@
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
-		<string>kftc-bankpay</string>
+		<string>kakaokompassauth</string>
 		<string>ispmobile</string>
 		<string>itms-apps</string>
 		<string>hdcardappcardansimclick</string>
@@ -61,15 +61,50 @@
 		<string>supertoss</string>
 		<string>newsmartpib</string>
 		<string>kakaobank</string>
-		<string>kakaokompassauth</string>
+		<string>kftc-bankpay</string>
 		<string>kakaolink</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoadsInWebContent</key>
-		<true/>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
+        <!-- 전체 HTTP 허용은 비활성화 (보안 강화) -->
+            <key>NSAllowsArbitraryLoads</key>
+            <false/>
+            
+            <!-- 웹뷰에서는 HTTP 허용 (포트원 결제용) -->
+            <key>NSAllowsArbitraryLoadsInWebContent</key>
+            <true/>
+            
+            <!-- 특정 도메인 예외 설정 -->
+            <key>NSExceptionDomains</key>
+            <dict>
+                <!-- SLP 서버만 HTTP 허용 -->
+                <key>filter.sesac.kr</key>
+                <dict>
+                    <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                    <true/>
+                    <key>NSExceptionMinimumTLSVersion</key>
+                    <string>TLSv1.0</string>
+                    <key>NSIncludesSubdomains</key>
+                    <true/>
+                </dict>
+                
+                <!-- 포트원 관련 도메인들 (필요시 추가) -->
+                <key>inicis.com</key>
+                <dict>
+                    <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                    <true/>
+                    <key>NSIncludesSubdomains</key>
+                    <true/>
+                </dict>
+                
+                <key>kcp.co.kr</key>
+                <dict>
+                    <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                    <true/>
+                    <key>NSIncludesSubdomains</key>
+                    <true/>
+                </dict>
+            </dict>
 	</dict>
 	<key>UIAppFonts</key>
 	<array>
