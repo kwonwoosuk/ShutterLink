@@ -27,9 +27,9 @@
 
 ## 💁🏻‍♂️ 프로젝트 소개
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ShutterLink는 사진 필터 창작자와 사용자를 연결하는 마켓플레이스 앱입니다
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ShutterLink는 사진 필터 창작자와 사용자를 연결하는 마켓플레이스 앱입니다    
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;창작자는 직관적인 도구로 필터를 제작하고 판매할 수 있으며,    
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;사용자는 다양한 고품질 필터의 필터 값을 구매하여 자신의 사진에 실시간으로 적용해볼 수 있습니다.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;사용자는 다양한 고품질 필터의 필터 값을 구매하여 자신의 사진에 실시간으로 적용해볼 수 있습니다.    
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;실시간 채팅을 통해 창작자와 직접 소통하고,    
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;안전한 결제 시스템으로 간단하지만 신뢰할 수 있는 거래를 보장합니다.   
 
