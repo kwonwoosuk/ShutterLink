@@ -29,6 +29,9 @@ struct MakeView: View {
                                 viewModel.filteredImage = editedImage
                                 viewModel.editingState = editingState
                                 viewModel.hasEditedImage = true
+                                if viewModel.originalImage == nil {
+                                    viewModel.originalImage = originalImage
+                                }
                                 router.popMakeRoute()
                             }
                         )
