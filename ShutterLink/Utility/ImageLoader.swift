@@ -18,10 +18,8 @@ final class ImageLoader {
     private var cache = NSCache<NSString, NSData>()
     private let memoryCache = NSCache<NSString, UIImage>()
     
-    // 동시 요청 제한 제거 - iOS URLSession 기본 동시성 관리 활용
     
     private init() {
-        // URLSession 캐시 설정 강화
         let cacheSize = 100 * 1024 * 1024 // 100MB
         let urlCache = URLCache(
             memoryCapacity: cacheSize / 4,  // 25MB 메모리
@@ -128,7 +126,6 @@ final class ImageLoader {
         return processedData
     }
     
-    // MARK: - 다운샘플링 로직 (기존 로직 유지하되 단순화)
     private func downsampleImage(data: Data, to targetSize: CGSize) async throws -> Data {
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {

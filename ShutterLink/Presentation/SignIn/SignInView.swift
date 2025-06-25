@@ -20,13 +20,7 @@ struct SignInView: View {
             VStack(spacing: 24) {
                 Spacer()
                 
-                // 앱 로고 영역
-                Image(systemName: "camera.fill")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 80, height: 80)
-                    .foregroundColor(.blue)
-                
+               
                 Text("ShutterLink")
                     .font(.largeTitle)
                     .fontWeight(.bold)
