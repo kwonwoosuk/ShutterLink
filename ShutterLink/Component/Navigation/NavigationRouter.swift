@@ -18,7 +18,7 @@ final class NavigationRouter: ObservableObject {
     @Published var searchPath: [UserRoute] = []
     @Published var profilePath: [ProfileRoute] = []
     @Published var makePath: [MakeRoute] = []
-    @Published var isTabBarHidden: Bool = false // 🆕 추가 - 탭바 숨김 상태
+    @Published var isTabBarHidden: Bool = false
     
     // MARK: - Sheet States
     @Published var presentedSheet: PresentedSheet?
@@ -194,18 +194,24 @@ final class NavigationRouter: ObservableObject {
         print("🧭 NavigationRouter: 좋아요한 필터 상세로 이동 - \(filterId)")
     }
     
-    // 🆕 채팅방 목록으로 이동
     func pushToChatRoomList() {
         let route = ProfileRoute.chatRoomList
         profilePath.append(route)
         print("🧭 NavigationRouter: 채팅방 목록으로 이동")
     }
     
-    // 🆕 추가 메서드 - 채팅방으로 이동
+    // 채팅방으로 이동
     func pushToChatView(roomId: String, participantInfo: Users) {
         let route = ProfileRoute.chatView(roomId: roomId, participantInfo: participantInfo)
         profilePath.append(route)
         print("🧭 NavigationRouter: 채팅방으로 이동 - roomId: \(roomId)")
+    }
+    
+    // 🆕 필터 관리로 이동
+    func pushToFilterManagement() {
+        let route = ProfileRoute.filterManagement
+        profilePath.append(route)
+        print("🧭 NavigationRouter: 필터 관리 화면으로 이동")
     }
     
     func popProfileRoute() {
@@ -325,14 +331,15 @@ enum PresentedSheet: Identifiable, CustomStringConvertible, Equatable  {
             return "userFilters_\(userId)"
         case .profileEdit:
             return "profileEdit"
-        }}
-    
-        var description: String {
-            switch self {
-            case .userFilters(_, let userNick):
-                return "유저 필터 목록 (\(userNick))"
-            case .profileEdit:
-                return "프로필 편집"
-            }
         }
+    }
+    
+    var description: String {
+        switch self {
+        case .userFilters(_, let userNick):
+            return "유저 필터 목록 (\(userNick))"
+        case .profileEdit:
+            return "프로필 편집"
+        }
+    }
 }

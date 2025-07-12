@@ -15,7 +15,10 @@ protocol FilterUseCase {
     func getFilterDetail(filterId: String) async throws -> FilterDetailResponse
     func getLikedFilters(next: String, limit: Int, category: String?) async throws -> FilterListResponse
     func uploadFilterFiles(originalData: Data, filteredData: Data) async throws -> [String]
-     func createFilter(request: FilterCreateRequest) async throws -> FilterDetailResponse
+    func createFilter(request: FilterCreateRequest) async throws -> FilterDetailResponse
+    func getUserFilters(userId: String) async throws -> [FilterItem]
+    func deleteFilter(filterId: String) async throws -> Bool
+
 }
 
 final class FilterUseCaseImpl: FilterUseCase {
@@ -74,4 +77,68 @@ final class FilterUseCaseImpl: FilterUseCase {
             let router = FilterRouter.createFilter(request: request)
             return try await networkManager.request(router, type: FilterDetailResponse.self)
         }
+    
+    func getUserFilters(userId: String) async throws -> [FilterItem] {
+            print("📡 FilterUseCase: 사용자 필터 조회 시작 - userId: \(userId)")
+            let router = FilterRouter.getUserFilter(userId: userId)
+            let response = try await networkManager.request(router, type: FilterListResponse.self)
+            print("✅ FilterUseCase: 사용자 필터 조회 성공 - 필터 개수: \(response.data.count)")
+            return response.data
+        }
+        
+        func deleteFilter(filterId: String) async throws -> Bool {
+            print("🗑️ FilterUseCase: 필터 삭제 시작 - filterId: \(filterId)")
+            let router = FilterRouter.deleteFilter(filterId: filterId)
+            
+            do {
+                let _ = try await networkManager.request(router, type: EmptyResponse.self)
+                print("✅ FilterUseCase: 필터 삭제 성공")
+                return true
+            } catch {
+                print("❌ FilterUseCase: 필터 삭제 실패 - \(error)")
+                if let networkError = error as? NetworkError {
+                                switch networkError {
+                                case .invalidSesacKey:
+                                    throw FilterDeleteError.unauthorized
+                                case .forbidden:
+                                    throw FilterDeleteError.noPermission
+                                default:
+                                    throw FilterDeleteError.networkError
+                                }
+                            }
+                            
+                            throw FilterDeleteError.unknown
+            }
+            
+        }
+}
+
+struct EmptyResponse: Codable {
+    // 빈 응답용 구조체
+}
+
+enum FilterDeleteError: LocalizedError {
+    case notFound
+    case noPermission
+    case hasPurchasers
+    case unauthorized
+    case networkError
+    case unknown
+    
+    var errorDescription: String? {
+        switch self {
+        case .notFound:
+            return "필터를 찾을 수 없습니다."
+        case .noPermission:
+            return "구매자가 있어 제거할 수 없습니다"
+        case .hasPurchasers:
+            return "구매자가 있어 제거할 수 없습니다"
+        case .unauthorized:
+            return "로그인이 필요합니다."
+        case .networkError:
+            return "네트워크 오류가 발생했습니다."
+        case .unknown:
+            return "알 수 없는 오류가 발생했습니다."
+        }
+    }
 }

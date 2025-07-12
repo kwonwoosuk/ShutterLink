@@ -103,44 +103,70 @@ struct ProfileView: View {
                             .padding(.horizontal)
                             .padding(.top, 10)
                             
-                            // 📱 문의 내역 섹션 (새로 추가)
+                            // 📱 문의 내역 섹션 (채팅 내역과 필터 관리 버튼)
                             VStack(alignment: .leading, spacing: 16) {
-                                
-                                
-                                Button {
-                                    router.profilePath.append(.chatRoomList)
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "bubble.left.and.bubble.right.fill")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
-                                        
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("채팅 내역")
-                                                .font(.pretendard(size: 16, weight: .medium))
-                                                .foregroundColor(.white)
+                                HStack(spacing: 12) {
+                                    // 채팅 내역 버튼
+                                    Button {
+                                        router.profilePath.append(.chatRoomList)
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            Image(systemName: "bubble.left.and.bubble.right.fill")
+                                                .font(.system(size: 20))
+                                                .foregroundColor(DesignSystem.Colors.Brand.brightTurquoise)
                                             
-                                            Text("작가와의 채팅 내역을 확인하세요")
-                                                .font(.pretendard(size: 13, weight: .regular))
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("채팅 내역")
+                                                    .font(.pretendard(size: 16, weight: .medium))
+                                                    .foregroundColor(.white)
+                                                
+                                                Text("작가와의 채팅 내역을 확인하세요")
+                                                    .font(.pretendard(size: 13, weight: .regular))
+                                                    .foregroundColor(.gray)
+                                            }
+                                            
+                                            Spacer()
+                                            
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 14, weight: .medium))
                                                 .foregroundColor(.gray)
                                         }
-                                        
-                                        Spacer()
-                                        
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(.gray)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 12)
+                                        .background(Color.black)
+                                        .cornerRadius(8)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                        )
                                     }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 12)
-                                    .background(Color.black)
-                                    .cornerRadius(8)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                                    )
+                                    .buttonStyle(PlainButtonStyle())
+                                    
+                                    // 🆕 필터 관리 버튼 (채팅 내역 버튼의 절반 크기)
+                                    Button {
+                                        router.pushToFilterManagement()
+                                    } label: {
+                                        VStack(spacing: 8) {
+                                            Image(systemName: "slider.horizontal.3")
+                                                .font(.system(size: 18))
+                                                .foregroundColor(.orange)
+                                            
+                                            Text("필터 관리")
+                                                .font(.pretendard(size: 12, weight: .medium))
+                                                .foregroundColor(.white)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                        .background(Color.black)
+                                        .cornerRadius(8)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                        )
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    .frame(width: 80) // 채팅 내역 버튼의 절반 크기로 제한
                                 }
-                                .buttonStyle(PlainButtonStyle())
                                 .padding(.horizontal)
                             }
                             .padding(.top, 10)
@@ -217,6 +243,8 @@ struct ProfileView: View {
                     ChatRoomListView()
                 case .chatView(roomId: let roomId, participantInfo: let participantInfo):
                     ChatView(roomId: roomId, participantInfo: participantInfo)
+                case .filterManagement:
+                    FilterManagementView()
                 }
             }
             .navigationBarTitleDisplayMode(.inline)

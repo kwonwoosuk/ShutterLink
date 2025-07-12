@@ -15,7 +15,9 @@ enum FilterRouter: APIRouter {
     case getFilterDetail(filterId: String)
     case getLikedFilters(next: String, limit: Int, category: String?) // 추가
     case uploadFilterFiles(originalImage: Data, filteredImage: Data)
-      case createFilter(request: FilterCreateRequest)
+    case getUserFilter(userId: String)
+    case createFilter(request: FilterCreateRequest)
+    case deleteFilter(filterId: String)
     
     var path: String {
         switch self {
@@ -32,20 +34,26 @@ enum FilterRouter: APIRouter {
         case .getLikedFilters:
             return APIConstants.Path.likedFilters
         case .uploadFilterFiles:
-                   return APIConstants.Path.filterUpload
-               case .createFilter:
-                   return APIConstants.Path.filterCreate
+            return APIConstants.Path.filterUpload
+        case .createFilter:
+            return APIConstants.Path.filterCreate
+        case .getUserFilter(let userId):
+            return APIConstants.Path.userFilters(userId)
+        case .deleteFilter(filterId: let filterId):
+            return APIConstants.Path.deleteFilter(filterId)
         }
     }
     
     var method: HTTPMethod {
         switch self {
-        case .getTodayFilter, .getHotTrendFilters, .getFilters, .getFilterDetail, .getLikedFilters:
+        case .getTodayFilter, .getHotTrendFilters, .getFilters, .getFilterDetail, .getLikedFilters, .getUserFilter:
             return .get
         case .likeFilter:
             return .post
         case .uploadFilterFiles, .createFilter:
-                   return .post
+            return .post
+        case .deleteFilter:
+            return .delete
         }
     }
     
@@ -72,15 +80,15 @@ enum FilterRouter: APIRouter {
     }
     
     var contentType: String {
-           switch self {
-           case .uploadFilterFiles:
-               return APIConstants.ContentType.multipartFormData
-           case .createFilter:
-               return APIConstants.ContentType.json
-           default:
-               return APIConstants.ContentType.json
-           }
-       }
+        switch self {
+        case .uploadFilterFiles:
+            return APIConstants.ContentType.multipartFormData
+        case .createFilter:
+            return APIConstants.ContentType.json
+        default:
+            return APIConstants.ContentType.json
+        }
+    }
     
     var queryItems: [URLQueryItem]? {
         switch self {

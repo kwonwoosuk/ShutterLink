@@ -20,7 +20,7 @@ final class AuthState: ObservableObject {
     private var refreshTimer: DispatchSourceTimer?
     private let timerQueue = DispatchQueue(label: "com.shutterlink.tokenRefresh", qos: .background)
     
-    private init() {
+    init() {
         Task {
             await loadUserIfTokenExists()
         }

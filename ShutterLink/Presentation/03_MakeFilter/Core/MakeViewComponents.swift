@@ -296,7 +296,7 @@ struct MessageOverlayView: View {
     let message: String
     let isError: Bool
     let onDismiss: (() -> Void)?
-    
+        
     var body: some View {
         VStack(spacing: 16) {
             // 아이콘
