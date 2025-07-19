@@ -12,18 +12,25 @@ final class HomeViewModel: ObservableObject {
     @Published var todayFilter: TodayFilterResponse?
     @Published var hotTrendFilters: [FilterItem] = []
     @Published var todayAuthor: TodayAuthorResponse?
+    @Published var banners: [BannerItem] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     
     private let filterUseCase: FilterUseCase
     private let userUseCase: UserUseCase
+    private let bannerUseCase: BannerUseCase
     private var loadDataTask: Task<Void, Never>?
     
     private var hasEverLoaded = false
     
-    init(filterUseCase: FilterUseCase = FilterUseCaseImpl(), userUseCase: UserUseCase = UserUseCaseImpl()) {
+    init(
+        filterUseCase: FilterUseCase = FilterUseCaseImpl(),
+        userUseCase: UserUseCase = UserUseCaseImpl(),
+        bannerUseCase: BannerUseCase = BannerUseCaseImpl()
+    ) {
         self.filterUseCase = filterUseCase
         self.userUseCase = userUseCase
+        self.bannerUseCase = bannerUseCase
     }
     
     func loadDataOnceIfNeeded() {
@@ -40,7 +47,7 @@ final class HomeViewModel: ObservableObject {
     }
     
     private var allDataEmpty: Bool {
-        return todayFilter == nil && hotTrendFilters.isEmpty && todayAuthor == nil
+        return todayFilter == nil && hotTrendFilters.isEmpty && todayAuthor == nil && banners.isEmpty
     }
     
     private func loadData() {
@@ -67,6 +74,10 @@ final class HomeViewModel: ObservableObject {
                 
                 group.addTask { [weak self] in
                     await self?.loadTodayAuthor()
+                }
+                
+                group.addTask { [weak self] in
+                    await self?.loadBanners()
                 }
             }
             
@@ -134,7 +145,30 @@ final class HomeViewModel: ObservableObject {
         } catch {
             print("❌ HomeViewModel: 오늘의 작가 로드 실패 - \(error)")
             await MainActor.run {
-                self.todayAuthor = nil
+                if self.errorMessage == nil {
+                    self.errorMessage = "오늘의 작가를 불러오는데 실패했습니다"
+                }
+            }
+        }
+    }
+    
+    private func loadBanners() async {
+        do {
+            let bannerList = try await bannerUseCase.getMainBanners()
+            try Task.checkCancellation()
+            
+            await MainActor.run {
+                self.banners = bannerList
+            }
+            
+        } catch is CancellationError {
+            print("🔵 HomeViewModel: 배너 로드 취소됨")
+        } catch {
+            print("❌ HomeViewModel: 배너 로드 실패 - \(error)")
+            await MainActor.run {
+                if self.errorMessage == nil {
+                    self.errorMessage = "배너를 불러오는데 실패했습니다"
+                }
             }
         }
     }

@@ -12,16 +12,32 @@ struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     @EnvironmentObject private var router: NavigationRouter
     
+    // 출석 완료 알림 관련 State
+    @State private var showAttendanceAlert = false
+    @State private var attendanceCount = 0
+    @State private var notificationObserver: NSObjectProtocol?
+    
     var body: some View {
         NavigationStack(path: $router.homePath) {
             homeContent
                 .navigationDestination(for: FilterRoute.self) { route in
-                    // NavigationLazyView로 감싸서 메모리 최적화
                     NavigationLazyView(
                         destinationView(for: route)
                     )
                 }
                 .navigationBarHidden(true)
+        }
+        // 출석 완료 Alert 추가
+        .alert("출석 완료", isPresented: $showAttendanceAlert) {
+            Button("확인", role: .cancel) {
+                showAttendanceAlert = false
+            }
+        } message: {
+            if attendanceCount > 0 {
+                Text("\(attendanceCount)번째 출석이 완료되었습니다! 🎉")
+            } else {
+                Text("출석이 완료되었습니다! 🎉")
+            }
         }
     }
     
@@ -62,10 +78,10 @@ struct HomeView: View {
                                     router.pushToFilterDetail(filterId: filterId, from: .home)
                                 }
                             )
-                            .id("top") // 기존 id 이름 유지
+                            .id("top")
 
-                            LazyVStack(spacing: 20) {
-                                AdBannerSection()
+                            LazyVStack(spacing: 24) {
+                                AdBannerSection(banners: viewModel.banners)
                                 
                                 HotTrendSection(
                                     filters: viewModel.hotTrendFilters,
@@ -91,7 +107,6 @@ struct HomeView: View {
                     .onReceive(router.homeScrollToTop) { _ in
                         print("🔄 HomeView: 상단으로 스크롤")
                         
-                        // 애니메이션 최적화: 더 빠른 스크롤
                         withAnimation(.easeInOut(duration: 0.3)) {
                             proxy.scrollTo("top", anchor: .top)
                         }
@@ -124,7 +139,31 @@ struct HomeView: View {
         .onAppear {
             print("🔵 HomeView: onAppear - 처음만 로딩")
             viewModel.loadDataOnceIfNeeded()
+            
+            // 출석 완료 알림 구독
+            print("📡 HomeView: NotificationCenter 구독 시작")
+            notificationObserver = NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("AttendanceCompleted"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                print("📩 HomeView: NotificationCenter 알림 수신!")
+                
+                if let attendanceCount = notification.userInfo?["attendanceCount"] as? Int {
+                    print("🎉 HomeView: 출석 완료 알림 수신 - \(attendanceCount)회")
+                    self.attendanceCount = attendanceCount
+                    self.showAttendanceAlert = true
+                }
+            }
+            print("✅ HomeView: NotificationCenter 구독 완료")
         }
-   
+        .onDisappear {
+            // NotificationCenter 구독 해제
+            if let observer = notificationObserver {
+                NotificationCenter.default.removeObserver(observer)
+                notificationObserver = nil
+                print("🗑️ HomeView: NotificationCenter 구독 해제")
+            }
+        }
     }
 }

@@ -8,49 +8,49 @@
 import SwiftUI
 
 struct BannerCard: View {
-    let banner: BannerMockData
+    let banner: BannerItem
     
     var body: some View {
         ZStack {
-            // 배경 그라데이션
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            banner.imageColor,
-                            banner.imageColor.opacity(0.7)
-                        ]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .shadow(color: banner.imageColor.opacity(0.3), radius: 8, x: 0, y: 4)
-            
-            // 텍스트 콘텐츠
-            HStack {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(banner.subtitle)
-                        .font(.pretendard(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.9))
-                    
-                    Text(banner.title)
-                        .font(.pretendard(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
+            // 배경 이미지
+            if !banner.imageUrl.isEmpty {
+                AuthenticatedImageView(
+                    imagePath: banner.imageUrl,
+                    contentMode: .fill
+                ) {
+                    // 로딩 플레이스홀더
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.blue,
+                                    Color.blue.opacity(0.7)
+                                ]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                 }
-                
-                Spacer()
-                
-                
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            } else {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.blue,
+                                Color.blue.opacity(0.7)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
+            
+         
         }
-        .frame(height: 80) // 100에서 80으로 줄임
+     
     }
 }
-
-
 
 struct BannerPageIndicator: View {
     let currentIndex: Int
@@ -72,6 +72,7 @@ struct BannerPageIndicator: View {
     }
 }
 
+// MARK: - Mock 데이터 구조체 (기존 mock객체 호환성을 위해 유지)
 struct BannerMockData: Identifiable {
     let id: Int
     let title: String

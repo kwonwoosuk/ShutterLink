@@ -29,6 +29,6 @@ enum BannerRouter: APIRouter {
     }
     
     var authorizationType: AuthorizationType {
-        return .sesacKey
+        return .accessToken
     }
 }

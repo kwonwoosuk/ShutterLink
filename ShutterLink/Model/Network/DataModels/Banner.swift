@@ -13,30 +13,36 @@ struct BannerListResponse: Decodable {
 }
 
 // MARK: - 배너 아이템 모델
-struct BannerItem: Decodable, Identifiable {
-    let banner_id: String
-    let title: String
-    let subtitle: String?
-    let image: String
+struct BannerItem: Decodable, Identifiable, Equatable {
+    let name: String
+    let imageUrl: String
     let payload: BannerPayload
-    let createdAt: String
-    let updatedAt: String
     
-    var id: String { banner_id }
+    // Identifiable을 위한 computed property
+    var id: String { name }
+    
+    // UI에서 사용하기 위한 computed properties
+    var title: String { name }
+    var subtitle: String? { nil } // 서버에서 subtitle을 제공하지 않음
+    var image: String { imageUrl }
+    
+    // Equatable 구현
+    static func == (lhs: BannerItem, rhs: BannerItem) -> Bool {
+        return lhs.name == rhs.name &&
+               lhs.imageUrl == rhs.imageUrl &&
+               lhs.payload == rhs.payload
+    }
 }
 
 // MARK: - 배너 페이로드 모델
-struct BannerPayload: Decodable {
+struct BannerPayload: Decodable, Equatable {
     let type: String
     let value: String
-}
-
-// MARK: - 이미지 URL 유틸리티 확장
-extension BannerItem {
-    var fullImageURL: String {
-        if image.isEmpty {
-            return ""
-        }
-        return APIConstants.baseURL + "/v1" + image
+    
+    // Equatable 구현
+    static func == (lhs: BannerPayload, rhs: BannerPayload) -> Bool {
+        return lhs.type == rhs.type && lhs.value == rhs.value
     }
 }
+
+

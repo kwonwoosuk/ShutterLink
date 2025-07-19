@@ -102,7 +102,6 @@ struct AuthenticatedImageView: View {
         
         loadingTask = Task {
             do {
-                // 최적화된 ImageLoader 사용 (재시도 로직 제거)
                 let data = try await ImageLoader.shared.loadImage(
                     from: imagePath,
                     targetSize: targetSize
