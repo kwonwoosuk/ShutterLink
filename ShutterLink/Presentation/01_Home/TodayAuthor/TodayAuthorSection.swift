@@ -30,8 +30,8 @@ struct TodayAuthorSection: View {
             .padding(.horizontal, 20)
             
             if let authorData = authorData {
-                VStack(alignment: .leading, spacing: 32) { // spacing 증가로 구분감 강화
-                    // 작가 프로필 섹션 (왼쪽 정렬)
+                VStack(alignment: .leading, spacing: 32) {
+                    // 작가 프로필 섹션
                     HStack(alignment: .top, spacing: 16) {
                         // 프로필 이미지
                         if let profileImagePath = authorData.author.profileImage {
@@ -99,7 +99,7 @@ struct TodayAuthorSection: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    // 작가 상세 설명 (텍스트 제거하고 바로 설명)
+                    // 작가 상세 설명
                     VStack(alignment: .leading, spacing: 12) {
                         Text(authorData.author.description)
                             .font(.pretendard(size: 14, weight: .regular))
@@ -108,7 +108,7 @@ struct TodayAuthorSection: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    // 작가의 필터 작품들 (텍스트 제거하고 바로 작품들)
+                    // 작가의 필터 작품들
                     if !authorData.filters.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
@@ -162,12 +162,12 @@ struct MockFilterCard: View {
     }
 }
 
-// MARK: - 작가 Mock 뷰 (데이터 로딩 실패 시)
+// MARK: - 작가 Mock 뷰
 struct AuthorMockView: View {
     let onFilterTap: ((String) -> Void)?
     
     var body: some View {
-        VStack(spacing: 32) { // spacing 증가
+        VStack(spacing: 32) {
             // Mock 작가 프로필
             VStack(spacing: 16) {
                 Circle()
@@ -223,7 +223,7 @@ struct AuthorMockView: View {
             }
             .padding(.horizontal, 20)
             
-            // Mock 설명 (텍스트 제거)
+            // Mock 설명
             VStack(alignment: .leading, spacing: 12) {
                 Text("자연의 섬세한 아름다움을 포착하는 데 탁월한 감각을 지닌 사진작가입니다. 새싹이 돋아나는 계절의 생명력과 따뜻함을 렌즈에 담아내며, 보는 이들에게 감동을 전달합니다.")
                     .font(.pretendard(size: 14, weight: .regular))
@@ -231,12 +231,11 @@ struct AuthorMockView: View {
             }
             .padding(.horizontal, 20)
             
-            // Mock 필터 작품들 (텍스트 제거)
+            // Mock 필터 작품들
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(0..<4) { index in
                         MockFilterCard(index: index) {
-                            // Mock 필터이므로 실제 filterId는 없음
                             onFilterTap?("mock_filter_\(index)")
                         }
                     }

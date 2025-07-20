@@ -20,7 +20,6 @@ struct CustomTabBar: View {
                 .frame(height: 64)
                 .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
             
-            // 인디케이터 바 (상단에 위치)
             HStack(spacing: 0) {
                 ForEach(0..<5) { index in
                     if selectedTab == index {
@@ -41,7 +40,6 @@ struct CustomTabBar: View {
             }
             .padding(.horizontal, 25)
             
-            // 아이콘 버튼들
             HStack(spacing: 0) {
                 ForEach(0..<5) { index in
                     Button {
@@ -59,7 +57,7 @@ struct CustomTabBar: View {
             .frame(height: 64)
         }
         .padding(.horizontal, 11)
-        .padding(.bottom, 40) // Safe Area 고려한 패딩
+        .padding(.bottom, 40) 
     }
     
     func getIconName(for index: Int, isSelected: Bool) -> String {

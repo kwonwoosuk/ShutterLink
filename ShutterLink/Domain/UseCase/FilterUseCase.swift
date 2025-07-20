@@ -59,7 +59,6 @@ final class FilterUseCaseImpl: FilterUseCase {
     func uploadFilterFiles(originalData: Data, filteredData: Data) async throws -> [String] {
             let router = FilterRouter.uploadFilterFiles(originalImage: originalData, filteredImage: filteredData)
             
-            // multipart/form-data 업로드를 위한 특별한 처리
             let uploadData = try await networkManager.uploadMultipleImages(
                 router,
                 images: [

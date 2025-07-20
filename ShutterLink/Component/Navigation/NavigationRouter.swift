@@ -11,7 +11,6 @@ import Combine
 // MARK: - 네비게이션 라우터
 final class NavigationRouter: ObservableObject {
     
-    // MARK: - Published Properties
     @Published var selectedTab: Tab = .home
     @Published var homePath: [FilterRoute] = []
     @Published var feedPath: [FilterRoute] = []
@@ -20,28 +19,22 @@ final class NavigationRouter: ObservableObject {
     @Published var makePath: [MakeRoute] = []
     @Published var isTabBarHidden: Bool = false
     
-    // MARK: - Sheet States
     @Published var presentedSheet: PresentedSheet?
     
-    // MARK: - Scroll to Top Subjects
     let homeScrollToTop = PassthroughSubject<Void, Never>()
     let feedScrollToTop = PassthroughSubject<Void, Never>()
     let searchScrollToTop = PassthroughSubject<Void, Never>()
     let profileScrollToTop = PassthroughSubject<Void, Never>()
     let makeScrollToTop = PassthroughSubject<Void, Never>()
     
-    // MARK: - Singleton
     static let shared = NavigationRouter()
     private init() {}
     
-    // MARK: - Tab Management
     func selectTab(_ tab: Tab) {
         if selectedTab == tab {
-            // 같은 탭을 다시 선택한 경우 - 초기화
             popToRootForCurrentTab()
             triggerScrollToTopForCurrentTab()
         } else {
-            // 다른 탭으로 이동
             selectedTab = tab
         }
     }
@@ -78,7 +71,6 @@ final class NavigationRouter: ObservableObject {
         }
     }
     
-    // MARK: - Navigation Actions for Filter Routes (Home/Feed)
     func pushToFilterDetail(filterId: String, from tab: Tab = .home) {
         let route = FilterRoute.filterDetail(filterId: filterId)
         
@@ -119,10 +111,8 @@ final class NavigationRouter: ObservableObject {
             break
         }
     }
-    
-    // MARK: - Navigation Actions for User Routes (Search)
+
     func pushToUserDetail(userId: String, userInfo: UserInfo? = nil) {
-        // 중복 방지를 위한 검사
         if case .userDetail(let currentUserId, _) = searchPath.last {
             if currentUserId == userId {
                 print("⚠️ NavigationRouter: 이미 같은 유저 상세 화면에 있음 - \(userId)")
@@ -142,7 +132,6 @@ final class NavigationRouter: ObservableObject {
     }
     
     func pushToUserDetailFromFilter(userId: String, userInfo: CreatorInfo, from tab: Tab = .home) {
-        // 중복 방지를 위한 검사
         let currentPath = tab == .home ? homePath : feedPath
         if case .userDetail(let currentUserId, _) = currentPath.last {
             if currentUserId == userId {
@@ -175,7 +164,6 @@ final class NavigationRouter: ObservableObject {
         searchPath.removeAll()
     }
     
-    // MARK: - Navigation Actions for Profile Routes
     func pushToEditProfile() {
         let route = ProfileRoute.editProfile
         profilePath.append(route)
@@ -200,14 +188,12 @@ final class NavigationRouter: ObservableObject {
         print("🧭 NavigationRouter: 채팅방 목록으로 이동")
     }
     
-    // 채팅방으로 이동
     func pushToChatView(roomId: String, participantInfo: Users) {
         let route = ProfileRoute.chatView(roomId: roomId, participantInfo: participantInfo)
         profilePath.append(route)
         print("🧭 NavigationRouter: 채팅방으로 이동 - roomId: \(roomId)")
     }
     
-    // 🆕 필터 관리로 이동
     func pushToFilterManagement() {
         let route = ProfileRoute.filterManagement
         profilePath.append(route)
@@ -224,16 +210,12 @@ final class NavigationRouter: ObservableObject {
         profilePath.removeAll()
     }
     
-    // MARK: - Navigation Actions for Make Routes
-    
-    /// 필터 생성 화면으로 이동
     func pushToCreateFilter() {
         let route = MakeRoute.create
         makePath.append(route)
         print("🧭 NavigationRouter: 필터 생성 화면으로 이동")
     }
     
-    /// 필터 편집 화면으로 이동
     func pushToEditFilter(with originalImage: UIImage? = nil) {
         let route = MakeRoute.editFilter(originalImage: originalImage)
         makePath.append(route)
@@ -255,12 +237,10 @@ final class NavigationRouter: ObservableObject {
         return makePath.count
     }
     
-    /// Make 탭에서 뒤로 갈 수 있는지 확인
     func canGoBackInMake() -> Bool {
         return !makePath.isEmpty
     }
     
-    // MARK: - Sheet Management
     func presentSheet(_ sheet: PresentedSheet) {
         presentedSheet = sheet
         print("🧭 NavigationRouter: Sheet 표시 - \(sheet)")
@@ -270,8 +250,7 @@ final class NavigationRouter: ObservableObject {
         presentedSheet = nil
         print("🧭 NavigationRouter: Sheet 닫기")
     }
-    
-    // MARK: - Utility Methods
+
     func getCurrentPathCount() -> Int {
         switch selectedTab {
         case .home:
@@ -291,7 +270,6 @@ final class NavigationRouter: ObservableObject {
         return getCurrentPathCount() > 0
     }
     
-    // MARK: - TabBar Management
     
     func hideTabBar() {
         withAnimation(.easeInOut(duration: 0.3)) {
@@ -307,7 +285,6 @@ final class NavigationRouter: ObservableObject {
         print("👀 NavigationRouter: 탭바 표시")
     }
     
-    // MARK: - Debug Methods
     func printCurrentState() {
         print("🧭 NavigationRouter 현재 상태:")
         print("   선택된 탭: \(selectedTab.title)")
@@ -320,7 +297,6 @@ final class NavigationRouter: ObservableObject {
     }
 }
 
-// MARK: - Sheet Types
 enum PresentedSheet: Identifiable, CustomStringConvertible, Equatable  {
     case userFilters(userId: String, userNick: String)
     case profileEdit

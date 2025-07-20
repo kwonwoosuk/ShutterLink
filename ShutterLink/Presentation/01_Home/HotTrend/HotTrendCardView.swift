@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-// MARK: - 심플한 카드 뷰 (첨부 이미지 스타일 정확 반영)
+// MARK: - 심플한 카드 뷰
 struct HotTrendCardView: View {
     let filter: FilterItem
     let onTap: () -> Void
@@ -17,7 +17,6 @@ struct HotTrendCardView: View {
             // 메인 이미지
             mainImageView
             
-            // 오버레이 (제목 + 좋아요만)
             overlayView
         }
         .clipped()
@@ -26,7 +25,6 @@ struct HotTrendCardView: View {
     
     @ViewBuilder
     private var mainImageView: some View {
-        // GeometryReader로 정확한 크기 제어
         GeometryReader { geometry in
             if !filter.files.isEmpty {
                 AuthenticatedImageView(
@@ -62,7 +60,6 @@ struct HotTrendCardView: View {
     
     private var overlayView: some View {
         VStack {
-            // 상단 좌측 - 제목 (하얀색, 보더 없음, 학교안심 폰트)
             HStack {
                 Text(filter.title)
                     .font(.hakgyoansim(size: 12, weight: .bold))
@@ -76,7 +73,6 @@ struct HotTrendCardView: View {
             
             Spacer()
             
-            // 하단 우측 - 좋아요 (하얀색, 보더 없음)
             HStack {
                 Spacer()
                 

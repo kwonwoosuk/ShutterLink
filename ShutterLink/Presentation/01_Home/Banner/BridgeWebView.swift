@@ -35,7 +35,7 @@ struct BridgeWebView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: WKWebView, context: Context) {
-        // 업데이트 불필요
+        // 업데이트 X
     }
     
     func makeCoordinator() -> Coordinator {
@@ -50,7 +50,6 @@ struct BridgeWebView: UIViewRepresentable {
             self.parent = parent
         }
         
-        // MARK: - WKScriptMessageHandler
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             print("🌐 BridgeWebView: 메시지 수신 - \(message.name)")
             
@@ -93,7 +92,7 @@ struct BridgeWebView: UIViewRepresentable {
                 print("📊 출석 횟수: \(attendanceCount)")
                 
                 // NotificationCenter를 통해 HomeView에 알림 발송
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
                     print("📢 BridgeWebView: NotificationCenter 알림 발송 시작")
                     print("   - 알림 이름: AttendanceCompleted")
                     print("   - 출석 횟수: \(attendanceCount)")

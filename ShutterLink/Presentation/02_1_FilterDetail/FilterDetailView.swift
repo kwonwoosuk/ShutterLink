@@ -18,27 +18,23 @@ struct FilterDetailView: View {
     @State private var hasAppeared = false
     @State private var showChatOuterView = false
     
-    // 새로운 이미지 비교를 위한 State 추가
     @State private var originalImage: Image?
     @State private var filteredImage: Image?
     @State private var filterPivot: CGFloat = 0
     @State private var imageSectionHeight: CGFloat = 0
     @State private var imageLoadTask: Task<Void, Never>?
-    @State private var hasLoadedImages = false // 중복 로딩 방지
+    @State private var hasLoadedImages = false
     
-    // 채팅 관련 State 추가
     @State private var chatRoomId: String? // 생성된 채팅방 ID
     @State private var isCreatingChatRoom = false // 채팅방 생성 중 상태
     @State private var chatError: String? // 채팅 에러 메시지
     @State private var showChatError = false // 채팅 에러 알림 표시
     @State private var selectedParticipant: Users? // 선택된 채팅 상대방
     
-    // 채팅 관련 UseCase
     private let chatUseCase: ChatUseCaseImpl
     
     init(filterId: String) {
         self.filterId = filterId
-        // 채팅 UseCase 초기화
         let localRepository = try! RealmChatRepository()
         self.chatUseCase = ChatUseCaseImpl(localRepository: localRepository)
     }
@@ -59,18 +55,18 @@ struct FilterDetailView: View {
                         // 필터 정보와 통계
                         FilterInfoWithStatsSection(filterDetail: filterDetail)
                         
-                        // 사진 메타데이터 섹션 (안전하게 처리)
+                        // 사진 메타데이터 섹션
                         if let photoMetadata = filterDetail.photoMetadata {
                             PhotoMetadataSection(metadata: photoMetadata)
                         }
                         
-                        // 필터 프리셋 섹션 (결제 상태에 따라 표시)
+                        // 필터 프리셋 섹션
                         FilterPresetsSection(
                             filterValues: filterDetail.filterValues,
                             isPurchased: filterDetail.is_downloaded
                         )
                         
-                        // 결제/다운로드 버튼 (결제 기능 연동)
+                        // 결제/다운로드 버튼
                         PurchaseDownloadButton(
                             price: filterDetail.price,
                             isPurchased: filterDetail.is_downloaded,
@@ -87,12 +83,11 @@ struct FilterDetailView: View {
                             .frame(height: 1)
                             .padding(.horizontal, 20)
                         
-                        // 크리에이터 프로필 섹션 (채팅 기능 연결)
+                        // 크리에이터 프로필 섹션
                         CreatorProfileSection(
                             creator: filterDetail.creator,
                             isCreatingChatRoom: isCreatingChatRoom,
                             onCreatorTap: {
-                                // UserDetailView로 이동
                                 let userInfo = UserInfo(
                                     user_id: filterDetail.creator.user_id,
                                     nick: filterDetail.creator.nick,

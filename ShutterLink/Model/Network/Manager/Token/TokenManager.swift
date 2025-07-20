@@ -146,7 +146,6 @@ extension TokenManager {
             let jwt = try decode(jwt: accessToken)
             
             // 토큰의 payload에서 사용자 ID 추출
-            // 일반적으로 "sub", "user_id", "id" 등의 키로 저장됨
             if let userId = jwt.claim(name: "id").string {
                 print("✅ TokenManager: 사용자 ID 추출 성공 (id) - \(userId)")
                 return userId
@@ -158,17 +157,6 @@ extension TokenManager {
                 return userId
             } else {
                 print("⚠️ TokenManager: JWT에서 사용자 ID를 찾을 수 없습니다")
-                
-                // ✅ 디버깅용: 토큰의 모든 claim 출력
-                print("📋 TokenManager: JWT Claims:")
-                print("  - Header: \(jwt.header)")
-                print("  - Body: \(jwt.body)")
-                print("  - ExpiresAt: \(String(describing: jwt.expiresAt))")
-                print("  - IssuedAt: \(String(describing: jwt.issuedAt))")
-                print("  - NotBefore: \(String(describing: jwt.notBefore))")
-                print("  - Issuer: \(String(describing: jwt.issuer))")
-                print("  - Subject: \(String(describing: jwt.subject))")
-                print("  - Audience: \(jwt.audience)")
                 
                 return nil
             }

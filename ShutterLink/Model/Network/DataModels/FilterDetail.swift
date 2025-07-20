@@ -29,17 +29,17 @@ struct FilterDetailResponse: Decodable {
 
 // MARK: - 사진 메타데이터 모델
 struct PhotoMetadata: Decodable {
-    let camera: String?                 // 옵셔널로 변경
-    let lens_info: String?              // 옵셔널로 변경
-    let focal_length: Float?            // 옵셔널로 변경
-    let aperture: Double?               // 옵셔널로 변경
-    let iso: Int?                       // 옵셔널로 변경
-    let shutter_speed: String?          // 옵셔널로 변경
+    let camera: String?
+    let lens_info: String?
+    let focal_length: Float?
+    let aperture: Double?
+    let iso: Int?
+    let shutter_speed: String?
     let pixel_width: Int
     let pixel_height: Int
     let file_size: Int
-    let format: String?                 // 옵셔널로 변경
-    let date_time_original: String?     // 옵셔널로 변경
+    let format: String?
+    let date_time_original: String?
     let latitude: Double?
     let longitude: Double?
 }

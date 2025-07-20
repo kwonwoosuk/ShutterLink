@@ -113,7 +113,6 @@ final class DeviceTokenManager: ObservableObject {
         }
     }
     
-    // 기존 알림 관련 메서드들...
     func requestNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if granted {

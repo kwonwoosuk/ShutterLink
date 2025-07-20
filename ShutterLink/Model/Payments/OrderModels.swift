@@ -39,7 +39,7 @@ struct PaymentValidationResponse: Decodable {
 struct OrderItem: Decodable {
     let order_id: String
     let order_code: String
-    let filter: FilterInOrder  // 별도 모델 사용
+    let filter: FilterInOrder
     let paidAt: String
     let createdAt: String
     let updatedAt: String
@@ -47,7 +47,7 @@ struct OrderItem: Decodable {
 
 // MARK: - 주문 내 필터 정보 (서버 응답 구조에 맞춘 별도 모델)
 struct FilterInOrder: Decodable {
-    let id: String  // filter_id가 아니라 id
+    let id: String
     let category: String
     let title: String
     let description: String
@@ -58,23 +58,22 @@ struct FilterInOrder: Decodable {
     let createdAt: String
     let updatedAt: String
     
-    // FilterDetailResponse로 변환하는 computed property
     var asFilterDetailResponse: FilterDetailResponse {
         return FilterDetailResponse(
-            filter_id: id,  // id를 filter_id로 매핑
+            filter_id: id,
             category: category,
             title: title,
             description: description,
             files: files,
             price: price,
             creator: creator,
-            photoMetadata: nil,  // 주문 응답에는 포함되지 않음
+            photoMetadata: nil,
             filterValues: filterValues,
             is_liked: false,  // 기본값
-            is_downloaded: true,  // 결제 완료된 상태이므로 true
-            like_count: 0,  // 기본값
-            buyer_count: 0,  // 기본값
-            comments: [],  // 기본값
+            is_downloaded: true,
+            like_count: 0,
+            buyer_count: 0,
+            comments: [],  
             createdAt: createdAt,
             updatedAt: updatedAt
         )

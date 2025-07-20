@@ -8,7 +8,6 @@
 import Foundation
 import Combine
 
-// MARK: - Socket Connection Status
 
 enum SocketConnectionStatus: Equatable {
     case connecting
@@ -52,16 +51,12 @@ enum SocketConnectionStatus: Equatable {
     }
 }
 
-// MARK: - Socket UseCase Protocol
-
 protocol SocketUseCase {
     func connect(roomId: String)
     func disconnect()
     func observeConnectionStatus() -> AnyPublisher<SocketConnectionStatus, Never>
     func observeMessages() -> AnyPublisher<ChatMessage, Never>
 }
-
-// MARK: - ✅ 강화된 Socket UseCase Implementation
 
 final class SocketUseCaseImpl: SocketUseCase {
     private let socketManager: SocketIOManager
@@ -104,14 +99,13 @@ final class SocketUseCaseImpl: SocketUseCase {
         return realtimeMessageSubject.eraseToAnyPublisher()
     }
     
-    // MARK: - ✅ 강화된 메시지 처리 설정
     
     private func setupMessageHandling() {
         print("🔧 SocketUseCase: 메시지 처리 설정 시작")
         
-        // ✅ 소켓 메시지 수신 처리 - 우선순위 기반 처리
+        // ✅ 소켓 메시지 수신 처리
         socketManager.messagePublisher
-            .receive(on: messageProcessingQueue) // 백그라운드에서 처리
+            .receive(on: messageProcessingQueue)
             .sink { [weak self] message in
                 self?.handleIncomingMessage(message)
             }
@@ -119,8 +113,6 @@ final class SocketUseCaseImpl: SocketUseCase {
         
         print("✅ SocketUseCase: 메시지 처리 설정 완료")
     }
-    
-    // MARK: - ✅ 강화된 메시지 처리 로직
     
     private func handleIncomingMessage(_ message: ChatMessage) {
         print("📨 SocketUseCase: 메시지 수신 처리 시작")
@@ -178,17 +170,12 @@ final class SocketUseCaseImpl: SocketUseCase {
     // ✅ 저장 실패 처리
     private func handleSaveFailure(_ message: ChatMessage, error: Error) async {
         print("💥 SocketUseCase: 메시지 저장 실패 처리")
-        
-        // 실패한 메시지를 임시 큐에 저장하거나 다른 처리 로직 구현 가능
-        // 현재는 로그만 남김 (UI는 이미 업데이트됨)
-        
-        // 필요시 사용자에게 알림 (예: 네트워크 연결 확인 요청)
+    
         await notifyPersistenceFailure(message, error: error)
     }
     
-    // ✅ 저장 실패 알림 (선택적)
+    // ✅ 저장 실패 알림
     private func notifyPersistenceFailure(_ message: ChatMessage, error: Error) async {
-        // 실제 구현에서는 NotificationCenter나 다른 방식으로 알림 가능
         print("🔔 SocketUseCase: 저장 실패 알림 - chatId: \(message.chatId)")
         
         // 예시: 연결 상태 확인 후 재시도 스케줄링
@@ -197,8 +184,6 @@ final class SocketUseCaseImpl: SocketUseCase {
     
     // ✅ 네트워크 복구 시 재시도 스케줄링
     private func scheduleRetryWhenNetworkAvailable(_ message: ChatMessage) async {
-        // 네트워크 연결 상태를 모니터링하고 복구 시 재시도
-        // 현재는 단순히 10초 후 재시도
         
         try? await Task.sleep(nanoseconds: 10_000_000_000) // 10초
         
@@ -215,12 +200,12 @@ final class SocketUseCaseImpl: SocketUseCase {
 
 extension SocketUseCaseImpl {
     
-    // ✅ 현재 처리 중인 메시지 수 추적 (디버깅용)
+    // ✅ 현재 처리 중인 메시지 수 추적
     private func trackMessageProcessing(_ action: String, messageId: String) {
         print("📊 SocketUseCase: 메시지 처리 추적 - \(action) - \(messageId)")
     }
     
-    // ✅ 메시지 처리 성능 모니터링 (선택적)
+    // ✅ 메시지 처리 성능 모니터링 
     private func measureProcessingTime<T>(_ operation: () async throws -> T, label: String) async rethrows -> T {
         let startTime = CFAbsoluteTimeGetCurrent()
         let result = try await operation()

@@ -32,7 +32,7 @@ final class NetworkMiddleware {
             if let token = tokenManager.refreshToken {
                 request.setValue(token, forHTTPHeaderField: APIConstants.Header.refreshToken)
                 
-                // 중요: 액세스 토큰도 함께 전송 (자격 증명 확인용)
+                // 중요: 액세스 토큰도 함께 전송 
                 if let accessToken = tokenManager.accessToken {
                     request.setValue(accessToken, forHTTPHeaderField: APIConstants.Header.authorization)
                 }

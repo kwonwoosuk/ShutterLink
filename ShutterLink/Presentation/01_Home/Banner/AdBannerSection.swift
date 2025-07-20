@@ -42,7 +42,6 @@ struct AdBannerSection: View {
                 .frame(height: 100)
                 .padding(.horizontal, 20)
                 .gesture(
-                    // 사용자가 직접 스와이프할 때 자동 스크롤 일시정지 후 재시작
                     DragGesture()
                         .onEnded { _ in
                             print("👆 AdBannerSection: 사용자 스와이프 감지")
@@ -55,7 +54,6 @@ struct AdBannerSection: View {
                     totalCount: banners.count
                 )
             } else {
-                // 배너가 없을 때 표시할 기본 뷰
                 EmptyBannerView()
             }
         }
@@ -67,7 +65,6 @@ struct AdBannerSection: View {
                     onDismiss: {
                         showWebView = false
                         selectedWebURL = nil
-                        // 웹뷰가 닫힐 때 자동 스크롤 재시작
                         startAutoScroll()
                     }
                 )
@@ -84,7 +81,6 @@ struct AdBannerSection: View {
         }
         .onChange(of: banners) { newBanners in
             print("🔄 AdBannerSection: 배너 데이터 변경됨 - \(newBanners.count)개")
-            // 배너 데이터가 변경되면 자동 스크롤 재시작
             stopAutoScroll()
             if !newBanners.isEmpty {
                 currentIndex = 0
@@ -96,14 +92,9 @@ struct AdBannerSection: View {
         }
     }
     
-    // MARK: - 자동 스크롤 기능
     
     private func startAutoScroll() {
         let currentBannerCount = banners.count
-        print("🎠 AdBannerSection: startAutoScroll 호출됨")
-        print("   - 현재 banners.count: \(currentBannerCount)")
-        print("   - 배너 배열: \(banners.map { $0.name })")
-        
         guard currentBannerCount > 1 else {
             print("🔄 AdBannerSection: 배너가 \(currentBannerCount)개여서 자동 스크롤 비활성화")
             return
@@ -111,26 +102,21 @@ struct AdBannerSection: View {
         
         stopAutoScroll()
         
-        print("🎠 AdBannerSection: 자동 스크롤 시작 - 2초 간격, \(currentBannerCount)개 배너")
-        
         autoScrollTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
             withAnimation(.easeInOut(duration: 0.7)) {
                 currentIndex = (currentIndex + 1) % currentBannerCount
             }
-            print("🎠 AdBannerSection: 자동 스크롤 - 현재 인덱스: \(currentIndex)/\(currentBannerCount-1)")
         }
     }
     
     private func stopAutoScroll() {
         autoScrollTimer?.invalidate()
         autoScrollTimer = nil
-        print("🛑 AdBannerSection: 자동 스크롤 중지")
     }
     
     private func restartAutoScrollAfterDelay() {
         stopAutoScroll()
         
-        // 3초 후 자동 스크롤 재시작 (사용자 조작 후 약간의 여유 시간)
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
             startAutoScroll()
         }
@@ -142,7 +128,6 @@ struct AdBannerSection: View {
         print("🔵 AdBannerSection: 배너 탭됨 - \(banner.title)")
         print("🔵 Payload Type: \(banner.payload.type), Value: \(banner.payload.value)")
         
-        // 배너 탭 시 자동 스크롤 잠시 중지
         stopAutoScroll()
         
         // payload type에 따른 처리
@@ -151,7 +136,6 @@ struct AdBannerSection: View {
             openWebView(urlString: banner.payload.value)
         default:
             print("⚠️ AdBannerSection: 지원하지 않는 payload type - \(banner.payload.type)")
-            // 지원하지 않는 타입인 경우 자동 스크롤 재시작
             startAutoScroll()
         }
     }
@@ -159,7 +143,7 @@ struct AdBannerSection: View {
     private func openWebView(urlString: String) {
         guard !urlString.isEmpty else {
             print("❌ AdBannerSection: URL이 비어있습니다")
-            startAutoScroll() // 실패 시 자동 스크롤 재시작
+            startAutoScroll()
             return
         }
         
@@ -168,24 +152,22 @@ struct AdBannerSection: View {
             finalURL = URL(string: urlString)
         } else {
             let baseURL = APIConstants.baseURL
-            finalURL = URL(string: "\(baseURL)\(urlString)")  // 포트 중복 추가 제거
+            finalURL = URL(string: "\(baseURL)\(urlString)")
             print("🔍 AdBannerSection: 생성된 URL - \(baseURL)\(urlString)")
         }
         
         guard let url = finalURL else {
             print("❌ AdBannerSection: 유효하지 않은 URL - \(urlString)")
-            startAutoScroll() // 실패 시 자동 스크롤 재시작
+            startAutoScroll()
             return
         }
         
         print("🌐 AdBannerSection: 웹뷰 열기 - \(url.absoluteString)")
         selectedWebURL = url
         showWebView = true
-        // 웹뷰가 열리면 자동 스크롤은 중지된 상태로 유지 (onDismiss에서 재시작)
     }
 }
 
-// MARK: - 빈 배너 뷰
 struct EmptyBannerView: View {
     var body: some View {
         RoundedRectangle(cornerRadius: 16)

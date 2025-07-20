@@ -19,12 +19,11 @@ struct TodayFilterIntroSection: View {
             let frame = headerGeometry.frame(in: .named("scroll"))
             let offset = frame.minY
             let safeAreaTop = geometry.safeAreaInsets.top
-            let totalHeaderHeight = baseHeight + safeAreaTop // SafeArea 포함 총 높이
+            let totalHeaderHeight = baseHeight + safeAreaTop 
             let height = getStretchHeight(offset: offset, totalHeight: totalHeaderHeight)
             let yOffset = getYOffset(offset: offset)
             
             ZStack {
-                // 배경 이미지 - SafeArea까지 포함
                 if let filter = filter, let firstImagePath = filter.files.first {
                     AuthenticatedImageView(
                         imagePath: firstImagePath,
@@ -45,7 +44,6 @@ struct TodayFilterIntroSection: View {
                     .clipped()
                     .offset(y: yOffset)
                 } else {
-                    // 로딩 상태
                     Rectangle()
                         .fill(Color.gray.opacity(0.3))
                         .frame(
@@ -58,7 +56,6 @@ struct TodayFilterIntroSection: View {
                         )
                         .offset(y: yOffset)
                 }
-                
                 
                 LinearGradient(
                     gradient: Gradient(colors: [
@@ -77,7 +74,6 @@ struct TodayFilterIntroSection: View {
                 )
                 .offset(y: yOffset)
                 
-                // 콘텐츠 영역 - SafeArea 아래쪽에 위치
                 if let filter = filter {
                     VStack {
                         Spacer()
@@ -117,7 +113,6 @@ struct TodayFilterIntroSection: View {
                     .frame(height: height)
                     .offset(y: yOffset)
                     
-                    // 우상단 사용해보기 버튼 - SafeArea 아래쪽에 위치
                     VStack {
                         HStack {
                             Spacer()
@@ -143,7 +138,7 @@ struct TodayFilterIntroSection: View {
                             .buttonStyle(PlainButtonStyle())
                         }
                         .padding(.trailing, 20)
-                        .padding(.top, safeAreaTop + 20) // SafeArea + 여유 공간
+                        .padding(.top, safeAreaTop + 20)
                         
                         Spacer()
                     }
@@ -155,7 +150,7 @@ struct TodayFilterIntroSection: View {
         .frame(height: baseHeight + geometry.safeAreaInsets.top)
     }
     
-    // Stretch 높이 계산 (아래로 당길 때만)
+    // Stretch 높이 계산
     private func getStretchHeight(offset: CGFloat, totalHeight: CGFloat) -> CGFloat {
         if offset > 0 {
             // 아래로 당길 때 (양수 offset) - 이미지 늘리기

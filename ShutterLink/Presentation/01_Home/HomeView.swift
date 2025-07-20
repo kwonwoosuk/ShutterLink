@@ -11,8 +11,7 @@ import Combine
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     @EnvironmentObject private var router: NavigationRouter
-    
-    // 출석 완료 알림 관련 State
+
     @State private var showAttendanceAlert = false
     @State private var attendanceCount = 0
     @State private var notificationObserver: NSObjectProtocol?
@@ -27,7 +26,6 @@ struct HomeView: View {
                 }
                 .navigationBarHidden(true)
         }
-        // 출석 완료 Alert 추가
         .alert("출석 완료", isPresented: $showAttendanceAlert) {
             Button("확인", role: .cancel) {
                 showAttendanceAlert = false
@@ -41,7 +39,6 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Navigation Destination Builder (성능 최적화)
     @ViewBuilder
     private func destinationView(for route: FilterRoute) -> some View {
         switch route {
@@ -111,7 +108,6 @@ struct HomeView: View {
                             proxy.scrollTo("top", anchor: .top)
                         }
                         
-                        // 애니메이션 완료 후 리프레쉬 (캐시 활용을 위해 조금 더 지연)
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                             viewModel.refreshData()
                         }

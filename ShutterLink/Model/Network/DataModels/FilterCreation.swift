@@ -96,29 +96,29 @@ struct FilterProperty {
     
     static let properties: [FilterProperty] = [
         FilterProperty(key: "brightness", name: "밝기", iconName: "Brightness",
-                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.01),
+                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.05),
         FilterProperty(key: "exposure", name: "노출", iconName: "Exposure",
-                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.01),
+                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.05),
         FilterProperty(key: "contrast", name: "대비", iconName: "Contrast",
-                      minValue: 0.0, maxValue: 2.0, defaultValue: 1.0, step: 0.01),
+                      minValue: 0.0, maxValue: 2.0, defaultValue: 1.0, step: 0.05),
         FilterProperty(key: "saturation", name: "채도", iconName: "Saturation",
-                      minValue: 0.0, maxValue: 2.0, defaultValue: 1.0, step: 0.01),
+                      minValue: 0.0, maxValue: 2.0, defaultValue: 1.0, step: 0.05),
         FilterProperty(key: "sharpness", name: "선명도", iconName: "Sharpness",
-                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.01),
+                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.05),
         FilterProperty(key: "blur", name: "블러", iconName: "Blur",
-                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.01),
+                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.05),
         FilterProperty(key: "vignette", name: "비네팅", iconName: "Vignette",
-                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.01),
+                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.05),
         FilterProperty(key: "noiseReduction", name: "노이즈", iconName: "Noise",
-                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.01),
+                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.05),
         FilterProperty(key: "highlights", name: "하이라이트", iconName: "Highlights",
-                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.01),
+                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.05),
         FilterProperty(key: "shadows", name: "섀도우", iconName: "Shadows",
-                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.01),
+                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.05),
         FilterProperty(key: "temperature", name: "색온도", iconName: "Temperature",
-                      minValue: 2000, maxValue: 10000, defaultValue: 6500, step: 50),
+                      minValue: 2000, maxValue: 10000, defaultValue: 6500, step: 100),
         FilterProperty(key: "blackPoint", name: "블랙포인트", iconName: "BlackPoint",
-                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.01)
+                      minValue: -1.0, maxValue: 1.0, defaultValue: 0.0, step: 0.05)
     ]
 }
 

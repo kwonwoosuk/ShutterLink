@@ -45,8 +45,6 @@ struct BannerCard: View {
                         )
                     )
             }
-            
-         
         }
      
     }

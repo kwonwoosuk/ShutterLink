@@ -13,7 +13,6 @@ struct MainTabView: View {
     
     var body: some View {
         ZStack(alignment: .bottom) {
-            // 콘텐츠 영역
             TabView(selection: $router.selectedTab) {
                 LazyView(HomeView())
                     .tag(Tab.home)
@@ -31,8 +30,7 @@ struct MainTabView: View {
                     .tag(Tab.profile)
             }
             .toolbar(.hidden, for: .tabBar)
-            
-            // 🆕 수정 - 조건부 커스텀 탭바 표시
+        
             if !router.isTabBarHidden {
                 CustomTabBar(
                     selectedTab: Binding(

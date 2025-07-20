@@ -12,16 +12,15 @@ struct ProfileResponse: Decodable ,Equatable {
     let user_id: String
     let email: String
     let nick: String
-    let name: String?          // 옵셔널로 변경
-    let introduction: String?  // 옵셔널로 변경
+    let name: String?
+    let introduction: String?
     var profileImage: String?
-    let phoneNum: String?      // 옵셔널로 변경
+    let phoneNum: String?
     let hashTags: [String]
     
     enum CodingKeys: String, CodingKey {
             case user_id, email, nick, name, introduction, profileImage, phoneNum, hashTags
         }
-    // 커스텀 초기화로 누락된 필드 처리
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         

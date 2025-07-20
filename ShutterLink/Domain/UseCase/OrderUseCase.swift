@@ -41,7 +41,6 @@ final class OrderUseCaseImpl: OrderUseCase {
     }
 }
 
-// MARK: - 주문 내역 응답 모델 추가
 struct OrderHistoryResponse: Decodable {
     let data: [OrderItem]
 }

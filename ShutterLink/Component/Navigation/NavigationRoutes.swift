@@ -8,12 +8,10 @@
 import Foundation
 import UIKit
 
-// MARK: - Route 프로토콜
 protocol Route: Hashable, Identifiable {
     var id: String { get }
 }
 
-// MARK: - 홈/피드 탭 라우트 (필터 관련)
 enum FilterRoute: Route {
     case filterDetail(filterId: String)
     case userDetail(userId: String, userInfo: CreatorInfo)
@@ -28,7 +26,6 @@ enum FilterRoute: Route {
     }
 }
 
-// MARK: - 검색 탭 라우트 (유저 관련)
 enum UserRoute: Route {
     case userDetail(userId: String, userInfo: UserInfo?)
     case userFilters(userId: String, userNick: String)
@@ -43,14 +40,12 @@ enum UserRoute: Route {
     }
 }
 
-// MARK: - 프로필 탭 라우트
 enum ProfileRoute: Route {
     case editProfile
     case likedFilters
     case filterDetail(filterId: String)
     case chatRoomList
     case chatView(roomId: String, participantInfo: Users)
-    // 🆕 필터 관리 케이스 추가
     case filterManagement
     
     var id: String {
@@ -72,8 +67,8 @@ enum ProfileRoute: Route {
 }
 
 enum MakeRoute: Route {
-    case create // 필터 생성 화면
-    case editFilter(originalImage: UIImage?) // 필터 편집 화면
+    case create 
+    case editFilter(originalImage: UIImage?)
     
     var id: String {
         switch self {
@@ -85,7 +80,6 @@ enum MakeRoute: Route {
     }
 }
 
-// MARK: - 탭 식별자
 enum Tab: Int, CaseIterable {
     case home = 0
     case feed = 1

@@ -61,7 +61,7 @@ struct AuthenticatedImageView: View {
                 Color.clear
             }
         }
-        .task(id: imagePath) { // onAppear 대신 task 사용으로 최적화
+        .task(id: imagePath) {
             await loadImageIfNeeded()
         }
         .onDisappear {

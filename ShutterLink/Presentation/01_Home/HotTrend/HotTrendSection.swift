@@ -29,14 +29,12 @@ struct HotTrendSection: View {
             .padding(.horizontal, 20)
             
             if !filters.isEmpty {
-                // Modern UIKit CollectionView 사용으로 성능 최적화
                 let limitedFilters = Array(filters.prefix(10))
                 HotTrendCollectionView(
                     filters: limitedFilters,
-                    onFilterTap: onFilterTap // 실제 onFilterTap 전달 (빈 클로저가 아님)
+                    onFilterTap: onFilterTap
                 ) { filter in
                     HotTrendCardView(filter: filter) {
-                        // onTap 클로저는 더 이상 사용되지 않음 (UICollectionView에서 처리)
                     }
                 }
                 .frame(height: UIScreen.main.bounds.width * 0.45 * 4/3 + 20)

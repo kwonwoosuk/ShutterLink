@@ -12,7 +12,7 @@ struct UserSearchResponse: Decodable {
     let data: [UserInfo]
 }
 
-// MARK: - 유저 정보 모델 (서버 응답에 맞게 옵셔널 처리)
+// MARK: - 유저 정보 모델 
 struct UserInfo: Decodable, Identifiable, Hashable {
     let user_id: String
     let nick: String

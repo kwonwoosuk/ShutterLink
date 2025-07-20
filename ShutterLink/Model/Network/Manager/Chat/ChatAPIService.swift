@@ -103,7 +103,6 @@ final class ChatAPIServiceImpl: ChatAPIService {
         let router = ChatRouter.uploadFiles(roomId: roomId, files: files, fileNames: fileNames)
         
         do {
-            // 멀티파트 업로드의 경우 기존 NetworkManager의 uploadMultipleImages 메서드 활용
             let images = zip(files, fileNames).map { (fieldName: "files", data: $0, filename: $1) }
             let data = try await networkManager.uploadMultipleImages(router, images: images)
             let response = try JSONDecoder().decode(FileUploadResponse.self, from: data)
@@ -209,8 +208,6 @@ enum ChatRouter: APIRouter {
         }
     }
 }
-
-// MARK: - Date Formatter for API
 
 extension ChatAPIServiceImpl {
     private func formatDateForAPI(_ date: Date) -> String {

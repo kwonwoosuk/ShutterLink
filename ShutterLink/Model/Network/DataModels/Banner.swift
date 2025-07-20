@@ -21,12 +21,10 @@ struct BannerItem: Decodable, Identifiable, Equatable {
     // Identifiable을 위한 computed property
     var id: String { name }
     
-    // UI에서 사용하기 위한 computed properties
     var title: String { name }
-    var subtitle: String? { nil } // 서버에서 subtitle을 제공하지 않음
+    var subtitle: String? { nil }
     var image: String { imageUrl }
-    
-    // Equatable 구현
+
     static func == (lhs: BannerItem, rhs: BannerItem) -> Bool {
         return lhs.name == rhs.name &&
                lhs.imageUrl == rhs.imageUrl &&
@@ -39,7 +37,6 @@ struct BannerPayload: Decodable, Equatable {
     let type: String
     let value: String
     
-    // Equatable 구현
     static func == (lhs: BannerPayload, rhs: BannerPayload) -> Bool {
         return lhs.type == rhs.type && lhs.value == rhs.value
     }

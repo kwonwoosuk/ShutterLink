@@ -49,7 +49,6 @@ final class ChatUseCaseImpl: ChatUseCase {
     
     // MARK: - 채팅방 관련
     
-    // ✅ 채팅방 삭제 기능 - 이 메서드만 추가하면 됨
       func deleteChatRoom(roomId: String) async throws {
           print("🗑️ ChatUseCase: 채팅방 삭제 시작 - roomId: \(roomId)")
           
@@ -256,9 +255,6 @@ final class ChatUseCaseImpl: ChatUseCase {
 extension ChatUseCaseImpl {
     // MARK: - 유틸리티
     
-  
-    
-    // ✅ 추가: 현재 사용자인지 확인하는 유틸리티 메서드
     private func isCurrentUser(userId: String) -> Bool {
         let currentUserId = getCurrentUserId()
         let isCurrentUser = currentUserId == userId
@@ -270,7 +266,6 @@ extension ChatUseCaseImpl {
         return isCurrentUser
     }
     
-    // ✅ 추가: 메시지의 isFromCurrentUser 설정을 위한 유틸리티
     private func markMessageAsFromCurrentUser(_ message: ChatMessage) -> ChatMessage {
         let isFromCurrentUser = isCurrentUser(userId: message.sender.userId)
         
@@ -288,14 +283,12 @@ extension ChatUseCaseImpl {
     }
 }
 
-// MARK: - ChatMessageResponse extension 수정
 
 extension ChatMessageResponse {
     func toDomain(currentUserId: String) -> ChatMessage {
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         
-        // ✅ 현재 사용자인지 정확히 판단
         let isFromCurrentUser = sender.userId == currentUserId
         
         print("🔍 ChatMessageResponse: 메시지 변환 - senderId: \(sender.userId), currentUserId: \(currentUserId), isFromCurrentUser: \(isFromCurrentUser)")
@@ -312,8 +305,6 @@ extension ChatMessageResponse {
         )
     }
 }
-
-// MARK: - ChatRoomResponse extension 수정
 
 extension ChatRoomResponse {
     func toDomain(currentUserId: String) -> ChatRoom {

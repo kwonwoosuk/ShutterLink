@@ -263,7 +263,6 @@ final class RealmChatRepository: ChatLocalRepository {
                     }
                 }
                 
-                // 토큰 관리 (실제 구현에서는 적절한 생명주기 관리 필요)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     // 초기 데이터 로드를 위한 지연
                 }
@@ -276,7 +275,6 @@ final class RealmChatRepository: ChatLocalRepository {
 // MARK: - 유틸리티 메서드
 
 extension RealmChatRepository {
-    /// 전체 채팅 데이터 초기화 (개발/테스트용)
     func clearAllChatData() async throws {
         try await Task { @MainActor in
             try realm.write {
@@ -288,7 +286,6 @@ extension RealmChatRepository {
         }.value
     }
     
-    /// 데이터베이스 상태 정보
     func getDatabaseInfo() async -> String {
         return await Task { @MainActor in
             let chatRoomCount = realm.objects(ChatRoomEntity.self).count
