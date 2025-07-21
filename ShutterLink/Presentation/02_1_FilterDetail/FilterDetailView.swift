@@ -326,12 +326,10 @@ struct FilterDetailView: View {
             chatError = nil
             
             do {
-                // 채팅방 생성 또는 기존 채팅방 조회
                 let chatRoom = try await chatUseCase.createOrGetChatRoom(opponentId: creator.user_id)
                 
                 print("✅ FilterDetailView: 채팅방 생성/조회 완료 - roomId: \(chatRoom.roomId)")
                 
-                // 채팅 상대방 정보 설정
                 selectedParticipant = Users(
                     userId: creator.user_id,
                     nick: creator.nick,
@@ -341,7 +339,6 @@ struct FilterDetailView: View {
                     hashTags: creator.hashTags
                 )
                 
-                // 채팅방 ID 저장 후 채팅 화면 표시
                 chatRoomId = chatRoom.roomId
             
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {

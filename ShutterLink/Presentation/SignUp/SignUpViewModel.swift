@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import SwiftUI
 import Combine
 
 final class SignUpViewModel: ObservableObject {
@@ -21,90 +20,81 @@ final class SignUpViewModel: ObservableObject {
     @Published var hashtags = ""
     
     // Output
+    @Published var isLoading = false
+    @Published var errorMessage: String? = nil
+    @Published var isSignUpComplete = false
     @Published var isEmailValid = false
     @Published var isEmailAvailable = false
     @Published var isPasswordValid = false
     @Published var isPasswordMatching = false
     @Published var isNicknameValid = false
     @Published var isNameValid = false
-    @Published var isLoading = false
-    @Published var errorMessage: String? = nil
-    @Published var isSignUpComplete = false
     
     private let authUseCase: AuthUseCase
     private let authState: AuthState
+    private let fcmTokenManager = FCMTokenManager.shared
     private var cancellables = Set<AnyCancellable>()
     
     init(authUseCase: AuthUseCase = AuthUseCaseImpl(), authState: AuthState = .shared) {
         self.authUseCase = authUseCase
         self.authState = authState
-        setupValidations()
+        
+        setupValidation()
     }
     
-    private func setupValidations() {
-        // 이메일 형식 검증
+    private func setupValidation() {
+        // 이메일 유효성 검사
         $email
-            .dropFirst()
-            .debounce(for: 0.5, scheduler: RunLoop.main)
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
             .map { email in
                 let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-                let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+                let emailPredicate = NSPredicate(format:"SELF MATCHES %@", emailRegex)
                 return emailPredicate.evaluate(with: email)
             }
-            .assign(to: &$isEmailValid)
+            .assign(to: \.isEmailValid, on: self)
+            .store(in: &cancellables)
         
-        // 비밀번호 유효성 검증 (8자 이상, 영문자, 숫자, 특수문자 포함)
+        // 비밀번호 유효성 검사
         $password
-            .dropFirst()
-            .map { password in
-                let passwordRegex = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{8,}$"
-                let passwordPredicate = NSPredicate(format: "SELF MATCHES %@", passwordRegex)
-                return passwordPredicate.evaluate(with: password)
-            }
-            .assign(to: &$isPasswordValid)
+            .map { $0.count >= 6 }
+            .assign(to: \.isPasswordValid, on: self)
+            .store(in: &cancellables)
         
-        // 비밀번호 일치 여부 검증
+        // 비밀번호 확인
         Publishers.CombineLatest($password, $confirmPassword)
-            .dropFirst()
             .map { password, confirmPassword in
-                return !password.isEmpty && password == confirmPassword
+                !password.isEmpty && password == confirmPassword
             }
-            .assign(to: &$isPasswordMatching)
+            .assign(to: \.isPasswordMatching, on: self)
+            .store(in: &cancellables)
         
-        // 닉네임 유효성 검증 (비어있지 않은지)
+        // 닉네임 유효성 검사
         $nickname
-            .dropFirst()
-            .map { !$0.isEmpty }
-            .assign(to: &$isNicknameValid)
+            .map { $0.count >= 2 }
+            .assign(to: \.isNicknameValid, on: self)
+            .store(in: &cancellables)
         
-        // 이름 유효성 검증 (비어있지 않은지)
+        // 이름 유효성 검사
         $name
-            .dropFirst()
-            .map { !$0.isEmpty }
-            .assign(to: &$isNameValid)
+            .map { $0.count >= 2 }
+            .assign(to: \.isNameValid, on: self)
+            .store(in: &cancellables)
     }
     
     func validateEmail() async {
         guard isEmailValid else { return }
         
-        isLoading = true
-        errorMessage = nil
-        
         do {
-            let isAvailable = try await authUseCase.validateEmail(email: email)
-            await MainActor.run {
-                self.isEmailAvailable = isAvailable
-                self.isLoading = false
-            }
+            isEmailAvailable = try await authUseCase.validateEmail(email: email)
         } catch {
-            await MainActor.run {
-                self.handleError(error)
-            }
+            isEmailAvailable = false
+            handleError(error)
         }
     }
-
+    
     private func handleError(_ error: Error) {
         isLoading = false
+        
         if let networkError = error as? NetworkError {
             errorMessage = networkError.errorMessage
         } else {
@@ -125,8 +115,8 @@ final class SignUpViewModel: ObservableObject {
         let hashTagsList = hashtags.split(separator: ",").map { String($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
         
         do {
-            // 기기 토큰은 실제 구현에서는 FCM 등을 통해 얻어옵니다.
-            let deviceToken = "sample_device_token"
+            // 실제 FCM 토큰 가져오기
+            let deviceToken = getCurrentDeviceToken()
             
             let user = try await authUseCase.register(
                 email: email,
@@ -146,8 +136,28 @@ final class SignUpViewModel: ObservableObject {
                 authState.currentUser = user
                 authState.isLoggedIn = true
             }
+            
+            // 회원가입 성공 후 FCM 토큰 동기화
+            await fcmTokenManager.syncTokenWithServer()
         } catch {
             handleError(error)
+        }
+    }
+    
+    private func getCurrentDeviceToken() -> String {
+        // FCM 토큰이 있으면 사용, 없으면 임시 토큰 사용
+        if let fcmToken = fcmTokenManager.getCurrentFCMToken() {
+            print("✅ FCM 토큰 사용: \(fcmToken)")
+            return fcmToken
+        } else {
+            // FCM 토큰이 없는 경우 임시 토큰 사용
+            let fallbackToken = "temp_device_token_\(UUID().uuidString)"
+            print("⚠️ FCM 토큰 없음, 임시 토큰 사용: \(fallbackToken)")
+            
+            // FCM 토큰 재요청
+            fcmTokenManager.refreshFCMToken()
+            
+            return fallbackToken
         }
     }
     
@@ -155,5 +165,4 @@ final class SignUpViewModel: ObservableObject {
         return isEmailValid && isEmailAvailable && isPasswordValid &&
                isPasswordMatching && isNicknameValid && isNameValid
     }
-    
 }

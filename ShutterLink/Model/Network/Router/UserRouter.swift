@@ -11,6 +11,7 @@ enum UserRouter: APIRouter {
     case getTodayAuthor
     case searchUsers(nick: String)
     case getUserFilters(userId: String, category: String?, next: String, limit: Int)
+    case updateDeviceToken(deviceToken: String)  // 📱 디바이스 토큰 업데이트 추가
     
     var path: String {
         switch self {
@@ -20,6 +21,8 @@ enum UserRouter: APIRouter {
             return APIConstants.Path.searchUsers
         case .getUserFilters(let userId, _, _, _):
             return APIConstants.Path.userFilters(userId)
+        case .updateDeviceToken:
+            return APIConstants.Path.updateDeviceToken
         }
     }
     
@@ -27,11 +30,21 @@ enum UserRouter: APIRouter {
         switch self {
         case .getTodayAuthor, .searchUsers, .getUserFilters:
             return .get
+        case .updateDeviceToken:
+            return .put
         }
     }
     
     var body: Data? {
-        return nil
+        switch self {
+        case .updateDeviceToken(let deviceToken):
+            let params = ["deviceToken": deviceToken]
+            print("📱 디바이스 토큰 업데이트 요청:")
+            print("deviceToken: \(deviceToken)")
+            return try? JSONEncoder().encode(params)
+        default:
+            return nil
+        }
     }
     
     var queryItems: [URLQueryItem]? {

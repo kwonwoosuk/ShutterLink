@@ -20,6 +20,7 @@ final class SignInViewModel: ObservableObject {
     
     private let authUseCase: AuthUseCase
     private let authState: AuthState
+    private let fcmTokenManager = FCMTokenManager.shared
     private let kakaoLoginManager = KakaoLoginManager.shared
     private let appleLoginManager = AppleLoginManager.shared
     
@@ -27,7 +28,8 @@ final class SignInViewModel: ObservableObject {
         self.authUseCase = authUseCase
         self.authState = authState
     }
-    // MARK: - 이메일 로그인 
+    
+    // MARK: - 이메일 로그인
     func signIn() async {
         guard !email.isEmpty && !password.isEmpty else {
             await MainActor.run {
@@ -42,8 +44,8 @@ final class SignInViewModel: ObservableObject {
         }
         
         do {
-            // 실제 구현에서는 FCM 등에서 얻어온 디바이스 토큰
-            let deviceToken = "sample_device_token"
+            // 실제 FCM 토큰 사용
+            let deviceToken = getCurrentDeviceToken()
             
             let user = try await authUseCase.login(
                 email: email,
@@ -56,13 +58,21 @@ final class SignInViewModel: ObservableObject {
                 isSignInComplete = true
                 authState.currentUser = user
                 authState.isLoggedIn = true
+                authState.startTokenRefreshTimer()
             }
+            
+            // 로그인 성공 후 FCM 토큰 동기화
+            await fcmTokenManager.syncTokenWithServer()
+            
+            // 로그인 성공 후 FCM 토큰 동기화
+            await fcmTokenManager.syncTokenWithServer()
         } catch {
             await MainActor.run {
                 handleError(error)
             }
         }
     }
+    
     // MARK: - 카카오 로그인
     func signInWithKakao() async {
         await MainActor.run {
@@ -72,12 +82,16 @@ final class SignInViewModel: ObservableObject {
         
         do {
             // 카카오 로그인으로 oauthToken 얻기
-            let oauthToken = try await KakaoLoginManager.shared.loginWithKakaoAccount()
+            let oauthToken = try await kakaoLoginManager.loginWithKakaoAccount()
             
-            // SwiftUI 환경에서 생성한 deviceToken 사용
-            guard let deviceToken = DeviceTokenManager.shared.getCurrentToken() else {
-                throw NSError(domain: "DeviceTokenError", code: -1, userInfo: [NSLocalizedDescriptionKey: "디바이스 토큰을 생성할 수 없습니다."])
-            }
+            // 실제 FCM 토큰 사용
+            let deviceToken = getCurrentDeviceToken()
+            
+            // 서버에 카카오 토큰과 FCM 토큰 전달하여 로그인
+            let user = try await authUseCase.loginWithKakao(
+                oauthToken: oauthToken,
+                deviceToken: deviceToken
+            )
             
             // 로그인 성공 시 알림 보내기
             DeviceTokenManager.shared.sendLocalNotification(
@@ -85,28 +99,20 @@ final class SignInViewModel: ObservableObject {
                 body: "ShutterLink에 오신 것을 환영합니다!"
             )
             
-            // SLP 서버로 카카오 로그인 요청
-            let user = try await authUseCase.loginWithKakao(oauthToken: oauthToken, deviceToken: deviceToken)
-            
             await MainActor.run {
                 isLoading = false
+                isSignInComplete = true
                 authState.currentUser = user
                 authState.isLoggedIn = true
-                isSignInComplete = true
+                authState.startTokenRefreshTimer()
             }
         } catch {
             await MainActor.run {
-                isLoading = false
-                if let networkError = error as? NetworkError {
-                    errorMessage = networkError.errorMessage
-                    print("❌ 카카오 로그인 에러: \(networkError.errorMessage)")
-                } else {
-                    errorMessage = error.localizedDescription
-                    print("❌ 카카오 로그인에러러러러러: \(error)")
-                }
+                handleError(error)
             }
         }
     }
+    
     // MARK: - 애플 로그인
     func signInWithApple() async {
         await MainActor.run {
@@ -145,8 +151,28 @@ final class SignInViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Private Methods
+    
+    private func getCurrentDeviceToken() -> String {
+        // FCM 토큰이 있으면 사용, 없으면 임시 토큰 사용
+        if let fcmToken = fcmTokenManager.getCurrentFCMToken() {
+            print("✅ FCM 토큰 사용: \(fcmToken)")
+            return fcmToken
+        } else {
+            // FCM 토큰이 없는 경우 임시 토큰 사용
+            let fallbackToken = "temp_device_token_\(UUID().uuidString)"
+            print("⚠️ FCM 토큰 없음, 임시 토큰 사용: \(fallbackToken)")
+            
+            // FCM 토큰 재요청
+            fcmTokenManager.refreshFCMToken()
+            
+            return fallbackToken
+        }
+    }
+    
     private func handleError(_ error: Error) {
         isLoading = false
+        
         if let networkError = error as? NetworkError {
             errorMessage = networkError.errorMessage
         } else {

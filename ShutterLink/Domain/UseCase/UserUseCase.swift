@@ -11,6 +11,7 @@ protocol UserUseCase {
     func getTodayAuthor() async throws -> TodayAuthorResponse
     func searchUsers(nick: String) async throws -> UserSearchResponse
     func getUserFilters(userId: String, category: String?, next: String, limit: Int) async throws -> FilterListResponse
+    func updateDeviceToken(_ deviceToken: String) async throws  
 }
 
 final class UserUseCaseImpl: UserUseCase {
@@ -30,4 +31,17 @@ final class UserUseCaseImpl: UserUseCase {
         let router = UserRouter.getUserFilters(userId: userId, category: category, next: next, limit: limit)
         return try await networkManager.request(router, type: FilterListResponse.self)
     }
+    
+    func updateDeviceToken(_ deviceToken: String) async throws {
+        let router = UserRouter.updateDeviceToken(deviceToken: deviceToken)
+        
+        do {
+            try await networkManager.request(router, type: EmptyResponse.self)
+            print("✅ UserUseCase: 디바이스 토큰 업데이트 성공 - \(deviceToken)")
+        } catch {
+            print("❌ UserUseCase: 디바이스 토큰 업데이트 실패 - \(error)")
+            throw error
+        }
+    }
 }
+

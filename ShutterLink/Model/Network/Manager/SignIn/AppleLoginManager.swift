@@ -14,11 +14,10 @@ final class AppleLoginManager: NSObject, ObservableObject, ASAuthorizationContro
     
     private let authUseCase: AuthUseCase
     private let authState: AuthState
+    private let fcmTokenManager = FCMTokenManager.shared
     
-    // 결과 콜백을 위한 continuation 객체
     private var loginContinuation: CheckedContinuation<String, Error>?
     
-    // 닉네임 저장을 위한 변수
     private var nickname: String?
     
     private init(authUseCase: AuthUseCase = AuthUseCaseImpl(), authState: AuthState = .shared) {
@@ -46,24 +45,39 @@ final class AppleLoginManager: NSObject, ObservableObject, ASAuthorizationContro
     }
     
     func completeLogin(idToken: String, nickname: String? = nil) async throws {
-        // 디바이스 토큰 가져오기
-        guard let deviceToken = DeviceTokenManager.shared.getCurrentToken() else {
-            throw NSError(domain: "DeviceTokenError", code: -1, userInfo: [NSLocalizedDescriptionKey: "디바이스 토큰을 생성할 수 없습니다."])
-        }
+        let deviceToken = getCurrentDeviceToken()
         
-        // 서버에 애플 토큰 전달하여 로그인
         let user = try await authUseCase.loginWithApple(idToken: idToken, deviceToken: deviceToken, nickname: nickname)
-        print("아아디토큰:\(idToken)","디바이스 토큰 :\(deviceToken)","닉네임: \(nickname)")
-        // 로그인 성공 시 알림 보내기
+        print("아이디토큰: \(idToken), 디바이스 토큰: \(deviceToken), 닉네임: \(nickname ?? "없음")")
+        
         DeviceTokenManager.shared.sendLocalNotification(
             title: "로그인 성공",
             body: "ShutterLink에 오신 것을 환영합니다!"
         )
         
-        // 로그인 상태 업데이트
         await MainActor.run {
             authState.currentUser = user
             authState.isLoggedIn = true
+            authState.startTokenRefreshTimer()
+        }
+        
+        // 로그인 성공 후 FCM 토큰 동기화
+        await fcmTokenManager.syncTokenWithServer()
+    }
+    
+    private func getCurrentDeviceToken() -> String {
+        if let fcmToken = fcmTokenManager.getCurrentFCMToken() {
+            print("✅ 애플 로그인에 FCM 토큰 사용: \(fcmToken)")
+            return fcmToken
+        } else {
+            // FCM 토큰이 없는 경우 임시 토큰 사용
+            let fallbackToken = "temp_device_token_\(UUID().uuidString)"
+            print("⚠️ 애플 로그인: FCM 토큰 없음, 임시 토큰 사용: \(fallbackToken)")
+            
+            // FCM 토큰 재요청
+            fcmTokenManager.refreshFCMToken()
+            
+            return fallbackToken
         }
     }
     

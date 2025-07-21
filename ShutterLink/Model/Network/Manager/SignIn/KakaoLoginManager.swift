@@ -15,6 +15,7 @@ final class KakaoLoginManager {
     
     private let authUseCase: AuthUseCase
     private let authState: AuthState
+    private let fcmTokenManager = FCMTokenManager.shared
     
     private init(authUseCase: AuthUseCase = AuthUseCaseImpl(), authState: AuthState = .shared) {
         self.authUseCase = authUseCase
@@ -70,20 +71,40 @@ final class KakaoLoginManager {
                 }
             }
         }
-        
     }
     
     func completeLogin(token: String) async throws {
-        // 디바이스 토큰 (실제 구현에서는 FCM 등을 통해 얻음)
-        let deviceToken = "sample_device_token"
+        // 실제 FCM 토큰 사용
+        let deviceToken = getCurrentDeviceToken()
         
-        // 서버에 카카오 토큰 전달하여 로그인
+        // 서버에 카카오 토큰과 FCM 토큰 전달하여 로그인
         let user = try await authUseCase.loginWithKakao(oauthToken: token, deviceToken: deviceToken)
         
         // 로그인 상태 업데이트
         await MainActor.run {
             authState.currentUser = user
             authState.isLoggedIn = true
+            authState.startTokenRefreshTimer()
+        }
+        
+        // 로그인 성공 후 FCM 토큰 동기화
+        await fcmTokenManager.syncTokenWithServer()
+    }
+    
+    private func getCurrentDeviceToken() -> String {
+        // FCM 토큰이 있으면 사용, 없으면 임시 토큰 사용
+        if let fcmToken = fcmTokenManager.getCurrentFCMToken() {
+            print("✅ 카카오 로그인에 FCM 토큰 사용: \(fcmToken)")
+            return fcmToken
+        } else {
+            // FCM 토큰이 없는 경우 임시 토큰 사용
+            let fallbackToken = "temp_device_token_\(UUID().uuidString)"
+            print("⚠️ 카카오 로그인: FCM 토큰 없음, 임시 토큰 사용: \(fallbackToken)")
+            
+            // FCM 토큰 재요청
+            fcmTokenManager.refreshFCMToken()
+            
+            return fallbackToken
         }
     }
 }
