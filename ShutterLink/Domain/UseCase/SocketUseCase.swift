@@ -63,7 +63,6 @@ final class SocketUseCaseImpl: SocketUseCase {
     private let chatUseCase: ChatUseCase
     private var cancellables = Set<AnyCancellable>()
     
-    // ✅ 강화된 실시간 메시지 스트림
     private let realtimeMessageSubject = PassthroughSubject<ChatMessage, Never>()
     
     // ✅ 메시지 처리 상태 추적

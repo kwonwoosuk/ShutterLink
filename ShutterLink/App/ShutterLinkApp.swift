@@ -12,13 +12,59 @@ import FirebaseCore
 import FirebaseMessaging
 import iamport_ios
 
-class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
     
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         print("🔥 Firebase 등록 토큰: \(String(describing: fcmToken))")
         let dataDict: [String: String] = ["token": fcmToken ?? ""]
         NotificationCenter.default.post(name: Notification.Name("FCMToken"), object: nil, userInfo: dataDict)
     }
+    
+    private func handleFCMChatNotification(userInfo: [AnyHashable: Any], isBackground: Bool) {
+        
+        if let roomId = userInfo["room_id"] as? String {
+            print("💬 채팅 알림 처리 - roomId: \(roomId), isBackground: \(isBackground)")
+            
+            Task {
+                await UnreadMessageManager.shared.handleFCMNotification()
+                await MainActor.run {
+                    let totalUnread = UnreadMessageManager.shared.totalUnreadCount
+                    UIApplication.shared.applicationIconBadgeNumber = totalUnread
+                    print("🔢 앱 뱃지 업데이트: \(totalUnread)")
+                }
+            }
+        }
+    }
+    
+    // MARK: - 채팅 푸시 알림 탭 처리
+    
+    private func handleChatPushNotificationTap(userInfo: [AnyHashable: Any]) {
+//          print("🔔 FCM userInfo 전체 구조:")
+//          for (key, value) in userInfo {
+//              print("  \(key): \(value) (타입: \(type(of: value)))")
+//          }
+          
+          guard let roomId = userInfo["room_id"] as? String else {
+              print("⚠️ room_id 정보 없음 - 일반 알림으로 처리")
+              return
+          }
+          
+          print("🔔 채팅 푸시 알림 탭 - roomId: \(roomId)")
+          
+          // 참고용으로 다른 정보들도 로그 (사용하지는 않음)
+          if let senderId = userInfo["google.c.sender.id"] as? String {
+              print("📝 발신자 ID: \(senderId)")
+          }
+          if let aps = userInfo["aps"] as? [String: Any],
+             let alert = aps["alert"] as? [String: Any],
+             let subtitle = alert["subtitle"] as? String {
+              print("📝 발신자 이름: \(subtitle)")
+          }
+          
+          // ✅ NavigationRouter를 통해 채팅방으로 이동 (Realm 접근 없음)
+          NavigationRouter.shared.navigateToChatFromPush(roomId: roomId)
+      }
+    
     
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
         Iamport.shared.receivedURL(url)
@@ -79,26 +125,33 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     
     // MARK: - UNUserNotificationCenterDelegate
     
-    // 포그라운드에서 알림 표시
+    // ✅ 포그라운드 알림 처리
     func userNotificationCenter(_ center: UNUserNotificationCenter,
-                               willPresent notification: UNNotification,
-                               withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        let userInfo = notification.request.content.userInfo
+        print("📱 포그라운드에서 알림 수신: \(userInfo)")
+        
+        handleFCMChatNotification(userInfo: userInfo, isBackground: false)
+        
         completionHandler([.banner, .sound, .badge])
     }
     
-    // 알림 탭 처리
+    // ✅ 알림 탭 처리
     func userNotificationCenter(_ center: UNUserNotificationCenter,
-                               didReceive response: UNNotificationResponse,
-                               withCompletionHandler completionHandler: @escaping () -> Void) {
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
         print("📱 알림 탭됨: \(userInfo)")
+        
+        handleChatPushNotificationTap(userInfo: userInfo)
+        
         completionHandler()
-    }
+        }
 }
 
 @main
 struct ShutterLinkApp: App {
-    @StateObject private var notificationHandler = NotificationHandler.shared
     @StateObject private var authState = AuthState.shared
     @StateObject private var fcmTokenManager = FCMTokenManager.shared
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
@@ -115,7 +168,6 @@ struct ShutterLinkApp: App {
         WindowGroup {
             AppContainerView()
                 .environmentObject(authState)
-                .environmentObject(notificationHandler)
                 .environmentObject(fcmTokenManager)
                 .onOpenURL { url in
                     if AuthApi.isKakaoTalkLoginUrl(url) {

@@ -39,6 +39,56 @@ final class NavigationRouter: ObservableObject {
         }
     }
     
+    func navigateToChatFromPush(roomId: String) {
+           print("🔔 NavigationRouter: 푸시 알림으로 채팅방 이동 - roomId: \(roomId)")
+           
+           // 메인 스레드에서 실행 보장
+           DispatchQueue.main.async { [weak self] in
+               guard let self = self else { return }
+               
+               // 1. 프로필 탭으로 전환
+               self.selectedTab = .profile
+               
+               // 2. 프로필 네비게이션 스택 초기화
+               self.profilePath.removeAll()
+               
+               // 3. participantInfo: nil로 확실히 전달
+               let route = ProfileRoute.chatView(roomId: roomId, participantInfo: nil)
+               self.profilePath.append(route)
+               
+               print("✅ NavigationRouter: 푸시 알림 채팅방 이동 완료 - roomId: \(roomId), participantInfo: nil")
+           }
+       }
+      
+      /// 푸시 알림으로 특정 채팅방 이동
+      func navigateToChatFromPushAsync(roomId: String) async {
+          print("🔔 NavigationRouter: 푸시 알림으로 채팅방 비동기 이동 - roomId: \(roomId)")
+          
+          do {
+              // 채팅방 정보 가져오기
+              let localRepository = try RealmChatRepository()
+              let chatUseCase = ChatUseCaseImpl(localRepository: localRepository)
+              let chatRooms = try await chatUseCase.getChatRooms()
+              
+              if let targetRoom = chatRooms.first(where: { $0.roomId == roomId }),
+                 let participant = targetRoom.participants.first(where: {
+                     $0.userId != TokenManager.shared.getCurrentUserId()
+                 }) {
+                  
+                  await MainActor.run {
+                      navigateToChatFromPush(roomId: roomId)
+                  }
+                  
+              } else {
+                  print("⚠️ NavigationRouter: 채팅방 또는 참가자 정보를 찾을 수 없음 - roomId: \(roomId)")
+              }
+              
+          } catch {
+              print("❌ NavigationRouter: 푸시 네비게이션 실패 - \(error)")
+          }
+      }
+    
+    
     private func popToRootForCurrentTab() {
         print("🔄 NavigationRouter: \(selectedTab.title) 탭 초기화")
         

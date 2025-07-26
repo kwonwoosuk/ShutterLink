@@ -14,7 +14,6 @@ struct ChatRoomListView: View {
     @State private var roomToDelete: ChatRoom?
     @State private var showDeleteAlert = false
     
-    // ✅ TokenManager 인스턴스 추가
     private let tokenManager = TokenManager.shared
     
     init() {
@@ -138,15 +137,21 @@ struct ChatRoomListView: View {
             ForEach(viewModel.chatRooms) { chatRoom in
                 ChatRoomCell(
                     chatRoom: chatRoom,
-                    currentUserId: getCurrentUserId()
+                    currentUserId: getCurrentUserId(),
+                    unreadCount: viewModel.getUnreadCount(for: chatRoom.roomId)
                 )
                 .onTapGesture {
                     openChatRoom(chatRoom)
                 }
                 .listRowBackground(Color.black)
                 .listRowSeparator(.hidden)
+                .swipeActions(edge: .trailing) {
+                    Button("삭제", role: .destructive) {
+                        roomToDelete = chatRoom
+                        showDeleteAlert = true
+                    }
+                }
             }
-            .onDelete(perform: deleteRows)
         }
         .listStyle(PlainListStyle())
         .background(Color.black)
@@ -156,16 +161,16 @@ struct ChatRoomListView: View {
     // MARK: - 액션 메서드
     
     private func openChatRoom(_ chatRoom: ChatRoom) {
+        print("🔓 ChatRoomListViewModel: 채팅방 열기 - roomId: \(chatRoom.roomId)")
+        
+        // 채팅방 진입 전 읽음 처리
+        viewModel.enterChatRoom(roomId: chatRoom.roomId)
+        
         if let participant = getOtherParticipant(from: chatRoom) {
             router.pushToChatView(roomId: chatRoom.roomId, participantInfo: participant)
-        }
-    }
-    
-    private func deleteRows(at offsets: IndexSet) {
-        for index in offsets {
-            let chatRoom = viewModel.chatRooms[index]
-            roomToDelete = chatRoom
-            showDeleteAlert = true
+            print("✅ ChatRoomListViewModel: 채팅방 네비게이션 완료")
+        } else {
+            print("❌ ChatRoomListViewModel: 상대방 참가자를 찾을 수 없음")
         }
     }
     
@@ -184,39 +189,19 @@ struct ChatRoomListView: View {
         }
     }
     
-    // ✅ 수정된 채팅방 삭제 기능
     private func deleteChatRoom(_ chatRoom: ChatRoom) {
-        Task {
-            do {
-                // ✅ 직접 repository에서 삭제
-                let localRepository = try! RealmChatRepository()
-                try await localRepository.deleteChatRoom(roomId: chatRoom.roomId)
-                
-                print("✅ ChatRoomListView: 채팅방 삭제 완료 - roomId: \(chatRoom.roomId)")
-                
-                // 목록 새로고침 - 기존 Combine 시스템 활용
-                await MainActor.run {
-                    viewModel.input.refreshChatRooms.send()
-                    roomToDelete = nil
-                }
-            } catch {
-                print("❌ ChatRoomListView: 채팅방 삭제 실패 - \(error)")
-                await MainActor.run {
-                    viewModel.errorMessage = "채팅방 삭제에 실패했습니다."
-                    viewModel.showError = true
-                    roomToDelete = nil
-                }
-            }
-        }
+        viewModel.input.deleteChatRoom.send(chatRoom.roomId)
+        roomToDelete = nil
     }
 }
 
+// MARK: - ChatRoomCell with Message ID Based Badge
 
 struct ChatRoomCell: View {
     let chatRoom: ChatRoom
     let currentUserId: String
+    let unreadCount: Int
     
-    // ✅ 상대방 찾기 로직 개선
     private var otherParticipant: Users? {
         let otherParticipants = chatRoom.participants.filter { $0.userId != currentUserId }
         let participant = otherParticipants.first
@@ -234,7 +219,6 @@ struct ChatRoomCell: View {
         return participant
     }
     
-    // ✅ 표시할 이름 로직 개선 (nick 우선 표시)
     private var displayName: String {
         guard let participant = otherParticipant else {
             return "알 수 없는 사용자"
@@ -258,30 +242,33 @@ struct ChatRoomCell: View {
             // 채팅방 정보
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    // ✅ 개선된 이름 표시 (nick 우선)
                     Text(displayName)
                         .font(.pretendard(size: 16, weight: .semiBold))
                         .foregroundColor(.white)
                     
                     Spacer()
                     
-                    // 시간
-                    if let lastChat = chatRoom.lastChat {
-                        Text(formatTime(lastChat.createdAt))
-                            .font(.pretendard(size: 12, weight: .regular))
-                            .foregroundColor(.gray)
+                    // 시간과 뱃지를 수직으로 배열
+                    VStack(alignment: .trailing, spacing: 4) {
+                        if let lastChat = chatRoom.lastChat {
+                            Text(formatTime(lastChat.createdAt))
+                                .font(.pretendard(size: 12, weight: .regular))
+                                .foregroundColor(.gray)
+                        } else {
+                            Text(formatTime(chatRoom.updatedAt))
+                                .font(.pretendard(size: 12, weight: .regular))
+                                .foregroundColor(.gray)
+                        }
+                        
+                        // 메시지 ID 기반 안읽은 메시지 뱃지
+                        if unreadCount > 0 {
+                            unreadBadge
+                        }
                     }
                 }
                 
                 // 마지막 메시지
-                HStack {
-                    lastMessageView
-                    
-                    Spacer()
-                    
-                    // 읽지 않은 메시지 배지 (TODO: 구현)
-                    // unreadBadge
-                }
+                lastMessageView
             }
             
             Spacer()
@@ -290,6 +277,8 @@ struct ChatRoomCell: View {
         .padding(.vertical, 12)
         .background(Color.black)
     }
+    
+    // MARK: - View Components
     
     @ViewBuilder
     private var profileImage: some View {
@@ -333,55 +322,51 @@ struct ChatRoomCell: View {
                     Image(systemName: "paperclip")
                         .foregroundColor(.gray)
                         .font(.caption)
-                    
-                    Text("파일 \(lastChat.files.count)개")
+                    Text("첨부파일")
                         .font(.pretendard(size: 14, weight: .regular))
                         .foregroundColor(.gray)
                 }
             } else {
-                Text("메시지 없음")
+                Text("메시지가 없습니다")
                     .font(.pretendard(size: 14, weight: .regular))
-                    .foregroundColor(.gray.opacity(0.6))
-                    .italic()
+                    .foregroundColor(.gray)
             }
         } else {
-            Text("메시지 없음")
+            Text("메시지가 없습니다")
                 .font(.pretendard(size: 14, weight: .regular))
-                .foregroundColor(.gray.opacity(0.6))
-                .italic()
+                .foregroundColor(.gray)
         }
     }
     
-    private func formatTime(_ date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
-        
-        if calendar.isDateInToday(date) {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "ko_KR")
-            formatter.dateFormat = "a h:mm"
-            return formatter.string(from: date)
-        } else if calendar.isDateInYesterday(date) {
-            return "어제"
-        } else if calendar.isDate(date, equalTo: now, toGranularity: .year) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "M/d"
-            return formatter.string(from: date)
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yy/M/d"
-            return formatter.string(from: date)
-        }
+    private var unreadBadge: some View {
+        Text("\(unreadCount)")
+            .font(.pretendard(size: 12, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, unreadCount > 99 ? 6 : 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule()
+                    .fill(Color.red)
+            )
+            .opacity(unreadCount > 0 ? 1.0 : 0.0)
+            .scaleEffect(unreadCount > 0 ? 1.0 : 0.1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: unreadCount)
     }
-}
-
-// MARK: - 미리보기
-
-struct ChatRoomListView_Previews: PreviewProvider {
-    static var previews: some View {
-        NavigationStack {
-            ChatRoomListView()
+    
+    // MARK: - Helper Methods
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        
+        // iOS 16에서 Calendar.isToday, isYesterday 메서드 사용
+        if calendar.isDate(date, inSameDayAs: Date()) {
+            formatter.dateFormat = "HH:mm"
+        } else if calendar.isDate(date, inSameDayAs: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()) {
+            return "어제"
+        } else {
+            formatter.dateFormat = "MM/dd"
         }
-        .preferredColorScheme(.dark)
+        return formatter.string(from: date)
     }
 }

@@ -10,22 +10,32 @@ import Combine
 
 struct ChatView: View {
     let roomId: String
-    let participantInfo: Users
+    let participantInfo: Users?
     
     @StateObject private var viewModel: ChatViewModel
     @EnvironmentObject private var router: NavigationRouter
     @State private var keyboardHeight: CGFloat = 0
     @State private var showDeleteAlert = false
-    @State private var showConnectionStatus = false // 🆕 추가 - 연결 상태 표시
+    @State private var showConnectionStatus = false
+    
+    // ✅ 단순화된 participant 관리
+    @State private var actualParticipant: Users?
+    @State private var navigationTitle: String = "채팅"
+    @State private var cancellables = Set<AnyCancellable>()
     
     // 스크롤 상태 추적
     @State private var scrollProxy: ScrollViewProxy?
     @State private var isUserScrolling = false
     @State private var autoScrollTimer: Timer?
     
-    init(roomId: String, participantInfo: Users) {
+    init(roomId: String, participantInfo: Users?) {
         self.roomId = roomId
         self.participantInfo = participantInfo
+        
+        // ✅ 디버깅 로그
+        print("🔍 ChatView 초기화")
+        print("   - roomId: \(roomId)")
+        print("   - participantInfo: \(participantInfo?.nick ?? "nil")")
         
         let localRepository = try! RealmChatRepository()
         let chatUseCase = ChatUseCaseImpl(localRepository: localRepository)
@@ -41,14 +51,11 @@ struct ChatView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                // 🆕 추가 - 연결 상태 바
                 if showConnectionStatus {
                     connectionStatusBar
                 }
                 
                 enhancedMessagesScrollView
-                
-                // 입력 영역
                 chatInputSection
             }
             .background(Color.black)
@@ -57,14 +64,16 @@ struct ChatView: View {
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .onAppear {
-            // 🆕 추가 - 탭바 숨기기
             router.hideTabBar()
+            
+            // ✅ 항상 새로 로드 (participantInfo 무시)
+            loadParticipantInfo()
         }
         .onDisappear {
-            // 🆕 추가 - 탭바 다시 보이기
             router.showTabBar()
+            cancellables.removeAll()
         }
-        .navigationTitle(participantInfo.nick)
+        .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -74,25 +83,19 @@ struct ChatView: View {
             
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 12) {
-                    connectionStatusButton // 🆕 수정 - 연결 상태 버튼으로 변경
+                    connectionStatusButton
                     exitButton
                 }
             }
         }
         .onAppear {
-            viewModel.onAppear()
+            viewModel.input.loadMessages.send()
             setupKeyboardObservers()
         }
         .onDisappear {
             viewModel.onDisappear()
             removeKeyboardObservers()
             autoScrollTimer?.invalidate()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            viewModel.onAppWillEnterForeground()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
-            viewModel.onAppDidEnterBackground()
         }
         .alert("오류", isPresented: $viewModel.showError) {
             Button("확인") {
@@ -114,6 +117,60 @@ struct ChatView: View {
         .ignoresSafeArea(.keyboard, edges: .all)
     }
     
+    // ✅ 확실한 participant 정보 로드
+    private func loadParticipantInfo() {
+        print("🔍 ChatView: participant 정보 로드 시작 - roomId: \(roomId)")
+        
+        Task {
+            do {
+                // 직접 새로운 ChatUseCase 생성해서 확실하게 로드
+                let localRepository = try await MainActor.run {
+                    try RealmChatRepository()
+                }
+                let chatUseCase = ChatUseCaseImpl(localRepository: localRepository)
+                
+                // 채팅방 목록 조회
+                let chatRooms = try await chatUseCase.getChatRooms()
+                print("📋 ChatView: 채팅방 \(chatRooms.count)개 조회됨")
+                
+                // roomId로 채팅방 찾기
+                if let targetRoom = chatRooms.first(where: { $0.roomId == roomId }) {
+                    print("✅ ChatView: 대상 채팅방 찾음")
+                    print("   - roomId: \(targetRoom.roomId)")
+                    print("   - 참가자: \(targetRoom.participants.map { $0.nick })")
+                    
+                    // 현재 사용자가 아닌 참가자 찾기
+                    let currentUserId = TokenManager.shared.getCurrentUserId()
+                    let otherParticipants = targetRoom.participants.filter { $0.userId != currentUserId }
+                    
+                    if let participant = otherParticipants.first {
+                        await MainActor.run {
+                            self.actualParticipant = participant
+                            self.navigationTitle = participant.nick
+                            print("✅ ChatView: 네비게이션 타이틀 설정 - \(participant.nick)")
+                        }
+                    } else {
+                        await MainActor.run {
+                            self.navigationTitle = "채팅"
+                            print("⚠️ ChatView: 상대방을 찾을 수 없음")
+                        }
+                    }
+                } else {
+                    await MainActor.run {
+                        self.navigationTitle = "채팅"
+                        print("⚠️ ChatView: 채팅방을 찾을 수 없음")
+                    }
+                }
+                
+            } catch {
+                await MainActor.run {
+                    self.navigationTitle = "채팅"
+                    print("❌ ChatView: participant 로드 실패 - \(error)")
+                }
+            }
+        }
+    }
+    
     // MARK: - 강화된 메시지 스크롤뷰
     
     private var enhancedMessagesScrollView: some View {
@@ -122,7 +179,7 @@ struct ChatView: View {
                 LazyVStack(spacing: 0) {
                     // 채팅 시작 안내
                     if viewModel.messages.isEmpty && !viewModel.isLoading {
-                        ChatStartNotice(participantName: participantInfo.nick)
+                        ChatStartNotice(participantName: actualParticipant?.nick ?? "상대방")
                             .padding(.top, 20)
                     }
                     
@@ -411,7 +468,6 @@ struct MessageGroup {
     let date: Date
     let messages: [ChatMessage]
 }
-
 
 // MARK: - 미리보기
 
