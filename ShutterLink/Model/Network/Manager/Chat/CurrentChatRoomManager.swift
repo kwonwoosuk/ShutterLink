@@ -21,7 +21,6 @@ final class CurrentChatRoomManager: ObservableObject {
         
         print("🚪 CurrentChatRoomManager: 채팅방 진입 - roomId: \(roomId)")
         
-        // NotificationCenter로 다른 컴포넌트에 알림
         NotificationCenter.default.post(
             name: NSNotification.Name("DidEnterChatRoom"),
             object: nil,

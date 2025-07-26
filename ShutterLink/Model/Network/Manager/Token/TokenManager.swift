@@ -142,10 +142,7 @@ extension TokenManager {
         }
         
         do {
-            // ✅ JWT 토큰 디코딩하여 사용자 ID 추출
             let jwt = try decode(jwt: accessToken)
-            
-            // 토큰의 payload에서 사용자 ID 추출
             if let userId = jwt.claim(name: "id").string {
                 print("✅ TokenManager: 사용자 ID 추출 성공 (id) - \(userId)")
                 return userId
@@ -167,8 +164,7 @@ extension TokenManager {
             return nil
         }
     }
-    
-    /// 현재 로그인된 사용자의 닉네임을 반환
+
     func getCurrentUserNick() -> String? {
         guard let accessToken = accessToken else {
             print("❌ TokenManager: 액세스 토큰이 없습니다 (닉네임 조회)")
@@ -190,7 +186,6 @@ extension TokenManager {
         }
     }
     
-    /// 현재 로그인된 사용자의 이름을 반환
     func getCurrentUserName() -> String? {
         guard let accessToken = accessToken else {
             print("❌ TokenManager: 액세스 토큰이 없습니다 (이름 조회)")
@@ -212,7 +207,6 @@ extension TokenManager {
         }
     }
     
-    /// JWT 토큰이 유효한지 확인
     func isTokenValid() -> Bool {
         guard let accessToken = accessToken else {
             print("❌ TokenManager: 액세스 토큰이 없습니다 (유효성 검사)")
@@ -233,7 +227,6 @@ extension TokenManager {
         }
     }
     
-    /// JWT 토큰 만료 시간 반환
     func getTokenExpirationTime() -> Date? {
         guard let accessToken = accessToken else {
             print("❌ TokenManager: 액세스 토큰이 없습니다 (만료시간 조회)")
@@ -251,7 +244,6 @@ extension TokenManager {
         }
     }
     
-    /// ✅ JWT 토큰 디버깅 메서드
     func debugToken() {
         guard let accessToken = accessToken else {
             print("🚫 TokenManager: 디버깅할 토큰이 없습니다")
@@ -267,7 +259,6 @@ extension TokenManager {
             print("✅ TokenManager: JWT 디코딩 성공")
             print("📋 TokenManager: 전체 Claims - \(jwt.body)")
             
-            // 주요 클레임들 확인
             ["id", "user_id", "sub", "nick", "name", "email", "iat", "exp", "iss"].forEach { key in
                 if let value = jwt.claim(name: key).string {
                     print("  - \(key): \(value)")
@@ -283,8 +274,6 @@ extension TokenManager {
         }
     }
 }
-
-// MARK: - 사용자 정보 모델
 
 struct CurrentUserInfo {
     let userId: String

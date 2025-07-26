@@ -21,9 +21,23 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
     
     private func handleFCMChatNotification(userInfo: [AnyHashable: Any], isBackground: Bool) {
-        
         if let roomId = userInfo["room_id"] as? String {
             print("💬 채팅 알림 처리 - roomId: \(roomId), isBackground: \(isBackground)")
+            
+            // 🆕 현재 활성 채팅방과 같은 roomId인지 확인
+            if CurrentChatRoomManager.shared.isCurrentChatRoom(roomId) {
+                print("🚫 현재 활성 채팅방과 같은 알림 - 푸시 알림 생략")
+                
+                // UnreadMessageManager에서만 처리하고 뱃지만 업데이트 (알림 표시는 하지 않음)
+                Task {
+                    await UnreadMessageManager.shared.handleFCMNotification()
+                    await MainActor.run {
+                        let totalUnread = UnreadMessageManager.shared.totalUnreadCount
+                        UIApplication.shared.applicationIconBadgeNumber = totalUnread
+                    }
+                }
+                return // 푸시 알림 표시하지 않음
+            }
             
             Task {
                 await UnreadMessageManager.shared.handleFCMNotification()
@@ -125,19 +139,27 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     
     // MARK: - UNUserNotificationCenterDelegate
     
-    // ✅ 포그라운드 알림 처리
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         let userInfo = notification.request.content.userInfo
         print("📱 포그라운드에서 알림 수신: \(userInfo)")
         
-        handleFCMChatNotification(userInfo: userInfo, isBackground: false)
+        // 🆕 현재 활성 채팅방 확인 및 필터링
+        if let roomId = userInfo["room_id"] as? String,
+           CurrentChatRoomManager.shared.isCurrentChatRoom(roomId) {
+            print("🚫 현재 활성 채팅방 알림 - 포그라운드 알림 생략")
+            
+            // 백그라운드 처리만 실행 (알림 표시는 하지 않음)
+            handleFCMChatNotification(userInfo: userInfo, isBackground: false)
+            completionHandler([]) // 알림 표시하지 않음
+            return
+        }
         
+        handleFCMChatNotification(userInfo: userInfo, isBackground: false)
         completionHandler([.banner, .sound, .badge])
     }
     
-    // ✅ 알림 탭 처리
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
