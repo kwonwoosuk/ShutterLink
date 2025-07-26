@@ -8,8 +8,6 @@
 import SwiftUI
 import Combine
 
-// MARK: - 채팅방 목록 ViewModel
-
 final class ChatRoomListViewModel: ObservableObject {
     struct Input {
         let loadChatRooms = PassthroughSubject<Void, Never>()
@@ -19,8 +17,6 @@ final class ChatRoomListViewModel: ObservableObject {
         let enterChatRoom = PassthroughSubject<String, Never>() // roomId - 채팅방 진입 시
         let handleFCMNotification = PassthroughSubject<Void, Never>() // FCM 알림 처리
     }
-    
-    
     
     @Published var chatRooms: [ChatRoom] = []
     @Published var isLoading = false
@@ -121,30 +117,23 @@ final class ChatRoomListViewModel: ObservableObject {
             errorMessage = nil
             
             do {
-                // 1. 로컬 데이터 먼저 로드
+                // 1. 로컬 채팅방 목록 먼저 로드
                 let localChatRooms = try await chatUseCase.getChatRooms()
                 chatRooms = localChatRooms
+                print("📱 ChatRoomListViewModel: 로컬 채팅방 \(localChatRooms.count)개 로드")
+                
+                // 2. 서버 동기화
+                let syncedChatRooms = try await chatUseCase.syncChatRooms()
+                chatRooms = syncedChatRooms
+                print("🔄 ChatRoomListViewModel: 서버 동기화 완료 - \(syncedChatRooms.count)개")
+                
+                // ✅ 3. 안읽은 메시지 개수 업데이트
                 updateUnreadCounts()
                 
-                // 2. 서버와 동기화 (백그라운드)
-                Task {
-                    do {
-                        let syncedChatRooms = try await chatUseCase.syncChatRooms()
-                        await MainActor.run {
-                            chatRooms = syncedChatRooms
-                            updateUnreadCounts()
-                        }
-                    } catch {
-                        print("❌ 채팅방 동기화 실패: \(error)")
-                    }
-                }
-                
-                print("✅ ChatRoomListViewModel: 채팅방 목록 로드 완료 - 개수: \(localChatRooms.count)")
-                
             } catch {
-                print("❌ ChatRoomListViewModel: 채팅방 목록 로드 실패 - \(error)")
                 errorMessage = error.localizedDescription
                 showError = true
+                print("❌ ChatRoomListViewModel: 채팅방 목록 로드 실패 - \(error)")
             }
             
             isLoading = false
@@ -154,123 +143,113 @@ final class ChatRoomListViewModel: ObservableObject {
     private func refreshChatRooms() {
         Task { @MainActor in
             isRefreshing = true
-            errorMessage = nil
             
             do {
-                let syncedChatRooms = try await chatUseCase.syncChatRooms()
-                chatRooms = syncedChatRooms
+                let refreshedChatRooms = try await chatUseCase.syncChatRooms()
+                chatRooms = refreshedChatRooms
+                print("🔄 ChatRoomListViewModel: 새로고침 완료 - \(refreshedChatRooms.count)개")
+                
+                // ✅ 안읽은 메시지 개수 업데이트
                 updateUnreadCounts()
                 
-                print("✅ ChatRoomListViewModel: 채팅방 목록 새로고침 완료 - 개수: \(syncedChatRooms.count)")
-                
             } catch {
-                print("❌ ChatRoomListViewModel: 채팅방 목록 새로고침 실패 - \(error)")
-                errorMessage = error.localizedDescription
+                errorMessage = "새로고침 중 오류가 발생했습니다: \(error.localizedDescription)"
                 showError = true
+                print("❌ ChatRoomListViewModel: 새로고침 실패 - \(error)")
             }
             
             isRefreshing = false
         }
     }
     
+    // ✅ 안읽은 메시지 개수 업데이트
+    private func updateUnreadCounts() {
+        print("🔢 ChatRoomListViewModel: 안읽은 메시지 개수 업데이트 시작")
+        
+        Task {
+            await unreadMessageManager.handleFCMNotification()
+        }
+    }
+    
     private func createChatRoom(opponentId: String) {
         Task { @MainActor in
-            isLoading = true
-            errorMessage = nil
-            
             do {
-                let chatRoom = try await chatUseCase.createOrGetChatRoom(opponentId: opponentId)
-                print("✅ ChatRoomListViewModel: 채팅방 생성 완료 - roomId: \(chatRoom.roomId)")
+                let newChatRoom = try await chatUseCase.createOrGetChatRoom(opponentId: opponentId)
+                print("✅ ChatRoomListViewModel: 채팅방 생성 완료 - roomId: \(newChatRoom.roomId)")
                 
-                // 새 채팅방이 목록에 없으면 추가
-                if !chatRooms.contains(where: { $0.roomId == chatRoom.roomId }) {
-                    chatRooms.insert(chatRoom, at: 0)
-                    updateUnreadCounts()
-                }
+                // 채팅방 목록 새로고침
+                input.loadChatRooms.send()
                 
             } catch {
-                print("❌ ChatRoomListViewModel: 채팅방 생성 실패 - \(error)")
-                errorMessage = error.localizedDescription
+                errorMessage = "채팅방 생성에 실패했습니다: \(error.localizedDescription)"
                 showError = true
+                print("❌ ChatRoomListViewModel: 채팅방 생성 실패 - \(error)")
             }
-            
-            isLoading = false
         }
     }
     
     private func deleteChatRoom(roomId: String) {
         Task { @MainActor in
-            print("🗑️ ChatRoomListViewModel: 채팅방 삭제 시작 - roomId: \(roomId)")
-            
             do {
                 try await chatUseCase.deleteChatRoom(roomId: roomId)
                 print("✅ ChatRoomListViewModel: 채팅방 삭제 완료 - roomId: \(roomId)")
                 
-                // 목록에서 제거
-                chatRooms.removeAll { $0.roomId == roomId }
-                
-                // 안읽은 메시지 개수도 제거
+                // ✅ 안읽은 개수에서도 제거
                 unreadMessageManager.updateUnreadCount(for: roomId, count: 0)
                 
+                // 채팅방 목록 새로고침
+                input.loadChatRooms.send()
+                
             } catch {
-                print("❌ ChatRoomListViewModel: 채팅방 삭제 실패 - \(error)")
-                errorMessage = "채팅방 삭제에 실패했습니다."
+                errorMessage = "채팅방 삭제에 실패했습니다: \(error.localizedDescription)"
                 showError = true
+                print("❌ ChatRoomListViewModel: 채팅방 삭제 실패 - \(error)")
             }
         }
     }
     
+    /// 채팅방 진입 시 읽음 처리
     func enterChatRoom(roomId: String) {
-        print("📖 ChatRoomListViewModel: 채팅방 진입 - roomId: \(roomId)")
+        print("🚪 ChatRoomListViewModel: 채팅방 진입 처리 - roomId: \(roomId)")
         
         // 해당 채팅방의 마지막 메시지 ID로 읽음 처리
-        if let chatRoom = chatRooms.first(where: { $0.roomId == roomId }) {
-            let lastChatId = chatRoom.lastChat?.chatId
-            
-            // UnreadMessageManager에 읽음 처리 요청
-            unreadMessageManager.markAsRead(roomId: roomId, lastChatId: lastChatId)
-            
-            print("✅ ChatRoomListViewModel: 채팅방 읽음 처리 완료 - roomId: \(roomId), lastChatId: \(lastChatId ?? "없음")")
-            
-            // 즉시 UI 업데이트를 위해 안읽은 메시지 개수 0으로 설정
-            unreadMessageManager.updateUnreadCount(for: roomId, count: 0)
+        if let chatRoom = chatRooms.first(where: { $0.roomId == roomId }),
+           let lastChat = chatRoom.lastChat {
+            unreadMessageManager.markAsRead(roomId: roomId, lastChatId: lastChat.chatId)
         } else {
-            print("⚠️ ChatRoomListViewModel: 채팅방을 찾을 수 없음 - roomId: \(roomId)")
+            // 마지막 메시지가 없어도 안읽은 개수는 0으로 설정
+            unreadMessageManager.markAsRead(roomId: roomId, lastChatId: nil)
         }
     }
     
-    // MARK: - FCM 알림 처리
-    
+    /// FCM 알림 처리 (채팅방 목록도 함께 새로고침)
     private func handleFCMNotification() {
         print("🔔 ChatRoomListViewModel: FCM 알림 처리 시작")
         
-        Task {
-            // UnreadMessageManager에서 FCM 처리 (서버 동기화 포함)
-            await unreadMessageManager.handleFCMNotification()
-            
-            // 로컬 채팅방 목록도 업데이트
-            await MainActor.run {
-                input.refreshChatRooms.send()
+        Task { @MainActor in
+            do {
+                // ✅ 1. 서버에서 최신 채팅방 목록 가져오기 (lastChat 업데이트)
+                let latestChatRooms = try await chatUseCase.syncChatRooms()
+                
+                // ✅ 2. UI 업데이트
+                chatRooms = latestChatRooms
+                print("✅ ChatRoomListViewModel: FCM으로 인한 채팅방 목록 업데이트 - \(latestChatRooms.count)개")
+                
+                // ✅ 3. 안읽은 메시지 개수도 업데이트
+                await unreadMessageManager.handleFCMNotification()
+                
+            } catch {
+                print("❌ ChatRoomListViewModel: FCM 처리 실패 - \(error)")
             }
         }
     }
     
-    // MARK: - 안읽은 메시지 관리
-    
-    private func updateUnreadCounts() {
-        guard let currentUserId = getCurrentUserId() else { return }
-        
-        // 메시지 ID 기반으로 안읽은 메시지 개수 업데이트
-        Task {
-            await unreadMessageManager.updateUnreadCountsWithLatestData(chatRooms)
-        }
-    }
-    
+    // ✅ UnreadMessageManager에서 안읽은 개수 가져오기
     func getUnreadCount(for roomId: String) -> Int {
         return unreadMessageManager.getUnreadCount(for: roomId)
     }
     
-    // MARK: - Helper Methods
+    // MARK: - 유틸리티
     
     private func getCurrentUserId() -> String? {
         return TokenManager.shared.getCurrentUserId()
@@ -280,7 +259,6 @@ final class ChatRoomListViewModel: ObservableObject {
 // MARK: - Static Method for FCM Notification
 
 extension ChatRoomListViewModel {
-    /// FCM 알림 수신 시 전역적으로 호출할 수 있는 메서드
     static func handleGlobalFCMNotification() {
         Task {
             await UnreadMessageManager.shared.handleFCMNotification()

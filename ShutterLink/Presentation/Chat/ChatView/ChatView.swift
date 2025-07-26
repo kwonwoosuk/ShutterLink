@@ -18,7 +18,6 @@ struct ChatView: View {
     @State private var showDeleteAlert = false
     @State private var showConnectionStatus = false
     
-    // ✅ 단순화된 participant 관리
     @State private var actualParticipant: Users?
     @State private var navigationTitle: String = "채팅"
     @State private var cancellables = Set<AnyCancellable>()
@@ -65,13 +64,15 @@ struct ChatView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .onAppear {
             router.hideTabBar()
-            
-            // ✅ 항상 새로 로드 (participantInfo 무시)
+            CurrentChatRoomManager.shared.enterChatRoom(roomId)
             loadParticipantInfo()
+            markRoomAsRead()
         }
         .onDisappear {
             router.showTabBar()
             cancellables.removeAll()
+            CurrentChatRoomManager.shared.exitChatRoom()
+            markRoomAsRead()
         }
         .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -116,8 +117,7 @@ struct ChatView: View {
         }
         .ignoresSafeArea(.keyboard, edges: .all)
     }
-    
-    // ✅ 확실한 participant 정보 로드
+
     private func loadParticipantInfo() {
         print("🔍 ChatView: participant 정보 로드 시작 - roomId: \(roomId)")
         
@@ -171,7 +171,36 @@ struct ChatView: View {
         }
     }
     
-    // MARK: - 강화된 메시지 스크롤뷰
+    private func markRoomAsRead() {
+        print("🔖 ChatView: 채팅방 읽음 처리 시작 - roomId: \(roomId)")
+        
+        Task {
+            do {
+                // 현재 채팅방의 마지막 메시지 ID 가져오기
+                let messages = try await viewModel.chatUseCase.getLocalMessages(roomId: roomId)
+                
+                if let lastMessage = messages.last {
+                    // 마지막 메시지 ID를 읽은 메시지로 표시
+                    await MainActor.run {
+                        UnreadMessageManager.shared.markAsRead(roomId: roomId, lastChatId: lastMessage.chatId)
+                        print("✅ ChatView: 읽음 처리 완료 - lastChatId: \(lastMessage.chatId)")
+                    }
+                } else {
+                    // 메시지가 없어도 해당 방의 안읽은 개수는 0으로 설정
+                    await MainActor.run {
+                        UnreadMessageManager.shared.markAsRead(roomId: roomId, lastChatId: nil)
+                        print("✅ ChatView: 메시지 없음, 안읽은 개수 0으로 설정")
+                    }
+                }
+            } catch {
+                print("❌ ChatView: 읽음 처리 실패 - \(error)")
+                // 실패해도 안읽은 개수는 0으로 설정
+                await MainActor.run {
+                    UnreadMessageManager.shared.markAsRead(roomId: roomId, lastChatId: nil)
+                }
+            }
+        }
+    }
     
     private var enhancedMessagesScrollView: some View {
         ScrollViewReader { proxy in
@@ -224,6 +253,9 @@ struct ChatView: View {
             .onChange(of: viewModel.messages.count) { newCount in
                 print("📱 ChatView: 메시지 개수 변화 - \(newCount)개")
                 scheduleAutoScroll(proxy: proxy, reason: "메시지 개수 변화")
+                
+                // ✅ 추가: 새 메시지 도착 시 읽음 처리
+                markRoomAsRead()
             }
             .onChange(of: viewModel.lastMessageUpdate) { _ in
                 print("📱 ChatView: 마지막 메시지 업데이트 감지")

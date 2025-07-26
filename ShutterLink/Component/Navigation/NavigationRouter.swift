@@ -40,25 +40,31 @@ final class NavigationRouter: ObservableObject {
     }
     
     func navigateToChatFromPush(roomId: String) {
-           print("🔔 NavigationRouter: 푸시 알림으로 채팅방 이동 - roomId: \(roomId)")
-           
-           // 메인 스레드에서 실행 보장
-           DispatchQueue.main.async { [weak self] in
-               guard let self = self else { return }
-               
-               // 1. 프로필 탭으로 전환
-               self.selectedTab = .profile
-               
-               // 2. 프로필 네비게이션 스택 초기화
-               self.profilePath.removeAll()
-               
-               // 3. participantInfo: nil로 확실히 전달
-               let route = ProfileRoute.chatView(roomId: roomId, participantInfo: nil)
-               self.profilePath.append(route)
-               
-               print("✅ NavigationRouter: 푸시 알림 채팅방 이동 완료 - roomId: \(roomId), participantInfo: nil")
-           }
-       }
+         DispatchQueue.main.async { [weak self] in
+             guard let self = self else { return }
+             
+             // 1. 프로필 탭으로 전환
+             self.selectedTab = .profile
+             
+             // 2. 프로필 네비게이션 스택 초기화
+             self.profilePath.removeAll()
+             
+             // 3. ChatRoomListView로 먼저 이동
+             let chatRoomListRoute = ProfileRoute.chatRoomList
+             self.profilePath.append(chatRoomListRoute)
+             
+             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                 
+                 NotificationCenter.default.post(
+                     name: NSNotification.Name("NavigateToSpecificChatRoom"),
+                     object: nil,
+                     userInfo: ["roomId": roomId]
+                 )
+             }
+             
+             print("✅ NavigationRouter: ChatRoomListView 경유 네비게이션 설정 완료 - roomId: \(roomId)")
+         }
+     }
       
       /// 푸시 알림으로 특정 채팅방 이동
       func navigateToChatFromPushAsync(roomId: String) async {

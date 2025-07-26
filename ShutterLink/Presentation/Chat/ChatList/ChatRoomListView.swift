@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ChatRoomListView: View {
     @StateObject private var viewModel: ChatRoomListViewModel
+    @StateObject private var unreadManager = UnreadMessageManager.shared
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavigationRouter
     @State private var roomToDelete: ChatRoom?
@@ -17,7 +18,6 @@ struct ChatRoomListView: View {
     private let tokenManager = TokenManager.shared
     
     init() {
-        // 의존성 주입 (실제 구현에서는 DI 컨테이너 사용)
         let localRepository = try! RealmChatRepository()
         let chatUseCase = ChatUseCaseImpl(localRepository: localRepository)
         self._viewModel = StateObject(wrappedValue: ChatRoomListViewModel(chatUseCase: chatUseCase))
@@ -48,6 +48,20 @@ struct ChatRoomListView: View {
         .refreshable {
             viewModel.input.refreshChatRooms.send()
         }
+        // ✅ 추가: 푸시 알림으로 인한 자동 네비게이션 관찰
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NavigateToSpecificChatRoom"))) { notification in
+            handlePushNavigationToChat(notification: notification)
+        }
+        // ✅ 추가: 앱이 포그라운드로 올 때 채팅방 목록 새로고침
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            print("📱 ChatRoomListView: 앱 포그라운드 진입 - 채팅방 목록 새로고침")
+            viewModel.input.handleFCMNotification.send()
+        }
+        // ✅ 추가: FCM 알림 수신 시 채팅방 목록 새로고침
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FCMChatNotificationReceived"))) { _ in
+            print("🔔 ChatRoomListView: FCM 채팅 알림 수신 - 채팅방 목록 새로고침")
+            viewModel.input.handleFCMNotification.send()
+        }
         .alert("오류", isPresented: $viewModel.showError) {
             Button("확인") {
                 viewModel.showError = false
@@ -66,6 +80,41 @@ struct ChatRoomListView: View {
             }
         } message: {
             Text("이 채팅방을 삭제하시겠습니까? 모든 메시지가 영구적으로 삭제됩니다.")
+        }
+    }
+    
+    // ✅ 새로 추가: 푸시 알림으로 인한 자동 채팅방 네비게이션
+    private func handlePushNavigationToChat(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let roomId = userInfo["roomId"] as? String else {
+            print("⚠️ ChatRoomListView: roomId 정보 없음")
+            return
+        }
+        
+        print("🔔 ChatRoomListView: 푸시 알림으로 특정 채팅방 이동 - roomId: \(roomId)")
+        
+        // 해당 roomId의 채팅방 찾기
+        if let targetChatRoom = viewModel.chatRooms.first(where: { $0.roomId == roomId }) {
+            print("✅ ChatRoomListView: 대상 채팅방 찾음")
+            
+            // 기존 openChatRoom 메서드 사용
+            openChatRoom(targetChatRoom)
+            
+        } else {
+            print("⚠️ ChatRoomListView: 채팅방을 찾을 수 없음, 새로고침 후 재시도")
+            
+            // 채팅방 목록 새로고침 후 재시도
+            viewModel.input.refreshChatRooms.send()
+            
+            // 잠시 후 재시도
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                if let targetChatRoom = viewModel.chatRooms.first(where: { $0.roomId == roomId }) {
+                    openChatRoom(targetChatRoom)
+                    print("✅ ChatRoomListView: 새로고침 후 채팅방 이동 완료")
+                } else {
+                    print("❌ ChatRoomListView: 새로고침 후에도 채팅방을 찾을 수 없음")
+                }
+            }
         }
     }
     

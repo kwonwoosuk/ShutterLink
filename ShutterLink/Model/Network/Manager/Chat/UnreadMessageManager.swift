@@ -20,7 +20,6 @@ final class UnreadMessageManager: ObservableObject {
     private let chatUseCase: ChatUseCase
     
     private init() {
-        // 임시로 nil로 초기화, 실제 사용 시에는 의존성 주입 필요
         let localRepository = try! RealmChatRepository()
         self.chatUseCase = ChatUseCaseImpl(localRepository: localRepository)
         
@@ -62,178 +61,163 @@ final class UnreadMessageManager: ObservableObject {
         }
     }
     
-    /// 특정 채팅방의 안읽은 메시지 개수 업데이트
+    /// 앱 시작 시 또는 주기적으로 안읽은 메시지 개수 새로고침
+    func refreshUnreadCounts() async {
+        await handleFCMNotification()
+    }
+    
+    // MARK: - Private Methods - 실제 메시지 개수 계산
+    
+    func updateUnreadCountsWithLatestData(_ latestChatRooms: [ChatRoom]) {
+        print("🔍 UnreadMessageManager: 안읽은 메시지 개수 계산 시작")
+        
+        for chatRoom in latestChatRooms {
+            let roomId = chatRoom.roomId
+            let serverLastChatId = chatRoom.lastChat?.chatId
+            let storedLastReadId = getLastReadMessageId(for: roomId)
+            
+            print("📊 채팅방 \(roomId): 서버 최신 chatId=\(serverLastChatId ?? "nil"), 저장된 lastReadId=\(storedLastReadId ?? "nil")")
+            
+            // 비동기로 실제 안읽은 개수 계산
+            Task {
+                let unreadCount = await calculateRealUnreadCount(
+                    roomId: roomId,
+                    lastReadMessageId: storedLastReadId,
+                    serverLastChatId: serverLastChatId
+                )
+                
+                await MainActor.run {
+                    updateUnreadCount(for: roomId, count: unreadCount)
+                }
+            }
+        }
+    }
+    
+    /// 실제 안읽은 메시지 개수 계산 (로컬 DB 활용)
+    private func calculateRealUnreadCount(roomId: String, lastReadMessageId: String?, serverLastChatId: String?) async -> Int {
+        print("🔢 UnreadMessageManager: 실제 안읽은 개수 계산 - roomId: \(roomId)")
+        
+        // Case 1: 서버에 최신 메시지가 없는 경우
+        guard let serverLastChatId = serverLastChatId else {
+            print("📭 채팅방 \(roomId): 서버에 메시지가 없음")
+            return 0
+        }
+        
+        // Case 2: 로컬에 읽음 기록이 없는 경우 (처음 방문)
+        guard let lastReadMessageId = lastReadMessageId else {
+            print("🆕 채팅방 \(roomId): 처음 방문 - 로컬에서 안읽은 개수 계산")
+            return await calculateUnreadFromLocalMessages(roomId: roomId, lastReadMessageId: nil)
+        }
+        
+        // Case 3: 서버의 최신 메시지와 읽은 메시지가 같은 경우
+        if serverLastChatId == lastReadMessageId {
+            print("✅ 채팅방 \(roomId): 모든 메시지 읽음")
+            return 0
+        }
+        
+        // Case 4: 새로운 메시지가 있는 경우 - 로컬에서 실제 개수 계산
+        return await calculateUnreadFromLocalMessages(roomId: roomId, lastReadMessageId: lastReadMessageId)
+    }
+    
+    /// 로컬 메시지에서 실제 안읽은 개수 계산
+    private func calculateUnreadFromLocalMessages(roomId: String, lastReadMessageId: String?) async -> Int {
+        do {
+            let localMessages = try await chatUseCase.getLocalMessages(roomId: roomId)
+            let currentUserId = TokenManager.shared.getCurrentUserId()
+            
+            print("📋 채팅방 \(roomId): 로컬 메시지 \(localMessages.count)개 조회")
+            print("   - 현재 사용자 ID: \(currentUserId ?? "nil")")
+            print("   - 마지막 읽은 메시지 ID: \(lastReadMessageId ?? "nil")")
+            
+            // 메시지를 시간순으로 정렬 (오래된 것부터)
+            let sortedMessages = localMessages.sorted { $0.createdAt < $1.createdAt }
+            
+            var unreadCount = 0
+            var foundLastRead = false
+            
+            if let lastReadMessageId = lastReadMessageId {
+                // 마지막 읽은 메시지 이후의 메시지들만 계산
+                for message in sortedMessages {
+                    if foundLastRead {
+                        // 현재 사용자가 보낸 메시지는 안읽은 개수에 포함하지 않음
+                        if message.sender.userId != currentUserId {
+                            unreadCount += 1
+                            print("   📩 안읽은 메시지: \(message.chatId) - \(message.content)")
+                        }
+                    } else if message.chatId == lastReadMessageId {
+                        foundLastRead = true
+                        print("   📍 마지막 읽은 메시지 발견: \(message.chatId)")
+                    }
+                }
+                
+                // 마지막 읽은 메시지를 찾지 못한 경우, 모든 상대방 메시지를 안읽은 것으로 처리
+                if !foundLastRead {
+                    unreadCount = sortedMessages.filter { $0.sender.userId != currentUserId }.count
+                    print("   ⚠️ 마지막 읽은 메시지를 찾지 못함, 모든 상대방 메시지를 안읽은 것으로 처리: \(unreadCount)개")
+                }
+            } else {
+                // 마지막 읽은 메시지 기록이 없는 경우, 모든 상대방 메시지를 안읽은 것으로 처리
+                unreadCount = sortedMessages.filter { $0.sender.userId != currentUserId }.count
+                print("   🆕 읽음 기록 없음, 모든 상대방 메시지를 안읽은 것으로 처리: \(unreadCount)개")
+            }
+            
+            print("✅ 채팅방 \(roomId): 실제 안읽은 개수 \(unreadCount)개")
+            return unreadCount
+            
+        } catch {
+            print("❌ UnreadMessageManager: 로컬 메시지 조회 실패 - \(error)")
+            return 0
+        }
+    }
+    
+    // MARK: - Private Methods - 기존 로직 유지
+    
     func updateUnreadCount(for roomId: String, count: Int) {
         let clampedCount = max(0, count)
         let oldCount = unreadCounts[roomId] ?? 0
         
         if oldCount != clampedCount {
             unreadCounts[roomId] = clampedCount
+            calculateTotalUnreadCount()
             
-            // 전체 개수 재계산
-            let newTotal = unreadCounts.values.reduce(0, +)
-            totalUnreadCount = newTotal
-            
-            print("📊 UnreadMessageManager: 채팅방 \(roomId) 안읽은 메시지 \(oldCount) → \(clampedCount), 전체: \(newTotal)")
-            
-            // 앱 뱃지 즉시 업데이트
-            DispatchQueue.main.async {
-                UIApplication.shared.applicationIconBadgeNumber = newTotal
-                print("🔢 앱 뱃지 업데이트: \(newTotal)")
-            }
-            
-            // UserDefaults에 저장
-            saveUnreadCounts()
+            print("📊 UnreadMessageManager: 안읽은 개수 업데이트 - roomId: \(roomId), \(oldCount) → \(clampedCount)")
         }
     }
     
-    /// 최신 채팅방 데이터로 안읽은 메시지 개수 계산
-    func updateUnreadCountsWithLatestData(_ chatRooms: [ChatRoom]) {
-        guard let currentUserId = getCurrentUserId() else { return }
-        
-        var newUnreadCounts: [String: Int] = [:]
-        
-        for chatRoom in chatRooms {
-            let lastReadMessageId = getLastReadMessageId(for: chatRoom.roomId)
+    private func calculateTotalUnreadCount() {
+        let total = unreadCounts.values.reduce(0, +)
+        if totalUnreadCount != total {
+            totalUnreadCount = total
+            updateAppBadge()
             
-            // 마지막 읽은 메시지 이후의 새 메시지 개수 계산
-            let unreadCount = calculateUnreadCount(
-                chatRoom: chatRoom,
-                lastReadMessageId: lastReadMessageId,
-                currentUserId: currentUserId
-            )
-            
-            newUnreadCounts[chatRoom.roomId] = unreadCount
-        }
-        
-        // 기존 unreadCounts와 비교하여 변경된 경우만 업데이트
-        let hasChanges = newUnreadCounts != unreadCounts
-        
-        if hasChanges {
-            unreadCounts = newUnreadCounts
-            let newTotal = newUnreadCounts.values.reduce(0, +)
-            totalUnreadCount = newTotal
-            
-            print("📊 UnreadMessageManager: 전체 안읽은 메시지 업데이트 - 총 \(newTotal)개")
-            for (roomId, count) in newUnreadCounts where count > 0 {
-                print("   채팅방 \(roomId): \(count)개")
-            }
-            
-            // 앱 뱃지 업데이트
-            DispatchQueue.main.async {
-                UIApplication.shared.applicationIconBadgeNumber = newTotal
-                print("🔢 앱 뱃지 업데이트: \(newTotal)")
-            }
-            
-            saveUnreadCounts()
+            print("🔢 UnreadMessageManager: 총 안읽은 개수 업데이트 - \(total)")
         }
     }
-    
-    /// 메시지 ID 기반으로 안읽은 메시지 개수 계산
-    private func calculateUnreadCountByMessageId(for chatRoom: ChatRoom, currentUserId: String) -> Int {
-        // 본인이 보낸 마지막 메시지면 안읽은 메시지 없음
-        guard let lastChat = chatRoom.lastChat,
-              !lastChat.isFromCurrentUser else {
-            return 0
-        }
-        
-        // 마지막으로 읽은 메시지 ID 가져오기
-        let lastReadMessageId = getLastReadMessageId(for: chatRoom.roomId)
-        
-        // 읽은 적이 없거나, 새로운 메시지가 있으면 카운트
-        if lastReadMessageId.isEmpty || lastChat.chatId != lastReadMessageId {
-            // 실제로는 서버 API나 로컬 DB에서 정확한 개수를 계산해야 하지만
-            // 현재는 단순화해서 1로 표시 (lastChat이 새로우면 최소 1개는 있음)
-            return calculateDetailedUnreadCount(
-                roomId: chatRoom.roomId,
-                lastReadMessageId: lastReadMessageId,
-                currentLastChatId: lastChat.chatId
-            )
-        }
-        
-        return 0
-    }
-    
-    /// 상세한 안읽은 메시지 개수 계산 (로컬 DB 활용)
-    private func calculateDetailedUnreadCount(roomId: String, lastReadMessageId: String, currentLastChatId: String) -> Int {
-        // 비동기 작업을 동기적으로 처리하기 위한 임시 구현
-        // 실제로는 더 효율적인 방법을 사용해야 함
-        
-        // 단순화: 마지막 읽은 메시지와 현재 마지막 메시지가 다르면 1개로 표시
-        // 실제 구현에서는 로컬 DB에서 해당 범위의 메시지 개수를 조회
-        return lastReadMessageId != currentLastChatId ? 1 : 0
-    }
-    
-    // MARK: - Message ID Management
-    
-    private func getLastReadMessageId(for roomId: String) -> String {
-        let key = "\(lastReadMessageIdKey)_\(roomId)"
-        return userDefaults.string(forKey: key) ?? ""
-    }
-    
-    private func setLastReadMessageId(for roomId: String, chatId: String) {
-        let key = "\(lastReadMessageIdKey)_\(roomId)"
-        userDefaults.set(chatId, forKey: key)
-    }
-    
-    // MARK: - App Badge Management
     
     private func updateAppBadge() {
         DispatchQueue.main.async {
             UIApplication.shared.applicationIconBadgeNumber = self.totalUnreadCount
-            print("📱 앱 뱃지 업데이트: \(self.totalUnreadCount)")
         }
     }
     
-    // MARK: - Persistence
+    // MARK: - UserDefaults 관련
+    
+    private func setLastReadMessageId(for roomId: String, chatId: String) {
+        let key = "\(lastReadMessageIdKey)_\(roomId)"
+        userDefaults.set(chatId, forKey: key)
+        print("💾 저장: \(key) = \(chatId)")
+    }
+    
+    private func getLastReadMessageId(for roomId: String) -> String? {
+        let key = "\(lastReadMessageIdKey)_\(roomId)"
+        let value = userDefaults.string(forKey: key)
+        print("📖 조회: \(key) = \(value ?? "nil")")
+        return value
+    }
     
     private func loadUnreadCounts() {
-        if let data = userDefaults.data(forKey: "UnreadMessageCounts"),
-           let counts = try? JSONDecoder().decode([String: Int].self, from: data) {
-            unreadCounts = counts
-            totalUnreadCount = counts.values.reduce(0, +)
-        }
-    }
-    
-    private func saveUnreadCounts() {
-        if let data = try? JSONEncoder().encode(unreadCounts) {
-            userDefaults.set(data, forKey: "UnreadMessageCounts")
-        }
-    }
-    
-    // MARK: - Utility
-    
-    private func getCurrentUserId() -> String? {
-        return TokenManager.shared.getCurrentUserId()
-    }
-
-    // MARK: - 1. 새로 추가할 메서드
-
-    /// 앱 포그라운드 진입 시 뱃지 동기화
-    func syncBadgeCount() async {
-        await MainActor.run {
-            let currentTotal = unreadCounts.values.reduce(0, +)
-            totalUnreadCount = currentTotal
-            UIApplication.shared.applicationIconBadgeNumber = currentTotal
-            print("🔄 UnreadMessageManager: 뱃지 동기화 완료 - \(currentTotal)")
-        }
-    }
-
-    /// 정확한 안읽은 메시지 개수 계산 헬퍼 메서드
-    private func calculateUnreadCount(chatRoom: ChatRoom, lastReadMessageId: String, currentUserId: String) -> Int {
-        // 마지막 채팅이 없으면 0
-        guard let lastChat = chatRoom.lastChat else { return 0 }
-        
-        // 마지막 채팅이 내가 보낸 메시지면 0
-        if lastChat.sender.userId == currentUserId { return 0 }
-        
-        // 마지막 읽은 메시지 ID가 없으면 1 (새 메시지 있음)
-        if lastReadMessageId.isEmpty { return 1 }
-        
-        // 마지막 채팅 ID와 마지막 읽은 메시지 ID 비교
-        if lastChat.chatId != lastReadMessageId { return 1 }
-        
-        return 0
+        // 앱 시작 시 저장된 안읽은 개수 로드 (필요시 구현)
+        print("📚 UnreadMessageManager: 저장된 안읽은 개수 로드")
     }
 }
 

@@ -154,6 +154,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 struct ShutterLinkApp: App {
     @StateObject private var authState = AuthState.shared
     @StateObject private var fcmTokenManager = FCMTokenManager.shared
+    @StateObject private var currentChatRoomManager = CurrentChatRoomManager.shared
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
     init() {
@@ -169,6 +170,7 @@ struct ShutterLinkApp: App {
             AppContainerView()
                 .environmentObject(authState)
                 .environmentObject(fcmTokenManager)
+                .environmentObject(currentChatRoomManager)
                 .onOpenURL { url in
                     if AuthApi.isKakaoTalkLoginUrl(url) {
                         _ = AuthController.handleOpenUrl(url: url)
