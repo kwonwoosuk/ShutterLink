@@ -21,10 +21,8 @@ final class FCMTokenManager: ObservableObject {
     private init() {
         self.userUseCase = UserUseCaseImpl()
         
-        // 저장된 FCM 토큰 로드
         loadSavedToken()
         
-        // FCM 토큰 갱신 알림 수신
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleFCMTokenRefresh),
@@ -39,12 +37,10 @@ final class FCMTokenManager: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// 현재 FCM 토큰 반환
     func getCurrentFCMToken() -> String? {
         return currentFCMToken
     }
     
-    /// FCM 토큰 강제 갱신
     func refreshFCMToken() {
         Messaging.messaging().token { [weak self] token, error in
             if let error = error {
@@ -58,13 +54,11 @@ final class FCMTokenManager: ObservableObject {
     
     /// APNS 토큰 설정 후 FCM 토큰 요청
     func requestFCMTokenAfterAPNS() {
-        // APNS 토큰이 설정된 후에만 FCM 토큰을 요청
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.refreshFCMToken()
         }
     }
     
-    /// 현재 FCM 토큰을 서버에 강제 전송
     func syncTokenWithServer() async {
         guard let token = currentFCMToken else {
             print("⚠️ FCM 토큰이 없어서 서버 동기화 불가")
@@ -92,9 +86,7 @@ final class FCMTokenManager: ObservableObject {
         }
     }
     
-    /// FCM 토큰을 서버에 전송
     private func sendTokenToServer(_ token: String) async {
-        // 로그인 상태일 때만 서버에 전송
         guard AuthState.shared.isLoggedIn else {
             print("⚠️ 로그인 상태가 아니므로 FCM 토큰 서버 전송 건너뛰기")
             return
@@ -105,7 +97,6 @@ final class FCMTokenManager: ObservableObject {
             print("✅ FCM 토큰 서버 전송 성공")
         } catch {
             print("❌ FCM 토큰 서버 전송 실패: \(error)")
-            // 실패해도 앱 동작에는 영향을 주지 않음
         }
     }
     
@@ -121,7 +112,6 @@ final class FCMTokenManager: ObservableObject {
     private func saveTokenToKeychain(_ token: String) {
         guard let tokenData = token.data(using: .utf8) else { return }
         
-        // 쿼리 준비
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
@@ -129,10 +119,8 @@ final class FCMTokenManager: ObservableObject {
             kSecValueData as String: tokenData
         ]
         
-        // 기존 항목 삭제
         SecItemDelete(query as CFDictionary)
         
-        // 새 항목 추가
         let status = SecItemAdd(query as CFDictionary, nil)
         
         if status == errSecSuccess {
@@ -161,7 +149,6 @@ final class FCMTokenManager: ObservableObject {
         return nil
     }
     
-    /// FCM 토큰 삭제
     func deleteFCMToken() {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

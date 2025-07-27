@@ -12,10 +12,10 @@ final class ChatRoomListViewModel: ObservableObject {
     struct Input {
         let loadChatRooms = PassthroughSubject<Void, Never>()
         let refreshChatRooms = PassthroughSubject<Void, Never>()
-        let createChatRoom = PassthroughSubject<String, Never>() // opponentId
-        let deleteChatRoom = PassthroughSubject<String, Never>() // roomId
-        let enterChatRoom = PassthroughSubject<String, Never>() // roomId - 채팅방 진입 시
-        let handleFCMNotification = PassthroughSubject<Void, Never>() // FCM 알림 처리
+        let createChatRoom = PassthroughSubject<String, Never>()
+        let deleteChatRoom = PassthroughSubject<String, Never>()
+        let enterChatRoom = PassthroughSubject<String, Never>()
+        let handleFCMNotification = PassthroughSubject<Void, Never>()
     }
     
     @Published var chatRooms: [ChatRoom] = []
@@ -127,7 +127,7 @@ final class ChatRoomListViewModel: ObservableObject {
                 chatRooms = syncedChatRooms
                 print("🔄 ChatRoomListViewModel: 서버 동기화 완료 - \(syncedChatRooms.count)개")
                 
-                // ✅ 3. 안읽은 메시지 개수 업데이트
+                // 3. 안읽은 메시지 개수 업데이트
                 updateUnreadCounts()
                 
             } catch {
@@ -149,7 +149,6 @@ final class ChatRoomListViewModel: ObservableObject {
                 chatRooms = refreshedChatRooms
                 print("🔄 ChatRoomListViewModel: 새로고침 완료 - \(refreshedChatRooms.count)개")
                 
-                // ✅ 안읽은 메시지 개수 업데이트
                 updateUnreadCounts()
                 
             } catch {
@@ -162,10 +161,7 @@ final class ChatRoomListViewModel: ObservableObject {
         }
     }
     
-    // ✅ 안읽은 메시지 개수 업데이트
     private func updateUnreadCounts() {
-        print("🔢 ChatRoomListViewModel: 안읽은 메시지 개수 업데이트 시작")
-        
         Task {
             await unreadMessageManager.handleFCMNotification()
         }
@@ -175,9 +171,7 @@ final class ChatRoomListViewModel: ObservableObject {
         Task { @MainActor in
             do {
                 let newChatRoom = try await chatUseCase.createOrGetChatRoom(opponentId: opponentId)
-                print("✅ ChatRoomListViewModel: 채팅방 생성 완료 - roomId: \(newChatRoom.roomId)")
                 
-                // 채팅방 목록 새로고침
                 input.loadChatRooms.send()
                 
             } catch {
@@ -194,10 +188,8 @@ final class ChatRoomListViewModel: ObservableObject {
                 try await chatUseCase.deleteChatRoom(roomId: roomId)
                 print("✅ ChatRoomListViewModel: 채팅방 삭제 완료 - roomId: \(roomId)")
                 
-                // ✅ 안읽은 개수에서도 제거
                 unreadMessageManager.updateUnreadCount(for: roomId, count: 0)
                 
-                // 채팅방 목록 새로고침
                 input.loadChatRooms.send()
                 
             } catch {
@@ -222,24 +214,113 @@ final class ChatRoomListViewModel: ObservableObject {
         }
     }
     
-    /// FCM 알림 처리 (채팅방 목록도 함께 새로고침)
     private func handleFCMNotification() {
         print("🔔 ChatRoomListViewModel: FCM 알림 처리 시작")
         
         Task { @MainActor in
             do {
-                // ✅ 1. 서버에서 최신 채팅방 목록 가져오기 (lastChat 업데이트)
                 let latestChatRooms = try await chatUseCase.syncChatRooms()
                 
-                // ✅ 2. UI 업데이트
                 chatRooms = latestChatRooms
-                print("✅ ChatRoomListViewModel: FCM으로 인한 채팅방 목록 업데이트 - \(latestChatRooms.count)개")
                 
-                // ✅ 3. 안읽은 메시지 개수도 업데이트
+                for room in latestChatRooms {
+                    if let lastChat = room.lastChat {
+                        print("📨 채팅방 \(room.roomId): lastChat = \(lastChat.content) (\(lastChat.createdAt))")
+                    } else {
+                        print("📭 채팅방 \(room.roomId): lastChat 없음")
+                    }
+                }
+                
                 await unreadMessageManager.handleFCMNotification()
+                
+                objectWillChange.send()
                 
             } catch {
                 print("❌ ChatRoomListViewModel: FCM 처리 실패 - \(error)")
+            }
+        }
+    }
+    
+    func forceRefreshUI() {
+        objectWillChange.send()
+    }
+    
+    func handleRealtimeMessage(roomId: String, message: ChatMessage) {
+        
+        Task { @MainActor in
+            // 1. 해당 채팅방 찾기
+            if let index = chatRooms.firstIndex(where: { $0.roomId == roomId }) {
+                let currentChatRoom = chatRooms[index]
+                
+                // 2. 새로운 ChatRoom 인스턴스 생성 (lastChat 업데이트)
+                let updatedChatRoom = ChatRoom(
+                    roomId: currentChatRoom.roomId,
+                    createdAt: currentChatRoom.createdAt,
+                    updatedAt: message.createdAt,
+                    participants: currentChatRoom.participants,
+                    lastChat: message
+                )
+                
+                chatRooms[index] = updatedChatRoom
+                
+                // 3. 채팅방 목록을 최신순으로 정렬 (updatedAt 기준)
+                chatRooms.sort { $0.updatedAt > $1.updatedAt }
+                
+                print("✅ ChatRoomListViewModel: 실시간 lastChat 업데이트 완료")
+                print("   - 내용: \(message.content)")
+                print("   - 발송자: \(message.sender.nick)")
+                
+                // 4. UI 강제 새로고침
+                objectWillChange.send()
+                
+            } else {
+                print("⚠️ ChatRoomListViewModel: 실시간 메시지의 채팅방을 찾을 수 없음 - 전체 새로고침")
+                // 채팅방을 찾을 수 없으면 전체 새로고침
+                input.refreshChatRooms.send()
+            }
+        }
+    }
+    
+    func updateSpecificChatRoomLastChat(roomId: String) {
+        print("🔄 ChatRoomListViewModel: 특정 채팅방 lastChat 업데이트 - roomId: \(roomId)")
+        
+        Task { @MainActor in
+            do {
+                // 1. 해당 채팅방의 최신 메시지 가져오기
+                let latestMessage = try await chatUseCase.getLatestLocalMessage(roomId: roomId)
+                
+                // 2. 채팅방 목록에서 해당 채팅방 찾아서 업데이트
+                if let index = chatRooms.firstIndex(where: { $0.roomId == roomId }) {
+                    let currentChatRoom = chatRooms[index]
+                    
+                    // 3. 새로운 ChatRoom 인스턴스 생성 (lastChat 업데이트)
+                    let updatedChatRoom = ChatRoom(
+                        roomId: currentChatRoom.roomId,
+                        createdAt: currentChatRoom.createdAt,
+                        updatedAt: latestMessage?.createdAt ?? Date(),
+                        participants: currentChatRoom.participants,
+                        lastChat: latestMessage
+                    )
+                    
+                    chatRooms[index] = updatedChatRoom
+                    
+                    // 4. 채팅방 목록을 최신순으로 정렬 (updatedAt 기준)
+                    chatRooms.sort { $0.updatedAt > $1.updatedAt }
+                    
+                    print("✅ ChatRoomListViewModel: 채팅방 lastChat 즉시 업데이트 완료")
+                    if let message = latestMessage {
+                        print("   - 내용: \(message.content)")
+                        print("   - 발송자: \(message.sender.nick)")
+                    }
+                    
+                    // 5. UI 강제 새로고침
+                    objectWillChange.send()
+                }
+                
+            } catch {
+                print("❌ ChatRoomListViewModel: 특정 채팅방 업데이트 실패 - \(error)")
+                // 실패 시 전체 새로고침
+                handleFCMNotification()
             }
         }
     }

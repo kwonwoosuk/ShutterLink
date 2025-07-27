@@ -155,8 +155,7 @@ final class AuthState: ObservableObject {
             }
         }
         
-        // 110초마다 실행(만료 10초 전 갱신)
-        refreshTimer?.schedule(deadline: .now() + 110, repeating: 110)
+        refreshTimer?.schedule(deadline: .now() + 50, repeating: 50)
         refreshTimer?.resume()
     }
     

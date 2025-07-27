@@ -28,10 +28,8 @@ struct ChatRoomListView: View {
             Color.black.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // 헤더
                 headerView
                 
-                // 콘텐츠
                 if viewModel.isLoading && viewModel.chatRooms.isEmpty {
                     loadingView
                 } else if viewModel.chatRooms.isEmpty {
@@ -48,19 +46,21 @@ struct ChatRoomListView: View {
         .refreshable {
             viewModel.input.refreshChatRooms.send()
         }
-        // ✅ 추가: 푸시 알림으로 인한 자동 네비게이션 관찰
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NavigateToSpecificChatRoom"))) { notification in
             handlePushNavigationToChat(notification: notification)
         }
-        // ✅ 추가: 앱이 포그라운드로 올 때 채팅방 목록 새로고침
+        // 앱이 포그라운드로 올 때 채팅방 목록 새로고침
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             print("📱 ChatRoomListView: 앱 포그라운드 진입 - 채팅방 목록 새로고침")
             viewModel.input.handleFCMNotification.send()
         }
-        // ✅ 추가: FCM 알림 수신 시 채팅방 목록 새로고침
+        // FCM 알림 수신 시 채팅방 목록 새로고침
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FCMChatNotificationReceived"))) { _ in
             print("🔔 ChatRoomListView: FCM 채팅 알림 수신 - 채팅방 목록 새로고침")
             viewModel.input.handleFCMNotification.send()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FCMChatNotificationReceived"))) { notification in
+            handleFCMChatNotification(notification: notification)
         }
         .alert("오류", isPresented: $viewModel.showError) {
             Button("확인") {
@@ -82,8 +82,7 @@ struct ChatRoomListView: View {
             Text("이 채팅방을 삭제하시겠습니까? 모든 메시지가 영구적으로 삭제됩니다.")
         }
     }
-    
-    // ✅ 새로 추가: 푸시 알림으로 인한 자동 채팅방 네비게이션
+
     private func handlePushNavigationToChat(notification: Notification) {
         guard let userInfo = notification.userInfo,
               let roomId = userInfo["roomId"] as? String else {
@@ -91,22 +90,16 @@ struct ChatRoomListView: View {
             return
         }
         
-        print("🔔 ChatRoomListView: 푸시 알림으로 특정 채팅방 이동 - roomId: \(roomId)")
-        
-        // 해당 roomId의 채팅방 찾기
         if let targetChatRoom = viewModel.chatRooms.first(where: { $0.roomId == roomId }) {
             print("✅ ChatRoomListView: 대상 채팅방 찾음")
             
-            // 기존 openChatRoom 메서드 사용
             openChatRoom(targetChatRoom)
             
         } else {
             print("⚠️ ChatRoomListView: 채팅방을 찾을 수 없음, 새로고침 후 재시도")
             
-            // 채팅방 목록 새로고침 후 재시도
             viewModel.input.refreshChatRooms.send()
             
-            // 잠시 후 재시도
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 if let targetChatRoom = viewModel.chatRooms.first(where: { $0.roomId == roomId }) {
                     openChatRoom(targetChatRoom)
@@ -206,8 +199,32 @@ struct ChatRoomListView: View {
         .background(Color.black)
         .scrollContentBackground(.hidden)
     }
+
+    private func handleFCMChatNotification(notification: Notification) {
+        print("🔔 ChatRoomListView: FCM 채팅 알림 수신")
+        
+        // roomId 정보가 있으면 특정 채팅방만 업데이트, 없으면 전체 업데이트
+        if let userInfo = notification.userInfo,
+           let roomId = userInfo["roomId"] as? String,
+           let isCurrentRoom = userInfo["isCurrentRoom"] as? Bool {
+            
+            print("📱 특정 채팅방 알림 - roomId: \(roomId), 현재 방: \(isCurrentRoom)")
+            
+            // 현재 채팅방인 경우 lastChat만 업데이트, 아닌 경우 전체 업데이트
+            if isCurrentRoom {
+                // 현재 채팅방에 있는 경우 - lastChat만 업데이트
+                viewModel.updateSpecificChatRoomLastChat(roomId: roomId)
+            } else {
+                // 다른 채팅방 알림인 경우 - 전체 새로고침
+                viewModel.input.handleFCMNotification.send()
+            }
+        } else {
+            // roomId 정보가 없는 경우 전체 새로고침
+            print("📱 일반 FCM 알림 - 전체 채팅방 목록 새로고침")
+            viewModel.input.handleFCMNotification.send()
+        }
+    }
     
-    // MARK: - 액션 메서드
     
     private func openChatRoom(_ chatRoom: ChatRoom) {
         print("🔓 ChatRoomListViewModel: 채팅방 열기 - roomId: \(chatRoom.roomId)")
@@ -243,8 +260,6 @@ struct ChatRoomListView: View {
         roomToDelete = nil
     }
 }
-
-// MARK: - ChatRoomCell with Message ID Based Badge
 
 struct ChatRoomCell: View {
     let chatRoom: ChatRoom
@@ -315,8 +330,6 @@ struct ChatRoomCell: View {
                         }
                     }
                 }
-                
-                // 마지막 메시지
                 lastMessageView
             }
             
@@ -407,8 +420,6 @@ struct ChatRoomCell: View {
     private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         let calendar = Calendar.current
-        
-        // iOS 16에서 Calendar.isToday, isYesterday 메서드 사용
         if calendar.isDate(date, inSameDayAs: Date()) {
             formatter.dateFormat = "HH:mm"
         } else if calendar.isDate(date, inSameDayAs: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()) {

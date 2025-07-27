@@ -61,15 +61,11 @@ final class NavigationRouter: ObservableObject {
                      userInfo: ["roomId": roomId]
                  )
              }
-             
-             print("✅ NavigationRouter: ChatRoomListView 경유 네비게이션 설정 완료 - roomId: \(roomId)")
          }
      }
       
       /// 푸시 알림으로 특정 채팅방 이동
       func navigateToChatFromPushAsync(roomId: String) async {
-          print("🔔 NavigationRouter: 푸시 알림으로 채팅방 비동기 이동 - roomId: \(roomId)")
-          
           do {
               // 채팅방 정보 가져오기
               let localRepository = try RealmChatRepository()
@@ -96,8 +92,6 @@ final class NavigationRouter: ObservableObject {
     
     
     private func popToRootForCurrentTab() {
-        print("🔄 NavigationRouter: \(selectedTab.title) 탭 초기화")
-        
         switch selectedTab {
         case .home:
             homePath.removeAll()
@@ -138,8 +132,6 @@ final class NavigationRouter: ObservableObject {
         default:
             print("⚠️ NavigationRouter: 잘못된 탭에서 필터 라우트 호출")
         }
-        
-        print("🧭 NavigationRouter: 필터 상세로 이동 - \(filterId)")
     }
     
     func popFilterRoute(from tab: Tab = .home) {
@@ -171,27 +163,22 @@ final class NavigationRouter: ObservableObject {
     func pushToUserDetail(userId: String, userInfo: UserInfo? = nil) {
         if case .userDetail(let currentUserId, _) = searchPath.last {
             if currentUserId == userId {
-                print("⚠️ NavigationRouter: 이미 같은 유저 상세 화면에 있음 - \(userId)")
                 return
             }
         }
-        
         let route = UserRoute.userDetail(userId: userId, userInfo: userInfo)
         searchPath.append(route)
-        print("🧭 NavigationRouter: 유저 상세로 이동 - \(userId)")
     }
     
     func pushToUserFilters(userId: String, userNick: String) {
         let route = UserRoute.userFilters(userId: userId, userNick: userNick)
         searchPath.append(route)
-        print("🧭 NavigationRouter: 유저 필터 목록으로 이동 - \(userId)")
     }
     
     func pushToUserDetailFromFilter(userId: String, userInfo: CreatorInfo, from tab: Tab = .home) {
         let currentPath = tab == .home ? homePath : feedPath
         if case .userDetail(let currentUserId, _) = currentPath.last {
             if currentUserId == userId {
-                print("⚠️ NavigationRouter: 이미 같은 유저 상세 화면에 있음 - \(userId)")
                 return
             }
         }
@@ -206,8 +193,6 @@ final class NavigationRouter: ObservableObject {
         default:
             print("⚠️ NavigationRouter: 잘못된 탭에서 유저 라우트 호출")
         }
-        
-        print("🧭 NavigationRouter: 유저 상세로 이동 - \(userId)")
     }
     
     func popUserRoute() {
@@ -341,16 +326,16 @@ final class NavigationRouter: ObservableObject {
         print("👀 NavigationRouter: 탭바 표시")
     }
     
-    func printCurrentState() {
-        print("🧭 NavigationRouter 현재 상태:")
-        print("   선택된 탭: \(selectedTab.title)")
-        print("   홈 경로: \(homePath.count)개")
-        print("   피드 경로: \(feedPath.count)개")
-        print("   검색 경로: \(searchPath.count)개")
-        print("   프로필 경로: \(profilePath.count)개")
-        print("   Make 경로: \(makePath.count)개")
-        print("   Sheet: \(presentedSheet?.description ?? "없음")")
-    }
+//    func printCurrentState() {
+//        print("🧭 NavigationRouter 현재 상태:")
+//        print("   선택된 탭: \(selectedTab.title)")
+//        print("   홈 경로: \(homePath.count)개")
+//        print("   피드 경로: \(feedPath.count)개")
+//        print("   검색 경로: \(searchPath.count)개")
+//        print("   프로필 경로: \(profilePath.count)개")
+//        print("   Make 경로: \(makePath.count)개")
+//        print("   Sheet: \(presentedSheet?.description ?? "없음")")
+//    }
 }
 
 enum PresentedSheet: Identifiable, CustomStringConvertible, Equatable  {

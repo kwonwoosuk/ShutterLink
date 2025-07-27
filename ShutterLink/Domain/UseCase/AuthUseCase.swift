@@ -25,7 +25,6 @@ final class AuthUseCaseImpl: AuthUseCase {
     func validateEmail(email: String) async throws -> Bool {
         let router = AuthRouter.validateEmail(email: email)
         let response = try await networkManager.request(router, type: EmailValidationResponse.self)
-        // "사용 가능한 이메일입니다." 메시지를 확인
         return response.message.contains("사용 가능한")
     }
     

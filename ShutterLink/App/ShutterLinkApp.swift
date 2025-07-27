@@ -22,29 +22,36 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     
     private func handleFCMChatNotification(userInfo: [AnyHashable: Any], isBackground: Bool) {
         if let roomId = userInfo["room_id"] as? String {
-            print("💬 채팅 알림 처리 - roomId: \(roomId), isBackground: \(isBackground)")
-            
-            // 🆕 현재 활성 채팅방과 같은 roomId인지 확인
             if CurrentChatRoomManager.shared.isCurrentChatRoom(roomId) {
-                print("🚫 현재 활성 채팅방과 같은 알림 - 푸시 알림 생략")
-                
-                // UnreadMessageManager에서만 처리하고 뱃지만 업데이트 (알림 표시는 하지 않음)
                 Task {
                     await UnreadMessageManager.shared.handleFCMNotification()
                     await MainActor.run {
                         let totalUnread = UnreadMessageManager.shared.totalUnreadCount
                         UIApplication.shared.applicationIconBadgeNumber = totalUnread
                     }
+                    
+                    await MainActor.run {
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("FCMChatNotificationReceived"),
+                            object: nil,
+                            userInfo: ["roomId": roomId, "isCurrentRoom": true]
+                        )
+                    }
                 }
-                return // 푸시 알림 표시하지 않음
+                return
             }
-            
+            // 푸시받으면  앱 알림 갯수 뱃지 업데이트하는 메서드
             Task {
                 await UnreadMessageManager.shared.handleFCMNotification()
                 await MainActor.run {
                     let totalUnread = UnreadMessageManager.shared.totalUnreadCount
                     UIApplication.shared.applicationIconBadgeNumber = totalUnread
-                    print("🔢 앱 뱃지 업데이트: \(totalUnread)")
+                    
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("FCMChatNotificationReceived"),
+                        object: nil,
+                        userInfo: ["roomId": roomId, "isCurrentRoom": false]
+                    )
                 }
             }
         }
@@ -53,32 +60,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     // MARK: - 채팅 푸시 알림 탭 처리
     
     private func handleChatPushNotificationTap(userInfo: [AnyHashable: Any]) {
-//          print("🔔 FCM userInfo 전체 구조:")
-//          for (key, value) in userInfo {
-//              print("  \(key): \(value) (타입: \(type(of: value)))")
-//          }
-          
-          guard let roomId = userInfo["room_id"] as? String else {
-              print("⚠️ room_id 정보 없음 - 일반 알림으로 처리")
-              return
-          }
-          
-          print("🔔 채팅 푸시 알림 탭 - roomId: \(roomId)")
-          
-          // 참고용으로 다른 정보들도 로그 (사용하지는 않음)
-          if let senderId = userInfo["google.c.sender.id"] as? String {
-              print("📝 발신자 ID: \(senderId)")
-          }
-          if let aps = userInfo["aps"] as? [String: Any],
-             let alert = aps["alert"] as? [String: Any],
-             let subtitle = alert["subtitle"] as? String {
-              print("📝 발신자 이름: \(subtitle)")
-          }
-          
-          // ✅ NavigationRouter를 통해 채팅방으로 이동 (Realm 접근 없음)
-          NavigationRouter.shared.navigateToChatFromPush(roomId: roomId)
-      }
-    
+        //          print("🔔 FCM userInfo 전체 구조:")
+        //          for (key, value) in userInfo {
+        //              print("  \(key): \(value) (타입: \(type(of: value)))")
+        //          }
+        
+        guard let roomId = userInfo["room_id"] as? String else {
+            return
+        }
+        
+        print("🔔 채팅 푸시 알림 탭 - roomId: \(roomId)")
+        NavigationRouter.shared.navigateToChatFromPush(roomId: roomId)
+    }
     
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
         Iamport.shared.receivedURL(url)
@@ -87,11 +80,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        
-        // Firebase 초기화
         FirebaseApp.configure()
         
-        // 알림 권한 요청
         if #available(iOS 10.0, *) {
             UNUserNotificationCenter.current().delegate = self
             
@@ -102,7 +92,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 if granted {
                     print("✅ 알림 권한 허용됨")
                 } else {
-                    print("❌ 알림 권한 거부됨: \(error?.localizedDescription ?? "unknown")")
+                    print("❌ 알림 권한 거부됨")
                 }
             }
         } else {
@@ -110,13 +100,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             UIUserNotificationSettings(types: [.alert, .badge, .sound], categories: nil)
             application.registerUserNotificationSettings(settings)
         }
-        
-        // APNS 등록 (먼저 실행되어야 함)
         application.registerForRemoteNotifications()
-        
-        // 메시지 대리자 설정
         Messaging.messaging().delegate = self
-        
         
         return true
     }
@@ -145,14 +130,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         let userInfo = notification.request.content.userInfo
         print("📱 포그라운드에서 알림 수신: \(userInfo)")
         
-        // 🆕 현재 활성 채팅방 확인 및 필터링
         if let roomId = userInfo["room_id"] as? String,
            CurrentChatRoomManager.shared.isCurrentChatRoom(roomId) {
             print("🚫 현재 활성 채팅방 알림 - 포그라운드 알림 생략")
             
-            // 백그라운드 처리만 실행 (알림 표시는 하지 않음)
             handleFCMChatNotification(userInfo: userInfo, isBackground: false)
-            completionHandler([]) // 알림 표시하지 않음
+            completionHandler([])
             return
         }
         
@@ -164,12 +147,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
-        print("📱 알림 탭됨: \(userInfo)")
-        
         handleChatPushNotificationTap(userInfo: userInfo)
         
         completionHandler()
-        }
+    }
 }
 
 @main
@@ -180,7 +161,6 @@ struct ShutterLinkApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
     init() {
-        // 카카오 SDK 초기화
         KakaoSDK.initSDK(appKey: "6673881ea6a5986552bce8d37739b5e2")
         
         // 알림 권한 요청
@@ -210,25 +190,20 @@ struct ShutterLinkApp: App {
     }
     
     private func handleAppForeground() {
-        // 로딩 중이 아닐 때만 처리
         guard !authState.isLoading else {
             print("⏳ 로딩 중이므로 토큰 확인 건너뛰기")
             return
         }
-        
-        // FCM 토큰 갱신
         fcmTokenManager.refreshFCMToken()
         
         if authState.isLoggedIn {
             print("✅ 로그인 상태 - 토큰 갱신 타이머 시작 및 토큰 확인")
             authState.startTokenRefreshTimer()
             
-            // FCM 토큰을 서버와 동기화
             Task {
                 await fcmTokenManager.syncTokenWithServer()
             }
             
-            // 앱이 백그라운드에서 오래 있었을 경우를 대비해 토큰 상태 확인
             Task {
                 await authState.checkAndRefreshTokenIfNeeded()
             }
@@ -238,8 +213,6 @@ struct ShutterLinkApp: App {
             // 토큰은 있지만 로그인 상태가 아닌 경우 자동 로그인 시도
             Task {
                 await authState.loadUserIfTokenExists()
-                
-                // 자동 로그인 성공 후 FCM 토큰 동기화
                 if authState.isLoggedIn {
                     await fcmTokenManager.syncTokenWithServer()
                 }
