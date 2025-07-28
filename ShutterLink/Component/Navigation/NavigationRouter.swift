@@ -17,6 +17,7 @@ final class NavigationRouter: ObservableObject {
     @Published var searchPath: [UserRoute] = []
     @Published var profilePath: [ProfileRoute] = []
     @Published var makePath: [MakeRoute] = []
+    @Published var communityPath: [CommunityRoute] = []
     @Published var isTabBarHidden: Bool = false
     
     @Published var presentedSheet: PresentedSheet?
@@ -26,6 +27,7 @@ final class NavigationRouter: ObservableObject {
     let searchScrollToTop = PassthroughSubject<Void, Never>()
     let profileScrollToTop = PassthroughSubject<Void, Never>()
     let makeScrollToTop = PassthroughSubject<Void, Never>()
+    let communityScrollToTop = PassthroughSubject<Void, Never>()
     
     static let shared = NavigationRouter()
     private init() {}
@@ -40,55 +42,55 @@ final class NavigationRouter: ObservableObject {
     }
     
     func navigateToChatFromPush(roomId: String) {
-         DispatchQueue.main.async { [weak self] in
-             guard let self = self else { return }
-             
-             // 1. 프로필 탭으로 전환
-             self.selectedTab = .profile
-             
-             // 2. 프로필 네비게이션 스택 초기화
-             self.profilePath.removeAll()
-             
-             // 3. ChatRoomListView로 먼저 이동
-             let chatRoomListRoute = ProfileRoute.chatRoomList
-             self.profilePath.append(chatRoomListRoute)
-             
-             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                 
-                 NotificationCenter.default.post(
-                     name: NSNotification.Name("NavigateToSpecificChatRoom"),
-                     object: nil,
-                     userInfo: ["roomId": roomId]
-                 )
-             }
-         }
-     }
-      
-      /// 푸시 알림으로 특정 채팅방 이동
-      func navigateToChatFromPushAsync(roomId: String) async {
-          do {
-              // 채팅방 정보 가져오기
-              let localRepository = try RealmChatRepository()
-              let chatUseCase = ChatUseCaseImpl(localRepository: localRepository)
-              let chatRooms = try await chatUseCase.getChatRooms()
-              
-              if let targetRoom = chatRooms.first(where: { $0.roomId == roomId }),
-                 let participant = targetRoom.participants.first(where: {
-                     $0.userId != TokenManager.shared.getCurrentUserId()
-                 }) {
-                  
-                  await MainActor.run {
-                      navigateToChatFromPush(roomId: roomId)
-                  }
-                  
-              } else {
-                  print("⚠️ NavigationRouter: 채팅방 또는 참가자 정보를 찾을 수 없음 - roomId: \(roomId)")
-              }
-              
-          } catch {
-              print("❌ NavigationRouter: 푸시 네비게이션 실패 - \(error)")
-          }
-      }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // 1. 프로필 탭으로 전환
+            self.selectedTab = .profile
+            
+            // 2. 프로필 네비게이션 스택 초기화
+            self.profilePath.removeAll()
+            
+            // 3. ChatRoomListView로 먼저 이동
+            let chatRoomListRoute = ProfileRoute.chatRoomList
+            self.profilePath.append(chatRoomListRoute)
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("NavigateToSpecificChatRoom"),
+                    object: nil,
+                    userInfo: ["roomId": roomId]
+                )
+            }
+        }
+    }
+    
+    /// 푸시 알림으로 특정 채팅방 이동
+    func navigateToChatFromPushAsync(roomId: String) async {
+        do {
+            // 채팅방 정보 가져오기
+            let localRepository = try RealmChatRepository()
+            let chatUseCase = ChatUseCaseImpl(localRepository: localRepository)
+            let chatRooms = try await chatUseCase.getChatRooms()
+            
+            if let targetRoom = chatRooms.first(where: { $0.roomId == roomId }),
+               let participant = targetRoom.participants.first(where: {
+                   $0.userId != TokenManager.shared.getCurrentUserId()
+               }) {
+                
+                await MainActor.run {
+                    navigateToChatFromPush(roomId: roomId)
+                }
+                
+            } else {
+                print("⚠️ NavigationRouter: 채팅방 또는 참가자 정보를 찾을 수 없음 - roomId: \(roomId)")
+            }
+            
+        } catch {
+            print("❌ NavigationRouter: 푸시 네비게이션 실패 - \(error)")
+        }
+    }
     
     
     private func popToRootForCurrentTab() {
@@ -159,7 +161,7 @@ final class NavigationRouter: ObservableObject {
             break
         }
     }
-
+    
     func pushToUserDetail(userId: String, userInfo: UserInfo? = nil) {
         if case .userDetail(let currentUserId, _) = searchPath.last {
             if currentUserId == userId {
@@ -193,6 +195,46 @@ final class NavigationRouter: ObservableObject {
         default:
             print("⚠️ NavigationRouter: 잘못된 탭에서 유저 라우트 호출")
         }
+    }
+    
+    func pushToPostDetail(postId: String) {
+        let route = CommunityRoute.postDetail(postId: postId)
+        communityPath.append(route)
+        print("🧭 NavigationRouter: 게시글 상세로 이동 - \(postId)")
+    }
+    
+    func pushToCreatePost() {
+        let route = CommunityRoute.createPost
+        communityPath.append(route)
+        print("🧭 NavigationRouter: 게시글 작성으로 이동")
+    }
+    
+    func pushToEditPost(post: Post) {
+        let route = CommunityRoute.editPost(post: post)
+        communityPath.append(route)
+        print("🧭 NavigationRouter: 게시글 수정으로 이동 - \(post.postId)")
+    }
+    
+    func popCommunityRoute() {
+        if !communityPath.isEmpty {
+            communityPath.removeLast()
+        }
+    }
+    
+    func popToRootCommunity() {
+        communityPath.removeAll()
+    }
+
+    func pushToMyLikedPosts() {
+        let route = CommunityRoute.myLikedPosts
+        communityPath.append(route)
+        print("🧭 NavigationRouter: 내가 좋아요한 게시글로 이동")
+    }
+    
+    func pushToUserPosts(userId: String, userNick: String) {
+        let route = CommunityRoute.userPosts(userId: userId, userNick: userNick)
+        communityPath.append(route)
+        print("🧭 NavigationRouter: \(userNick)님의 게시글로 이동")
     }
     
     func popUserRoute() {
@@ -291,7 +333,7 @@ final class NavigationRouter: ObservableObject {
         presentedSheet = nil
         print("🧭 NavigationRouter: Sheet 닫기")
     }
-
+    
     func getCurrentPathCount() -> Int {
         switch selectedTab {
         case .home:
@@ -316,26 +358,13 @@ final class NavigationRouter: ObservableObject {
         withAnimation(.easeInOut(duration: 0.3)) {
             isTabBarHidden = true
         }
-        print("🙈 NavigationRouter: 탭바 숨김")
     }
     
     func showTabBar() {
         withAnimation(.easeInOut(duration: 0.3)) {
             isTabBarHidden = false
         }
-        print("👀 NavigationRouter: 탭바 표시")
     }
-    
-//    func printCurrentState() {
-//        print("🧭 NavigationRouter 현재 상태:")
-//        print("   선택된 탭: \(selectedTab.title)")
-//        print("   홈 경로: \(homePath.count)개")
-//        print("   피드 경로: \(feedPath.count)개")
-//        print("   검색 경로: \(searchPath.count)개")
-//        print("   프로필 경로: \(profilePath.count)개")
-//        print("   Make 경로: \(makePath.count)개")
-//        print("   Sheet: \(presentedSheet?.description ?? "없음")")
-//    }
 }
 
 enum PresentedSheet: Identifiable, CustomStringConvertible, Equatable  {

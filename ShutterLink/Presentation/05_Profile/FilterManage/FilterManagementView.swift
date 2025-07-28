@@ -12,13 +12,11 @@ struct FilterManagementView: View {
     @EnvironmentObject private var router: NavigationRouter
     @EnvironmentObject private var authState: AuthState
     
-    // 🆕 삭제 확인 관련 상태 추가
     @State private var showDeleteConfirmation = false
     @State private var filterToDelete: FilterItem?
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     
-    // 🆕 토스트 메시지 관련 추가
     @State private var showSuccessToast = false
     @State private var showErrorToast = false
     @State private var toastMessage = ""
@@ -50,7 +48,6 @@ struct FilterManagementView: View {
                 loadMyFilters()
             }
             
-            // 🆕 성공 토스트
             if showSuccessToast {
                 VStack {
                     Spacer()
@@ -60,7 +57,6 @@ struct FilterManagementView: View {
                 .animation(.easeInOut(duration: 0.3), value: showSuccessToast)
             }
             
-            // 🆕 오류 토스트
             if showErrorToast {
                 VStack {
                     Spacer()
@@ -70,7 +66,6 @@ struct FilterManagementView: View {
                 .animation(.easeInOut(duration: 0.3), value: showErrorToast)
             }
         }
-        // 🆕 삭제 확인 알림 다시 추가
         .confirmationDialog("필터 삭제", isPresented: $showDeleteConfirmation, presenting: filterToDelete) { filter in
             Button("삭제", role: .destructive) {
                 deleteFilterOptimistic(filter)
@@ -86,7 +81,6 @@ struct FilterManagementView: View {
         } message: {
             Text(errorMessage)
         }
-        // 🆕 Pull to Refresh 추가
         .refreshable {
             refreshFilters()
         }
@@ -253,37 +247,30 @@ struct FilterManagementView: View {
         loadMyFilters()
     }
     
-    // 🆕 삭제 확인 알림 표시
     private func showDeleteConfirmation(for filter: FilterItem) {
         print("⚠️ FilterManagementView: 삭제 확인 표시 - \(filter.title)")
         filterToDelete = filter
         showDeleteConfirmation = true
     }
     
-    // 🆕 Optimistic Update 방식 삭제 (확인 후 실행)
     private func deleteFilterOptimistic(_ filter: FilterItem) {
         print("🗑️ FilterManagementView: Optimistic 삭제 시작 - \(filter.title)")
         
-        // 1. 햅틱 피드백 제공
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
-        
-        // 2. 즉시 UI에서 필터 제거 (백업용으로 원본 배열 저장)
+    
         let originalFilters = viewModel.myFilters
         viewModel.removeFilterFromList(filterId: filter.filter_id)
         
-        // 3. 백그라운드에서 서버 삭제 수행
         Task {
             let success = await viewModel.deleteFilter(filterId: filter.filter_id)
             
             await MainActor.run {
                 if success {
-                    // 삭제 성공 - 성공 토스트 표시 (추가 API 호출 없음)
                     SuccessToast()
                     filterToDelete = nil
                     print("✅ FilterManagementView: 필터 삭제 성공")
                 } else {
-                    // 삭제 실패 - UI 복원 및 오류 토스트 표시
                     print("❌ FilterManagementView: 필터 삭제 실패 - UI 복원")
                     viewModel.restoreFilters(originalFilters)
                     showErrorToast(viewModel.errorMessage)
@@ -293,7 +280,6 @@ struct FilterManagementView: View {
         }
     }
     
-    // 🆕 토스트 메시지 표시 메서드들
     private func SuccessToast() {
         showSuccessToast = true
         
@@ -314,7 +300,7 @@ struct FilterManagementView: View {
     }
 }
 
-// MARK: - 필터 관리 행 뷰 (기존 유지, 스와이프 삭제만 제거)
+// MARK: - 필터 관리 행 뷰
 
 struct FilterManagementRow: View {
     let filter: FilterItem
@@ -322,7 +308,6 @@ struct FilterManagementRow: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // 필터 이미지 (프로젝트의 AuthenticatedImageView 사용)
             if let firstImagePath = filter.files.first {
                 AuthenticatedImageView(
                     imagePath: firstImagePath,
@@ -399,7 +384,6 @@ struct FilterManagementRow: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.gray.opacity(0.1))
         )
-        // 🆕 스와이프 삭제 기능 유지 및 개선 (확인 알림 포함)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button {
                 // 스와이프 삭제도 확인 알림 표시

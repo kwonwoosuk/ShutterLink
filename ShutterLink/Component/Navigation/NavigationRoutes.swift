@@ -45,7 +45,7 @@ enum ProfileRoute: Route {
     case likedFilters
     case filterDetail(filterId: String)
     case chatRoomList
-    case chatView(roomId: String, participantInfo: Users?)
+    case chatView(roomId: String, participantInfo: Users) 
     case filterManagement
     
     var id: String {
@@ -67,7 +67,7 @@ enum ProfileRoute: Route {
 }
 
 enum MakeRoute: Route {
-    case create 
+    case create
     case editFilter(originalImage: UIImage?)
     
     var id: String {
@@ -76,6 +76,29 @@ enum MakeRoute: Route {
             return "create"
         case .editFilter:
             return "editFilter"
+        }
+    }
+}
+
+enum CommunityRoute: Route {
+    case postDetail(postId: String)
+    case createPost
+    case editPost(post: Post)
+    case myLikedPosts
+    case userPosts(userId: String, userNick: String)
+    
+    var id: String {
+        switch self {
+        case .postDetail(let postId):
+            return "postDetail_\(postId)"
+        case .createPost:
+            return "createPost"
+        case .editPost(let post):
+            return "editPost_\(post.postId)"
+        case .myLikedPosts:
+            return "myLikedPosts"
+        case .userPosts(let userId, _):
+            return "userPosts_\(userId)"
         }
     }
 }
