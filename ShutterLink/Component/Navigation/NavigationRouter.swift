@@ -225,6 +225,7 @@ final class NavigationRouter: ObservableObject {
         communityPath.removeAll()
     }
 
+    
     func pushToMyLikedPosts() {
         let route = CommunityRoute.myLikedPosts
         communityPath.append(route)
@@ -364,6 +365,12 @@ final class NavigationRouter: ObservableObject {
         withAnimation(.easeInOut(duration: 0.3)) {
             isTabBarHidden = false
         }
+    }
+    
+    func pushToCacheManagement() {
+        let route = ProfileRoute.cacheManagement
+        profilePath.append(route)
+        print("🧭 NavigationRouter: 캐시 관리 화면으로 이동")
     }
 }
 

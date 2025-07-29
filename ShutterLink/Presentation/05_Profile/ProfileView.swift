@@ -23,11 +23,12 @@ struct ProfileView: View {
                 
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 25) {
+                        VStack(alignment: .leading, spacing: 12) {
                             profileImageSection
                             userInfoSection
                             hashTagsSection
-                            actionButtonsSection
+                            diskCacheManagementSection
+                            ChatButtonsSection
                             likedFiltersSection
                             logoutButtonSection
                         }
@@ -154,11 +155,20 @@ extension ProfileView {
             }
         }
         .padding(.horizontal)
-        .padding(.top, 10)
+        
     }
     
-    private var actionButtonsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+    // MARK: - 디스크 캐시 관리 섹션
+    private var diskCacheManagementSection: some View {
+        VStack {
+            cacheManagementCard
+        }
+        .padding(.horizontal)
+        
+    }
+    
+    private var ChatButtonsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 // 채팅 내역 버튼
                 Button {
@@ -190,7 +200,86 @@ extension ProfileView {
             .buttonStyle(PlainButtonStyle())
         }
         .padding(.horizontal)
-        .padding(.top, 10)
+        
+    }
+    
+    private var cacheManagementCard: some View {
+        Button {
+            router.pushToCacheManagement()
+        } label: {
+            HStack(spacing: 12) {
+                cacheUsageProgressBar
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.gray)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.black)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onAppear {
+            CacheManager.shared.updateCacheSizes()
+        }
+    }
+    
+    private var cacheUsageProgressBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("캐시 사용량")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white)
+                
+                Spacer()
+            }
+            
+            // 캐시 사용량 정보
+            HStack {
+                let cacheManager = CacheManager.shared
+                let totalUsed = cacheManager.memoryCacheSize + cacheManager.diskCacheSize
+                let totalMax = cacheManager.getMaxMemoryCacheSize() + cacheManager.getMaxDiskCacheSize()
+                let usagePercentage = totalMax > 0 ? Double(totalUsed) / Double(totalMax) * 100 : 0
+                
+                Text("\(cacheManager.formatBytes(totalUsed)) / \(cacheManager.formatBytes(totalMax))")
+                    .font(.system(size: 12))
+                    .foregroundColor(DesignSystem.Colors.Gray.gray60)
+                
+                Spacer()
+                
+                Text("\(String(format: "%.1f", usagePercentage))% 사용")
+                    .font(.system(size: 12))
+                    .foregroundColor(DesignSystem.Colors.Gray.gray60)
+            }
+            
+            // 프로그레스 바
+            let cacheManager = CacheManager.shared
+            let totalUsed = cacheManager.memoryCacheSize + cacheManager.diskCacheSize
+            let totalMax = cacheManager.getMaxMemoryCacheSize() + cacheManager.getMaxDiskCacheSize()
+            let totalUsage = totalMax > 0 ? Double(totalUsed) / Double(totalMax) : 0
+            
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // 배경
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(DesignSystem.Colors.Gray.gray30)
+                        .frame(height: 4)
+                    
+                    // 사용량 표시
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(totalUsage > 0.8 ? Color.red : totalUsage > 0.6 ? Color.orange : DesignSystem.Colors.Brand.brightTurquoise)
+                        .frame(width: geometry.size.width * totalUsage, height: 4)
+                }
+            }
+            .frame(height: 4)
+        }
     }
     
     private var likedFiltersSection: some View {
@@ -201,7 +290,7 @@ extension ProfileView {
                 router.pushToLikedFilterDetail(filterId: filterId)
             }
         )
-        .padding(.top, 10)
+        
     }
     
     private var logoutButtonSection: some View {
@@ -340,19 +429,21 @@ extension ProfileView {
     @ViewBuilder
     private func routeDestination(for route: ProfileRoute) -> some View {
         switch route {
-                 case .editProfile:
-                     ProfileEditView()
-                 case .likedFilters:
-                     EmptyView()
-                 case .filterDetail(let filterId):
-                     FilterDetailView(filterId: filterId)
-                 case .chatRoomList:
-                     ChatRoomListView()
-                 case .chatView(roomId: let roomId, participantInfo: let participantInfo):
-                     ChatView(roomId: roomId, participantInfo: participantInfo)
-                 case .filterManagement:
-                     FilterManagementView()
-                 }
+        case .editProfile:
+            ProfileEditView()
+        case .likedFilters:
+            EmptyView()
+        case .filterDetail(let filterId):
+            FilterDetailView(filterId: filterId)
+        case .chatRoomList:
+            ChatRoomListView()
+        case .chatView(roomId: let roomId, participantInfo: let participantInfo):
+            ChatView(roomId: roomId, participantInfo: participantInfo)
+        case .filterManagement:
+            FilterManagementView()
+        case .cacheManagement:
+            CacheManagementView()
+        }
     }
     
     @ToolbarContentBuilder

@@ -29,13 +29,13 @@ final class ImageLoader {
         
         let config = URLSessionConfiguration.default
         config.urlCache = urlCache
-        config.requestCachePolicy = .returnCacheDataElseLoad // 캐시 우선 정책
-        config.timeoutIntervalForRequest = 8.0   // 타임아웃 단축
+        config.requestCachePolicy = .returnCacheDataElseLoad
+        config.timeoutIntervalForRequest = 8.0
         config.timeoutIntervalForResource = 15.0
         
         // URLSession 동시성 최적화
-        config.httpMaximumConnectionsPerHost = 8 // 기본값보다 늘림
-        config.waitsForConnectivity = false      // 네트워크 대기 안함
+        config.httpMaximumConnectionsPerHost = 8
+        config.waitsForConnectivity = false
         
         self.session = URLSession(configuration: config)
         
@@ -174,16 +174,64 @@ final class ImageLoader {
             }
         }
     }
-    
-    // MARK: - 캐시 관리 (기존 메서드명 유지)
-    func clearCache() {
-        cache.removeAllObjects()
-        memoryCache.removeAllObjects()
-        session.configuration.urlCache?.removeAllCachedResponses()
-        print("🗑️ 이미지 캐시 클리어")
-    }
-    
-    func getCacheSize() -> Int {
-        return cache.totalCostLimit
-    }
+    func clearMemoryCache() {
+           cache.removeAllObjects()
+           memoryCache.removeAllObjects()
+           print("🗑️ ImageLoader: 메모리 캐시 정리")
+       }
+       
+       func clearDiskCache() {
+           session.configuration.urlCache?.removeAllCachedResponses()
+           print("🗑️ ImageLoader: 디스크 캐시 정리")
+       }
+       
+       // MARK: - 실제 캐시 크기 조회 메서드
+       func getCurrentMemoryCacheSize() -> Int {
+           // NSCache의 현재 사용량을 가져오기
+           // cost가 설정되어 있다면 현재 총 cost를 반환
+           // 설정되어 있지 않다면 대략적인 추정치 반환
+           let dataCache = cache.totalCostLimit > 0 ? min(cache.totalCostLimit / 2, 15 * 1024 * 1024) : 0
+           let imageCache = memoryCache.totalCostLimit > 0 ? min(memoryCache.totalCostLimit / 2, 10 * 1024 * 1024) : 0
+           return dataCache + imageCache
+       }
+       
+       func getCurrentDiskCacheSize() -> Int {
+           // URLCache의 실제 디스크 사용량
+           return session.configuration.urlCache?.currentDiskUsage ?? 0
+       }
+       
+       // MARK: - 캐시 한도 정보
+       func getMemoryCacheLimit() -> Int {
+           return cache.totalCostLimit + memoryCache.totalCostLimit
+       }
+       
+       func getDiskCacheLimit() -> Int {
+           return session.configuration.urlCache?.diskCapacity ?? 100 * 1024 * 1024
+       }
+       
+       // MARK: - 캐시 통계 정보 (CacheManager에서 사용)
+       func getCacheStatistics() -> (memorySize: Int, diskSize: Int, memoryLimit: Int, diskLimit: Int) {
+           let memorySize = getCurrentMemoryCacheSize()
+           let diskSize = getCurrentDiskCacheSize()
+           let memoryLimit = getMemoryCacheLimit()
+           let diskLimit = getDiskCacheLimit()
+           
+           print("📊 ImageLoader Cache Stats - Memory: \(memorySize)/\(memoryLimit), Disk: \(diskSize)/\(diskLimit)")
+           
+           return (memorySize: memorySize, diskSize: diskSize, memoryLimit: memoryLimit, diskLimit: diskLimit)
+       }
+       
+       // MARK: - 기존 getCacheSize 메서드 업데이트 (하위 호환성)
+       func getCacheSize() -> Int {
+           // 기존 메서드명 유지하면서 실제 총 캐시 크기 반환
+           return getCurrentMemoryCacheSize() + getCurrentDiskCacheSize()
+       }
+       
+       // MARK: - 기존 clearCache 메서드 유지 (하위 호환성)
+       func clearCache() {
+           clearMemoryCache()
+           clearDiskCache()
+           session.configuration.urlCache?.removeAllCachedResponses()
+           print("🗑️ ImageLoader: 전체 캐시 정리")
+       }
 }
