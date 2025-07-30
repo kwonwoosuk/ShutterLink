@@ -21,101 +21,85 @@ struct CommunityView: View {
     @State private var showSortOptions = false
     
     var body: some View {
-        NavigationStack(path: $router.communityPath) {
-            ZStack {
-                // 다크 테마 배경
-                Color.black.ignoresSafeArea()
+        ZStack {
+            // 다크 테마 배경
+            Color.black.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // 검색바와 필터
+                searchAndFilterSection
                 
-                VStack(spacing: 0) {
-                    // 검색바와 필터
-                    searchAndFilterSection
-                    
-                    // 게시글 목록
-                    if showSearchResults {
-                        searchResultsSection
-                    } else {
-                        postListSection
-                    }
+                // 게시글 목록
+                if showSearchResults {
+                    searchResultsSection
+                } else {
+                    postListSection
                 }
-                
-                VStack {
+            }
+            
+            VStack {
+                Spacer()
+                HStack {
                     Spacer()
-                    HStack {
-                        Spacer()
-                        Button {
-                            router.pushToCreatePost()
-                        } label: {
-                            Image(systemName: "plus")
-                                .foregroundColor(.white)
-                                .font(.system(size: 20, weight: .semibold))
-                                .frame(width: 56, height: 56)
-                                .background(
-                                    Circle()
-                                        .fill(Color.blue)
-                                        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
-                                )
-                        }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 90) // 탭바 위에 배치
-                    }
-                }
-                
-                if viewModel.isLoading && !viewModel.isLoadingMore {
-                    VStack {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(1.2)
-                        
-                        Text("로딩 중...")
-                            .font(DesignSystem.Typography.TextStyle.caption1.font())
-                            .foregroundColor(.white)
-                            .padding(.top, 8)
-                    }
-                    .padding(20)
-                    .background(Color.black.opacity(0.8))
-                    .cornerRadius(12)
-                }
-            }
-            .navigationDestination(for: CommunityRoute.self) { route in
-                switch route {
-                case .postDetail(let postId):
-                    PostDetailView(postId: postId)
-                case .createPost:
-                    PostCreateView()
-                case .editPost(let post):
-                    PostEditView(post: post)
-                case .myLikedPosts:
-                    MyLikedPostsView()
-                case .userPosts(let userId, let userNick):
-                    UserPostsView(userId: userId, userNick: userNick)
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("COMMUNITY")
-                        .font(.hakgyoansim(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button {
-                            router.pushToMyLikedPosts()
-                        } label: {
-                            Label("내가 좋아요한 글", systemImage: "heart.fill")
-                        }
-                        
-                        Button {
-                            viewModel.refreshPosts()
-                        } label: {
-                            Label("새로고침", systemImage: "arrow.clockwise")
-                        }
+                    Button {
+                        router.pushToCreatePost()
                     } label: {
-                        Image(systemName: "ellipsis")
+                        Image(systemName: "plus")
                             .foregroundColor(.white)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 20, weight: .semibold))
+                            .frame(width: 56, height: 56)
+                            .background(
+                                Circle()
+                                    .fill(Color.blue)
+                                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+                            )
                     }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 90) // 탭바 위에 배치
+                }
+            }
+            
+            if viewModel.isLoading && !viewModel.isLoadingMore {
+                VStack {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.2)
+                    
+                    Text("로딩 중...")
+                        .font(DesignSystem.Typography.TextStyle.caption1.font())
+                        .foregroundColor(.white)
+                        .padding(.top, 8)
+                }
+                .padding(20)
+                .background(Color.black.opacity(0.8))
+                .cornerRadius(12)
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("COMMUNITY")
+                    .font(.hakgyoansim(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+            }
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button {
+                        router.pushToMyLikedPosts()
+                    } label: {
+                        Label("내가 좋아요한 글", systemImage: "heart.fill")
+                    }
+                    
+                    Button {
+                        viewModel.refreshPosts()
+                    } label: {
+                        Label("새로고침", systemImage: "arrow.clockwise")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .foregroundColor(.white)
+                        .font(.system(size: 16, weight: .medium))
                 }
             }
         }
@@ -424,5 +408,3 @@ struct CommunityView: View {
         }
     }
 }
-
-

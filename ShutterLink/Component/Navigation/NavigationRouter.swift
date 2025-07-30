@@ -198,43 +198,32 @@ final class NavigationRouter: ObservableObject {
     }
     
     func pushToPostDetail(postId: String) {
-        let route = CommunityRoute.postDetail(postId: postId)
-        communityPath.append(route)
+        let route = ProfileRoute.postDetail(postId: postId)
+        profilePath.append(route)
         print("🧭 NavigationRouter: 게시글 상세로 이동 - \(postId)")
     }
     
     func pushToCreatePost() {
-        let route = CommunityRoute.createPost
-        communityPath.append(route)
+        let route = ProfileRoute.createPost
+        profilePath.append(route)
         print("🧭 NavigationRouter: 게시글 작성으로 이동")
     }
     
     func pushToEditPost(post: Post) {
-        let route = CommunityRoute.editPost(post: post)
-        communityPath.append(route)
+        let route = ProfileRoute.editPost(post: post)
+        profilePath.append(route)
         print("🧭 NavigationRouter: 게시글 수정으로 이동 - \(post.postId)")
     }
     
-    func popCommunityRoute() {
-        if !communityPath.isEmpty {
-            communityPath.removeLast()
-        }
-    }
-    
-    func popToRootCommunity() {
-        communityPath.removeAll()
-    }
-
-    
     func pushToMyLikedPosts() {
-        let route = CommunityRoute.myLikedPosts
-        communityPath.append(route)
+        let route = ProfileRoute.myLikedPosts
+        profilePath.append(route)
         print("🧭 NavigationRouter: 내가 좋아요한 게시글로 이동")
     }
     
     func pushToUserPosts(userId: String, userNick: String) {
-        let route = CommunityRoute.userPosts(userId: userId, userNick: userNick)
-        communityPath.append(route)
+        let route = ProfileRoute.userPosts(userId: userId, userNick: userNick)
+        profilePath.append(route)
         print("🧭 NavigationRouter: \(userNick)님의 게시글로 이동")
     }
     
@@ -282,6 +271,12 @@ final class NavigationRouter: ObservableObject {
         let route = ProfileRoute.filterManagement
         profilePath.append(route)
         print("🧭 NavigationRouter: 필터 관리 화면으로 이동")
+    }
+    
+    func pushToCommunity() {
+        let route = ProfileRoute.community
+        profilePath.append(route)
+        print("🧭 NavigationRouter: 커뮤니티로 이동")
     }
     
     func popProfileRoute() {

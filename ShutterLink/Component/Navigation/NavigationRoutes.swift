@@ -48,6 +48,12 @@ enum ProfileRoute: Route {
     case chatView(roomId: String, participantInfo: Users)
     case filterManagement
     case cacheManagement
+    case community
+    case postDetail(postId: String)
+    case createPost
+    case editPost(post: Post)
+    case myLikedPosts
+    case userPosts(userId: String, userNick: String)
     
     var id: String {
         switch self {
@@ -65,6 +71,18 @@ enum ProfileRoute: Route {
             return "filterManagement"
         case .cacheManagement:
             return "cacheManagement"
+        case .community:
+            return "community"
+        case .postDetail(let postId):
+            return "postDetail_\(postId)"
+        case .createPost:
+            return "createPost"
+        case .editPost(let post):
+            return "editPost_\(post.postId)"
+        case .myLikedPosts:
+            return "myLikedPosts"
+        case .userPosts(let userId, _):
+            return "userPosts_\(userId)"
         }
     }
 }

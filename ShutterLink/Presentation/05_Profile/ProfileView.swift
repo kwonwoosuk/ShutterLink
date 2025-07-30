@@ -14,7 +14,6 @@ struct ProfileView: View {
     @StateObject private var viewModel = ProfileViewModel()
     @State private var showLogoutAlert = false
     @State private var hasAppeared = false
-    @State private var showCommunitySheet = false
     
     var body: some View {
         NavigationStack(path: $router.profilePath) {
@@ -61,15 +60,24 @@ struct ProfileView: View {
         .onChange(of: router.presentedSheet) { newValue in
             handleSheetChange(newValue)
         }
-        
         .alert("로그아웃", isPresented: $showLogoutAlert) {
             logoutAlertButtons
         } message: {
             Text("정말 로그아웃 하시겠습니까?")
         }
+        .sheet(item: $router.presentedSheet) { sheet in
+            switch sheet {
+            case .userFilters(let userId, let userNick):
+                NavigationStack {
+                    UserFiltersView(userId: userId, userNick: userNick)
+                }
+            case .profileEdit:
+                NavigationStack {
+                    ProfileEditView()
+                }
+            }
+        }
     }
-    
-    
 }
 
 // MARK: - View Components
@@ -188,14 +196,11 @@ extension ProfileView {
                 .frame(width: 80)
             }
             
+            // 커뮤니티 버튼 - Sheet에서 Push로 변경
             Button {
-                showCommunitySheet = true
+                router.pushToCommunity()
             } label: {
                 communityButtonContent
-            }.sheet(isPresented: $showCommunitySheet) {
-                NavigationStack {
-                    CommunityView()
-                }
             }
             .buttonStyle(PlainButtonStyle())
         }
@@ -443,6 +448,18 @@ extension ProfileView {
             FilterManagementView()
         case .cacheManagement:
             CacheManagementView()
+        case .community:
+            CommunityView()
+        case .postDetail(let postId):
+            PostDetailView(postId: postId)
+        case .createPost:
+            PostCreateView()
+        case .editPost(let post):
+            PostEditView(post: post)
+        case .myLikedPosts:
+            MyLikedPostsView()
+        case .userPosts(let userId, let userNick):
+            UserPostsView(userId: userId, userNick: userNick)
         }
     }
     
