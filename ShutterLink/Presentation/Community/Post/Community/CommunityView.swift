@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 
 struct CommunityView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavigationRouter
     @StateObject private var viewModel = CommunityViewModel()
     @State private var hasAppeared = false
@@ -90,12 +91,21 @@ struct CommunityView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("COMMUNITY")
                     .font(.hakgyoansim(size: 18, weight: .bold))
                     .foregroundColor(.white)
             }
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.white)
+                }            }
             
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
