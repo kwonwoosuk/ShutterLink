@@ -54,6 +54,7 @@ enum ProfileRoute: Route {
     case editPost(post: Post)
     case myLikedPosts
     case userPosts(userId: String, userNick: String)
+    case myPosts
     
     var id: String {
         switch self {
@@ -83,6 +84,8 @@ enum ProfileRoute: Route {
             return "myLikedPosts"
         case .userPosts(let userId, _):
             return "userPosts_\(userId)"
+        case .myPosts:
+            return "myPosts"
         }
     }
 }

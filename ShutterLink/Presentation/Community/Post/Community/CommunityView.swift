@@ -16,7 +16,6 @@ struct CommunityView: View {
     @State private var selectedCategory = ""
     @State private var showSearchResults = false
     @State private var searchResults: [Post] = []
-    @State private var maxDistance = 0 // 미터 단위
     @State private var selectedSortOrder = "createdAt" // "createdAt" 또는 "likes"
     @State private var showSortOptions = false
     
@@ -25,18 +24,33 @@ struct CommunityView: View {
             // 다크 테마 배경
             Color.black.ignoresSafeArea()
             
-            VStack(spacing: 0) {
-                // 검색바와 필터
-                searchAndFilterSection
-                
-                // 게시글 목록
-                if showSearchResults {
-                    searchResultsSection
-                } else {
-                    postListSection
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        // 검색바와 필터 (스크롤 포함)
+                        searchAndFilterSection
+                            .id("search_filter_top")
+                        
+                        // 게시글 목록
+                        if showSearchResults {
+                            searchResultsSection
+                        } else {
+                            postListSection
+                        }
+                    }
+                }
+                .refreshable {
+                    await viewModel.refreshPostsAsync()
+                }
+                .onReceive(router.communityScrollToTop) { _ in
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        proxy.scrollTo("search_filter_top", anchor: .top)
+                    }
                 }
             }
             
+            // 플로팅 버튼
             VStack {
                 Spacer()
                 HStack {
@@ -92,9 +106,9 @@ struct CommunityView: View {
                     }
                     
                     Button {
-                        viewModel.refreshPosts()
+                        router.pushToMyPosts()
                     } label: {
-                        Label("새로고침", systemImage: "arrow.clockwise")
+                        Label("내 글 관리", systemImage: "doc.text")
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -108,9 +122,6 @@ struct CommunityView: View {
                 hasAppeared = true
                 viewModel.loadPosts()
             }
-        }
-        .onReceive(router.communityScrollToTop) { _ in
-            viewModel.scrollToTop()
         }
         .onChange(of: searchText) { newValue in
             if newValue.isEmpty {
@@ -148,7 +159,7 @@ struct CommunityView: View {
     // MARK: - Search and Filter Section
     
     private var searchAndFilterSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             // 검색바
             HStack {
                 HStack {
@@ -190,34 +201,10 @@ struct CommunityView: View {
             }
             .padding(.horizontal, 16)
             
-            HStack(spacing: 16) {
-                // Distance 조절
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Image(systemName: "location")
-                            .foregroundColor(.gray)
-                            .font(.system(size: 12))
-                        
-                        Text("반경: \(maxDistance)M")
-                            .font(.pretendard(size: 12, weight: .medium))
-                            .foregroundColor(.white)
-                    }
-                    
-                    Slider(value: Binding(
-                        get: { Double(maxDistance) },
-                        set: { maxDistance = Int($0) }
-                    ), in: 100...2000, step: 100) {
-                        // Distance가 변경되면 자동으로 새로고침
-                    } onEditingChanged: { editing in
-                        if !editing {
-                            viewModel.updateDistance(maxDistance)
-                        }
-                    }
-                    .accentColor(.blue)
-                }
-                .frame(maxWidth: .infinity)
+            // 정렬 옵션 (위치 기반 검색 제거)
+            HStack {
+                Spacer()
                 
-                // 정렬 옵션
                 Button {
                     showSortOptions = true
                 } label: {
@@ -250,16 +237,14 @@ struct CommunityView: View {
                 .padding(.horizontal, 16)
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 16)
         .background(Color.black)
     }
     
     private func categoryButton(_ title: String, category: String) -> some View {
         Button {
             selectedCategory = category
-            viewModel.filterByCategory(category.isEmpty ? nil : category,
-                                     distance: maxDistance,
-                                     orderBy: selectedSortOrder)
+            viewModel.filterByCategory(category.isEmpty ? nil : category, orderBy: selectedSortOrder)
         } label: {
             Text(title)
                 .font(.pretendard(size: 12, weight: .medium))
@@ -297,7 +282,7 @@ struct CommunityView: View {
                 .foregroundColor(.gray)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 12)
+            .padding(.bottom, 12)
             
             if searchResults.isEmpty {
                 VStack(spacing: 16) {
@@ -313,8 +298,9 @@ struct CommunityView: View {
                         .font(.pretendard(size: 14, weight: .regular))
                         .foregroundColor(.gray60)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
                 .padding(.top, 60)
+                .padding(.bottom, 100)
             } else {
                 LazyVStack(spacing: 0) {
                     ForEach(searchResults) { post in
@@ -329,7 +315,7 @@ struct CommunityView: View {
                         .padding(.vertical, 8)
                     }
                 }
-                .padding(.top, 12)
+                .padding(.bottom, 100)
             }
         }
     }
@@ -337,52 +323,42 @@ struct CommunityView: View {
     // MARK: - Post List Section
     
     private var postListSection: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(viewModel.posts) { post in
-                        PostCell(post: post) {
-                            router.pushToPostDetail(postId: post.postId)
-                        } onLikeTapped: { post in
-                            Task {
-                                await viewModel.toggleLike(post: post)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .onAppear {
-                            // 무한 스크롤
-                            if post.id == viewModel.posts.last?.id {
-                                viewModel.loadMorePosts()
-                            }
-                        }
-                        .id(post.id)
+        LazyVStack(spacing: 0) {
+            ForEach(viewModel.posts) { post in
+                PostCell(post: post) {
+                    router.pushToPostDetail(postId: post.postId)
+                } onLikeTapped: { post in
+                    Task {
+                        await viewModel.toggleLike(post: post)
                     }
-                    
-                    // 더 로딩 중 인디케이터
-                    if viewModel.isLoadingMore {
-                        HStack {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(0.8)
-                            
-                            Text("더 불러오는 중...")
-                                .font(.pretendard(size: 12, weight: .medium))
-                                .foregroundColor(.gray)
-                        }
-                        .padding(.vertical, 20)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .onAppear {
+                    // 무한 스크롤
+                    if post.id == viewModel.posts.last?.id {
+                        viewModel.loadMorePosts()
                     }
+                }
+                .id(post.id)
+            }
+            
+            // 더 로딩 중 인디케이터
+            if viewModel.isLoadingMore {
+                HStack {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.8)
                     
-                    // 하단 여백 (탭바 공간)
-                    Color.clear.frame(height: 100)
+                    Text("더 불러오는 중...")
+                        .font(.pretendard(size: 12, weight: .medium))
+                        .foregroundColor(.gray)
                 }
-                .id("postList")
+                .padding(.vertical, 20)
             }
-            .onReceive(router.communityScrollToTop) {
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    proxy.scrollTo("postList", anchor: .top)
-                }
-            }
+            
+            // 하단 여백 (탭바 공간)
+            Color.clear.frame(height: 100)
         }
     }
     

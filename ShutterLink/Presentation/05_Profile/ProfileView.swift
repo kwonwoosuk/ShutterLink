@@ -460,6 +460,8 @@ extension ProfileView {
             MyLikedPostsView()
         case .userPosts(let userId, let userNick):
             UserPostsView(userId: userId, userNick: userNick)
+        case .myPosts:
+            MyPostsView()
         }
     }
     
@@ -470,6 +472,7 @@ extension ProfileView {
                 .font(.hakgyoansim(size: 18, weight: .bold))
                 .foregroundColor(DesignSystem.Colors.Gray.gray45)
         }
+        
     }
     
     @ViewBuilder

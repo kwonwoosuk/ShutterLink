@@ -150,9 +150,26 @@ final class PostRepositoryImpl: PostRepository {
         print("🌐 PostRepository: 게시글 삭제 시작 - \(postId)")
         
         let router = PostRouter.deletePost(postId: postId)
-        _ = try await networkManager.request(router, type: EmptyResponse.self)
         
-        print("✅ PostRepository: 게시글 삭제 성공")
+        do {
+            _ = try await networkManager.request(router, type: EmptyResponse.self)
+            print("✅ PostRepository: 게시글 삭제 성공")
+            
+        } catch {
+            let errorDescription = error.localizedDescription
+            
+            if errorDescription.contains("The data couldn't be read because it isn't in the correct format") ||
+               errorDescription.contains("not valid JSON") ||
+               errorDescription.contains("Unexpected end of file") {
+                
+                print("✅ PostRepository: 게시글 삭제 성공 (빈 응답 처리)")
+                return
+            }
+            
+            // 기타 실제 에러인 경우
+            print("❌ PostRepository: 게시글 삭제 실패 - \(error)")
+            throw PostError.networkError("게시글 삭제에 실패했습니다: \(errorDescription)")
+        }
     }
     
     func likePost(postId: String, likeStatus: Bool) async throws -> Bool {
@@ -216,8 +233,26 @@ final class PostRepositoryImpl: PostRepository {
         print("🌐 PostRepository: 댓글 삭제 시작 - commentId: \(commentId)")
         
         let router = PostRouter.deleteComment(postId: postId, commentId: commentId)
-        _ = try await networkManager.request(router, type: EmptyResponse.self)
         
-        print("✅ PostRepository: 댓글 삭제 성공")
+        do {
+            _ = try await networkManager.request(router, type: EmptyResponse.self)
+            print("✅ PostRepository: 댓글 삭제 성공")
+            
+        } catch {
+            let errorDescription = error.localizedDescription
+            
+            // JSON 디코딩 에러 && 서버 응답은 성공인 경우 처리
+            if errorDescription.contains("The data couldn't be read because it isn't in the correct format") ||
+               errorDescription.contains("not valid JSON") ||
+               errorDescription.contains("Unexpected end of file") {
+                
+                print("✅ PostRepository: 댓글 삭제 성공 (빈 응답 처리)")
+                return
+            }
+            
+            // 기타 실제 에러인 경우
+            print("❌ PostRepository: 댓글 삭제 실패 - \(error)")
+            throw PostError.networkError("댓글 삭제에 실패했습니다: \(errorDescription)")
+        }
     }
 }

@@ -7,7 +7,6 @@
 
 import SwiftUI
 import Combine
-import CoreLocation
 
 final class CommunityViewModel: ObservableObject {
     // MARK: - Published Properties
@@ -22,7 +21,6 @@ final class CommunityViewModel: ObservableObject {
     
     private let postUseCase: PostUseCase
     private var currentCategory: String?
-    private var currentDistance: Int = 300 // 기본 300미터
     private var currentOrderBy: String = "createdAt"
     private var nextCursor: String?
     private let pageLimit = 10
@@ -36,6 +34,17 @@ final class CommunityViewModel: ObservableObject {
     
     init(postUseCase: PostUseCase = PostUseCaseImpl()) {
         self.postUseCase = postUseCase
+    
+        NotificationCenter.default.publisher(for: .postLikeUpdated)
+            .sink { [weak self] notification in
+                if let userInfo = notification.userInfo,
+                   let postId = userInfo["postId"] as? String,
+                   let isLiked = userInfo["isLiked"] as? Bool,
+                   let likeCount = userInfo["likeCount"] as? Int {
+                    self?.updatePostLikeFromNotification(postId: postId, isLiked: isLiked, likeCount: likeCount)
+                }
+            }
+            .store(in: &cancellables)
     }
     
     deinit {
@@ -57,6 +66,11 @@ final class CommunityViewModel: ObservableObject {
         loadPosts()
     }
     
+    func refreshPostsAsync() async {
+        resetPagination()
+        await performLoadPosts(isRefresh: true)
+    }
+    
     func loadMorePosts() {
         guard hasMorePosts, !isLoadingMore, !isLoading else { return }
         
@@ -65,24 +79,13 @@ final class CommunityViewModel: ObservableObject {
         }
     }
     
-    func filterByCategory(_ category: String?, distance: Int? = nil, orderBy: String? = nil) {
+    func filterByCategory(_ category: String?, orderBy: String? = nil) {
         currentCategory = category
-        // 현재는 위치 기반 검색을 사용하지 않으므로 distance는 무시
-        // if let distance = distance {
-        //     currentDistance = distance
-        // }
         if let orderBy = orderBy {
             currentOrderBy = orderBy
         }
         resetPagination()
         loadPosts()
-    }
-    
-    func updateDistance(_ distance: Int) {
-        // 현재는 위치 기반 검색을 사용하지 않으므로 distance 업데이트 무시
-        // currentDistance = distance
-        // resetPagination()
-        // loadPosts()
     }
     
     func updateSortOrder(_ orderBy: String) {
@@ -100,6 +103,7 @@ final class CommunityViewModel: ObservableObject {
         
         likeTask = Task {
             do {
+                // 즉시 UI 업데이트 (optimistic update)
                 await MainActor.run {
                     updatePostLike(postId: post.postId, isLiked: !post.isLike)
                 }
@@ -111,11 +115,25 @@ final class CommunityViewModel: ObservableObject {
                 
                 await MainActor.run {
                     updatePostLike(postId: post.postId, isLiked: newLikeStatus)
+                    
+                    // 다른 화면과 동기화를 위한 노티피케이션 발송
+                    if let updatedPost = posts.first(where: { $0.postId == post.postId }) {
+                        NotificationCenter.default.post(
+                            name: .postLikeUpdated,
+                            object: nil,
+                            userInfo: [
+                                "postId": post.postId,
+                                "isLiked": updatedPost.isLike,
+                                "likeCount": updatedPost.likeCount
+                            ]
+                        )
+                    }
                 }
                 
                 print("✅ CommunityViewModel: 좋아요 상태 업데이트 완료 - \(newLikeStatus)")
                 
             } catch {
+                // 실패시 원래 상태로 롤백
                 await MainActor.run {
                     updatePostLike(postId: post.postId, isLiked: post.isLike)
                     setError("좋아요 처리에 실패했습니다: \(error.localizedDescription)")
@@ -152,13 +170,11 @@ final class CommunityViewModel: ObservableObject {
         }
         
         do {
-            // 위치 기반 검색이 아닌 경우 maxDistance를 nil로 설정
-            let maxDistance: Int? = nil // 위치 기반이 아닐 때는 maxDistance 제외
-            
+            // 위치 기반 검색을 제거하고 기본 게시글 가져오기 사용
             let result = try await postUseCase.getPostsGeolocation(
                 category: currentCategory,
-                location: nil, // 기본 위치 사용
-                maxDistance: maxDistance, // 위치 기반이 아니므로 nil
+                location: nil,
+                maxDistance: nil, // 위치 기반 검색 제거
                 limit: pageLimit,
                 next: isRefresh ? nil : nextCursor,
                 orderBy: currentOrderBy
@@ -204,7 +220,7 @@ final class CommunityViewModel: ObservableObject {
                     }
                     errorMessage = "데이터 처리 중 오류가 발생했습니다."
                     print("❌ CommunityViewModel: DecodingError - \(decodingError)")
-                    }
+                }
             }
             
         } catch {
@@ -227,8 +243,9 @@ final class CommunityViewModel: ObservableObject {
         
         let currentPost = posts[index]
         let likeCountDelta = isLiked ? 1 : -1
+        let newLikeCount = max(0, currentPost.likeCount + likeCountDelta)
         
-        let updatedPost = Post(
+        posts[index] = Post(
             id: currentPost.id,
             postId: currentPost.postId,
             category: currentPost.category,
@@ -238,13 +255,32 @@ final class CommunityViewModel: ObservableObject {
             creator: currentPost.creator,
             files: currentPost.files,
             isLike: isLiked,
-            likeCount: max(0, currentPost.likeCount + likeCountDelta),
+            likeCount: newLikeCount,
             comments: currentPost.comments,
             createdAt: currentPost.createdAt,
             updatedAt: currentPost.updatedAt
         )
+    }
+    
+    private func updatePostLikeFromNotification(postId: String, isLiked: Bool, likeCount: Int) {
+        guard let index = posts.firstIndex(where: { $0.postId == postId }) else { return }
         
-        posts[index] = updatedPost
+        let currentPost = posts[index]
+        posts[index] = Post(
+            id: currentPost.id,
+            postId: currentPost.postId,
+            category: currentPost.category,
+            title: currentPost.title,
+            content: currentPost.content,
+            geolocation: currentPost.geolocation,
+            creator: currentPost.creator,
+            files: currentPost.files,
+            isLike: isLiked,
+            likeCount: likeCount,
+            comments: currentPost.comments,
+            createdAt: currentPost.createdAt,
+            updatedAt: currentPost.updatedAt
+        )
     }
     
     private func resetPagination() {
@@ -252,42 +288,20 @@ final class CommunityViewModel: ObservableObject {
         hasMorePosts = true
     }
     
-    private func cancelAllTasks() {
-        loadTask?.cancel()
-        loadMoreTask?.cancel()
-        likeTask?.cancel()
-    }
-    
     private func cancelLoadTasks() {
         loadTask?.cancel()
         loadMoreTask?.cancel()
     }
     
-//    private func logDecodingError(_ error: DecodingError) {
-//        switch error {
-//        case .typeMismatch(let type, let context):
-//            print("🔍 타입 불일치:")
-//            print("   예상 타입: \(type)")
-//            print("   경로: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
-//            print("   설명: \(context.debugDescription)")
-//            
-//        case .keyNotFound(let key, let context):
-//            print("🔍 키 누락:")
-//            print("   누락된 키: \(key.stringValue)")
-//            print("   경로: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
-//            
-//        case .valueNotFound(let type, let context):
-//            print("🔍 값 누락:")
-//            print("   타입: \(type)")
-//            print("   경로: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
-//            
-//        case .dataCorrupted(let context):
-//            print("🔍 데이터 손상:")
-//            print("   경로: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
-//            print("   설명: \(context.debugDescription)")
-//            
-//        @unknown default:
-//            print("🔍 알 수 없는 디코딩 에러: \(error)")
-//        }
-//    }
+    private func cancelAllTasks() {
+        loadTask?.cancel()
+        loadMoreTask?.cancel()
+        likeTask?.cancel()
+    }
+}
+
+// MARK: - Notification Extension
+
+extension Notification.Name {
+    static let postLikeUpdated = Notification.Name("postLikeUpdated")
 }

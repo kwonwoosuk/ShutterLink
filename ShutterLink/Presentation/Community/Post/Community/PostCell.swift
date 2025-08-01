@@ -13,48 +13,33 @@ struct PostCell: View {
     let onLikeTapped: (Post) -> Void
     
     @State private var showAllContent = false
-    @State private var isLikeAnimating = false
-    
-    private let maxContentLines = 3
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // 사용자 헤더
-            userHeaderSection
+        VStack(spacing: 0) {
+            headerSection
+            contentSection
             
-            // 이미지 섹션
             if !post.files.isEmpty {
                 imageSection
             }
             
-            // 액션 버튼들 (좋아요, 댓글, 공유)
-            actionButtonsSection
+            actionSection
             
-            // 좋아요 수
-            if post.likeCount > 0 {
-                likeCountSection
-            }
-            
-            // 게시글 내용
-            contentSection
-            
-            // 댓글 미리보기
             if !post.comments.isEmpty {
                 commentsPreviewSection
             }
-            
-            // 게시 시간
-            timeSection
         }
         .background(Color.black)
-        .onTapGesture {
-            onTapped()
-        }
     }
+}
+
+// MARK: - View Components
+
+extension PostCell {
     
-    // MARK: - User Header Section
+    // MARK: - Header Section
     
-    private var userHeaderSection: some View {
+    private var headerSection: some View {
         HStack(spacing: 12) {
             // 프로필 이미지
             if let profileImagePath = post.creator.profileImage, !profileImagePath.isEmpty {
@@ -75,151 +60,59 @@ struct PostCell: View {
                 .clipShape(Circle())
             } else {
                 Circle()
-                    .fill(Color.gray75)
+                    .fill(Color.gray60)
                     .frame(width: 40, height: 40)
                     .overlay(
                         Image(systemName: "person.fill")
                             .foregroundColor(.gray)
-                            .font(.system(size: 20))
+                            .font(.title3)
                     )
             }
             
-            // 사용자 정보
+            // 유저 정보와 카테고리
             VStack(alignment: .leading, spacing: 2) {
                 Text(post.creator.nick)
                     .font(.pretendard(size: 14, weight: .semiBold))
                     .foregroundColor(.white)
                 
-                if !post.category.isEmpty {
-                    Text(post.category)
-                        .font(.pretendard(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
-                }
+                Text(post.category)
+                    .font(.pretendard(size: 12, weight: .medium))
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.blue.opacity(0.2))
+                    .cornerRadius(8)
             }
-            
-            Spacer()
-            
-            // 더보기 버튼
-            Button {
-                // 메뉴 액션 (신고, 차단 등)
-            } label: {
-                Image(systemName: "ellipsis")
-                    .foregroundColor(.white)
-                    .font(.system(size: 16))
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
-    
-    // MARK: - Image Section
-    
-    private var imageSection: some View {
-        TabView {
-            ForEach(Array(post.files.enumerated()), id: \.offset) { index, imagePath in
-                AuthenticatedImageView(
-                    imagePath: imagePath,
-                    contentMode: .fill,
-                    targetSize: CGSize(width: UIScreen.main.bounds.width, height: 400)
-                ) {
-                    Rectangle()
-                        .fill(Color.gray75)
-                        .overlay(
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        )
-                }
-                .frame(height: 400)
-                .clipped()
-            }
-        }
-        .tabViewStyle(PageTabViewStyle(indexDisplayMode: post.files.count > 1 ? .automatic : .never))
-        .frame(height: 400)
-        .background(Color.gray90)
-    }
-    
-    // MARK: - Action Buttons Section
-    
-    private var actionButtonsSection: some View {
-        HStack(spacing: 16) {
-            // 좋아요 버튼
-            Button {
-                onLikeTapped(post)
-                withAnimation(.easeInOut(duration: 0.1)) {
-                    isLikeAnimating = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isLikeAnimating = false
-                }
-            } label: {
-                Image(systemName: post.isLike ? "heart.fill" : "heart")
-                    .foregroundColor(post.isLike ? .red : .white)
-                    .font(.system(size: 24, weight: .medium))
-                    .scaleEffect(isLikeAnimating ? 1.2 : 1.0)
-            }
-            
-            // 댓글 버튼
-            Button {
-                onTapped() // 상세 화면으로 이동
-            } label: {
-                Image(systemName: "message")
-                    .foregroundColor(.white)
-                    .font(.system(size: 24, weight: .medium))
-            }
-            
-            // 공유 버튼
-            Button {
-                // 공유 기능
-            } label: {
-                Image(systemName: "paperplane")
-                    .foregroundColor(.white)
-                    .font(.system(size: 24, weight: .medium))
-            }
-            
-            Spacer()
-            
-            // 북마크 버튼
-            Button {
-                // 북마크 기능
-            } label: {
-                Image(systemName: "bookmark")
-                    .foregroundColor(.white)
-                    .font(.system(size: 24, weight: .medium))
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-    }
-    
-    // MARK: - Like Count Section
-    
-    private var likeCountSection: some View {
-        HStack {
-            Text("좋아요 \(post.likeCount)개")
-                .font(.pretendard(size: 14, weight: .semiBold))
-                .foregroundColor(.white)
             
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 4)
+        .padding(.top, 16)
+        .padding(.bottom, 8)
     }
     
     // MARK: - Content Section
     
     private var contentSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
             // 제목
-            if !post.title.isEmpty {
+            Button {
+                onTapped()
+            } label: {
                 Text(post.title)
                     .font(.pretendard(size: 16, weight: .semiBold))
                     .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
                     .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(PlainButtonStyle())
             
             // 내용
             if !post.content.isEmpty {
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    let maxContentLines = showAllContent ? nil : 3
+                    
                     Text(post.content)
                         .font(.pretendard(size: 14, weight: .regular))
                         .foregroundColor(.white)
@@ -244,6 +137,78 @@ struct PostCell: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 4)
+    }
+    
+    // MARK: - Image Section
+    
+    private var imageSection: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(post.files.enumerated()), id: \.offset) { index, imagePath in
+                    AuthenticatedImageView(
+                        imagePath: imagePath,
+                        contentMode: .fill,
+                        targetSize: CGSize(width: 300, height: 200)
+                    ) {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .overlay(
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(0.8)
+                            )
+                    }
+                    .frame(width: 280, height: 200)
+                    .clipped()
+                    .cornerRadius(12)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.bottom, 8)
+    }
+    
+    // MARK: - Action Section
+    
+    private var actionSection: some View {
+        HStack(spacing: 20) {
+            // 좋아요 버튼
+            Button {
+                onLikeTapped(post)
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: post.isLike ? "heart.fill" : "heart")
+                        .foregroundColor(post.isLike ? .red : .white)
+                        .font(.system(size: 18))
+                        .animation(.easeInOut(duration: 0.2), value: post.isLike)
+                    
+                    Text("\(post.likeCount)")
+                        .font(.pretendard(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            // 댓글 버튼
+            Button {
+                onTapped()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "bubble.left")
+                        .foregroundColor(.white)
+                        .font(.system(size: 16))
+                    
+                    Text("\(post.comments.count)")
+                        .font(.pretendard(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
     
     // MARK: - Comments Preview Section
@@ -276,32 +241,7 @@ struct PostCell: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 4)
-    }
-    
-    // MARK: - Time Section
-    
-    private var timeSection: some View {
-        HStack {
-            Text(post.createdAt.timeAgoDisplay())
-                .font(.pretendard(size: 12, weight: .regular))
-                .foregroundColor(.gray60)
-            
-            Spacer()
-        }
-        .padding(.horizontal, 16)
         .padding(.bottom, 12)
-    }
-}
-
-// MARK: - Extensions
-
-extension Date {
-    func timeAgoDisplay() -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        formatter.locale = Locale(identifier: "ko_KR")
-        return formatter.localizedString(for: self, relativeTo: Date())
     }
 }
 

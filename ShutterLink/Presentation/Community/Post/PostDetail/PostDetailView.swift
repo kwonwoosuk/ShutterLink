@@ -49,10 +49,7 @@ struct PostDetailView: View {
                             
                             // 게시글 내용
                             contentSection(post: post)
-                            
-                            // 게시 시간
-                            timeSection(post: post)
-                            
+                                                    
                             // 댓글 섹션
                             commentsSection(post: post)
                             
@@ -94,7 +91,11 @@ struct PostDetailView: View {
             }
         }
         .onAppear {
+            router.hideTabBar()
             viewModel.loadPostDetail(postId: postId)
+        }
+        .onDisappear {
+            router.showTabBar()
         }
         .alert("오류", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("확인") {
@@ -295,19 +296,6 @@ struct PostDetailView: View {
         .padding(.bottom, 8)
     }
     
-    // MARK: - Time Section
-    
-    private func timeSection(post: Post) -> some View {
-        HStack {
-            Text(post.createdAt.timeAgoDisplay())
-                .font(.pretendard(size: 12, weight: .regular))
-                .foregroundColor(.gray60)
-            
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 16)
-    }
     
     // MARK: - Comments Section
     
@@ -394,10 +382,6 @@ struct PostDetailView: View {
                     
                     // 댓글 액션 (시간, 답글)
                     HStack(spacing: 16) {
-                        Text(comment.createdAt.timeAgoDisplay())
-                            .font(.pretendard(size: 12, weight: .regular))
-                            .foregroundColor(.gray60)
-                        
                         if editingComment?.commentId == comment.commentId {
                             // 수정 모드 버튼들
                             HStack(spacing: 8) {
@@ -512,10 +496,6 @@ struct PostDetailView: View {
                 
                 // 대댓글 시간 및 수정 버튼들
                 HStack(spacing: 16) {
-                    Text(reply.createdAt.timeAgoDisplay())
-                        .font(.pretendard(size: 11, weight: .regular))
-                        .foregroundColor(.gray60)
-                    
                     if editingComment?.commentId == reply.commentId {
                         // 수정 모드 버튼들
                         HStack(spacing: 8) {

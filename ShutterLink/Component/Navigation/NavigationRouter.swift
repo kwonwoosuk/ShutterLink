@@ -367,6 +367,12 @@ final class NavigationRouter: ObservableObject {
         profilePath.append(route)
         print("🧭 NavigationRouter: 캐시 관리 화면으로 이동")
     }
+    
+    func pushToMyPosts() {
+        let route = ProfileRoute.myPosts
+        profilePath.append(route)
+        print("🧭 NavigationRouter: 내 게시글 관리로 이동")
+    }
 }
 
 enum PresentedSheet: Identifiable, CustomStringConvertible, Equatable  {
