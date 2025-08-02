@@ -67,12 +67,17 @@ struct ChatView: View {
             CurrentChatRoomManager.shared.enterChatRoom(roomId)
             loadParticipantInfo()
             markRoomAsRead()
+            viewModel.input.loadMessages.send()
+            setupKeyboardObservers()
         }
         .onDisappear {
             router.showTabBar()
             cancellables.removeAll()
             CurrentChatRoomManager.shared.exitChatRoom()
             markRoomAsRead()
+            viewModel.onDisappear()
+            removeKeyboardObservers()
+            autoScrollTimer?.invalidate()
         }
         .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
