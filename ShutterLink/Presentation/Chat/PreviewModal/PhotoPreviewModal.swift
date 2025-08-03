@@ -138,7 +138,6 @@ struct PhotoPreviewModal: View {
                 )
                 .offset(y: verticalDragOffset)
             } else {
-                // 여러 이미지 - 개선된 PageView 사용
                 PhotoPageView(
                     photos: photos,
                     currentIndex: $currentIndex,
@@ -217,7 +216,7 @@ struct ScrollableImageView: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - ✅ UIScrollView 기반 이미지 뷰 컨트롤러
+// MARK: - UIScrollView 기반 이미지 뷰 컨트롤러
 
 class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
     var imagePath: String = ""
@@ -234,9 +233,11 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
     private var hostedViewWidthConstraint: NSLayoutConstraint?
     private var hostedViewHeightConstraint: NSLayoutConstraint?
     
+    private var layoutObservationTimer: Timer?
+    private var hasPerformedInitialLayout = false
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        print("🏗️ ScrollableImageViewController viewDidLoad")
         setupScrollView()
         setupImageView()
         setupGestures()
@@ -244,32 +245,48 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        print("📱 ScrollableImageViewController viewDidAppear")
+        startLayoutObservation()
+    }
+    
+    private func startLayoutObservation() {
+        layoutObservationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
+            self?.checkImageLoadingAndAdjustLayout()
+        }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.checkAndAdjustLayout()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            if !self.hasPerformedInitialLayout {
+                self.hasPerformedInitialLayout = true
+                self.alignImageToCenter()
+                self.view.alpha = 1.0
+            }
+            self.layoutObservationTimer?.invalidate()
+            self.layoutObservationTimer = nil
         }
     }
     
-    private func checkAndAdjustLayout() {
+    private func checkImageLoadingAndAdjustLayout() {
         guard let hostedView = hostedView else { return }
+        guard !hasPerformedInitialLayout else { return }
         
         let hostedViewSize = hostedView.bounds.size
-        print("📐 checkAndAdjustLayout - hostedView 크기: \(hostedViewSize)")
-        
         if hostedViewSize.width > 0 && hostedViewSize.height > 0 {
-            // 이미지가 로드된 경우
-            print("✅ 이미지 로드 완료 - 레이아웃 조정 시작")
-            alignImageToCenter()
-            recenterImage()
-        } else {
-            // 이미지가 아직 로드되지 않은 경우 - 기본 크기로 설정
-            print("⚠️ 이미지 아직 로드 안됨 - 기본 크기로 설정")
-            setDefaultLayout()
-        }
         
-        self.view.alpha = 1.0
-        print("✅ 레이아웃 조정 완료")
+            hasPerformedInitialLayout = true
+            layoutObservationTimer?.invalidate()
+            layoutObservationTimer = nil
+            
+            DispatchQueue.main.async {
+                self.alignImageToCenter()
+                self.view.alpha = 1.0
+                print("✅ 레이아웃 조정 완료")
+            }
+        }
+    }
+    
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        layoutObservationTimer?.invalidate()
+        layoutObservationTimer = nil
     }
     
     private func setDefaultLayout() {
@@ -277,8 +294,6 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
         
         hostedViewWidthConstraint?.constant = screenSize.width
         hostedViewHeightConstraint?.constant = screenSize.height
-        
-    // 중앙정렬
         hostedViewCenterXConstraint?.constant = 0
         hostedViewCenterYConstraint?.constant = 0
         
@@ -288,11 +303,8 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
         view.layoutIfNeeded()
         
         scrollView.contentSize = screenSize
-        
         scrollView.contentInset = UIEdgeInsets.zero
         scrollView.contentOffset = CGPoint.zero
-        
-        print("📐 기본 레이아웃 설정 완료: \(screenSize)")
     }
     
     private func setupScrollView() {
@@ -319,6 +331,8 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
         scrollView.bounces = true
         scrollView.alwaysBounceVertical = false
         scrollView.alwaysBounceHorizontal = false
+        
+        scrollView.contentInset = UIEdgeInsets.zero
         
         view.alpha = 0.0
     }
@@ -409,7 +423,6 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
         
         var finalWidth: CGFloat
         var finalHeight: CGFloat
-        //여기가 개선이 필요할 것 같다.
         if imageAspectRatio > screenAspectRatio {
             finalWidth = scrollViewSize.width
             finalHeight = finalWidth / imageAspectRatio
@@ -434,7 +447,11 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
         view.setNeedsLayout()
         view.layoutIfNeeded()
         
-        scrollView.contentSize = CGSize(width: finalWidth, height: finalHeight)
+        let contentWidth = max(finalWidth, scrollViewSize.width)
+        let contentHeight = max(finalHeight, scrollViewSize.height)
+        scrollView.contentSize = CGSize(width: contentWidth, height: contentHeight)
+        
+        scrollView.contentInset = UIEdgeInsets.zero
         
         print("✅ 이미지 중앙 정렬 완료 - contentSize: \(scrollView.contentSize)")
     }
@@ -443,38 +460,12 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
         let scrollViewSize = scrollView.bounds.size
         let contentSize = scrollView.contentSize
         let zoomScale = scrollView.zoomScale
-    
         
-        let zoomedContentWidth = contentSize.width * zoomScale
-        let zoomedContentHeight = contentSize.height * zoomScale
-        
-        var horizontalInset: CGFloat = 0
-        var verticalInset: CGFloat = 0
-        
-        if zoomedContentWidth < scrollViewSize.width {
-            horizontalInset = (scrollViewSize.width - zoomedContentWidth) / 2.0
+        if zoomScale > 1.0 {
+            scrollView.contentInset = UIEdgeInsets.zero
         }
         
-        if zoomedContentHeight < scrollViewSize.height {
-            verticalInset = (scrollViewSize.height - zoomedContentHeight) / 2.0
-        }
-        
-        // 음수 방지
-        horizontalInset = max(0, horizontalInset)
-        verticalInset = max(0, verticalInset)
-        
-        let newInset = UIEdgeInsets(
-            top: verticalInset,
-            left: horizontalInset,
-            bottom: verticalInset,
-            right: horizontalInset
-        )
-        
-        if scrollView.contentInset != newInset {
-            UIView.animate(withDuration: 0.1) {
-                self.scrollView.contentInset = newInset
-            }
-        }
+        print("🔍 recenterImage - zoomScale: \(zoomScale), contentSize: \(contentSize)")
     }
     
     // MARK: - UIScrollViewDelegate
@@ -570,7 +561,6 @@ extension ScrollableImageViewController: UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return false
     }
-    // 아래로 내려서 미리보기 닫기인데 작동 안한다. 디버깅 요망
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if let panGesture = gestureRecognizer as? UIPanGestureRecognizer {
             let translation = panGesture.translation(in: view)
