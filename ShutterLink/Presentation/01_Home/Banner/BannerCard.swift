@@ -16,7 +16,8 @@ struct BannerCard: View {
             if !banner.imageUrl.isEmpty {
                 AuthenticatedImageView(
                     imagePath: banner.imageUrl,
-                    contentMode: .fill
+                    contentMode: .fill,
+                    targetSize: nil
                 ) {
                     // 로딩 플레이스홀더
                     Rectangle()

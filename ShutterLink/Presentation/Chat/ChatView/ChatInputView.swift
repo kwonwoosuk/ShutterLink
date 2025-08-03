@@ -117,7 +117,8 @@ struct ChatInputView: View {
                 if isImageFile(file.0) {
                     AuthenticatedImageView(
                         imagePath: file.0,
-                        contentMode: .fill
+                        contentMode: .fill,
+                        targetSize: nil
                     ) {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.gray.opacity(0.3))

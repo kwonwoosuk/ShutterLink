@@ -498,7 +498,7 @@ struct FilterDetailView: View {
             throw URLError(.cancelled)
         }
         
-        let data = try await ImageLoader.shared.loadImage(from: urlString)
+        let data = try await ImageLoader.shared.loadImage(from: urlString, targetSize: nil)
         
         // 다시 한 번 취소 확인
         guard !Task.isCancelled else {

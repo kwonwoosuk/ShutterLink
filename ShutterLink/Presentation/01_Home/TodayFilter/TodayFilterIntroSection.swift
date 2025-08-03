@@ -28,7 +28,7 @@ struct TodayFilterIntroSection: View {
                     AuthenticatedImageView(
                         imagePath: firstImagePath,
                         contentMode: .fill,
-                        targetSize: CGSize(width: 500, height: 500)
+                        targetSize: CGSize(width: 1000, height: 1000)
                     ) {
                         Rectangle()
                             .fill(Color.gray.opacity(0.3))
