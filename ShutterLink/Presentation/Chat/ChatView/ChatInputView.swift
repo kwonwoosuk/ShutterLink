@@ -27,8 +27,10 @@ struct ChatInputView: View {
     @State private var selectedImages: [PhotosPickerItem] = []
     @FocusState private var isTextFieldFocused: Bool
     
-    // ✅ 플레이스홀더 상태 추가
     @State private var isShowingPlaceholder = true
+    
+    @State private var showFileSizeAlert = false
+    @State private var fileSizeAlertMessage = ""
     
     // 상수 - 3줄 제한 및 스크롤 구현
     private let minTextHeight: CGFloat = 40  // 1줄 최소 높이
@@ -60,6 +62,11 @@ struct ChatInputView: View {
             .padding(.vertical, 12)
         }
         .background(Color.black)
+        .alert("파일 첨부 오류", isPresented: $showFileSizeAlert) {
+            Button("확인", role: .cancel) { }
+        } message: {
+            Text(fileSizeAlertMessage)
+        }
         .photosPicker(
             isPresented: $showImagePicker,
             selection: $selectedImages,
@@ -71,10 +78,17 @@ struct ChatInputView: View {
             allowedContentTypes: [.pdf],
             allowsMultipleSelection: true
         ) { result in
+            print("🔍 ChatInputView: fileImporter 결과 수신")
             handleDocumentSelection(result)
         }
         .confirmationDialog("파일 첨부", isPresented: $showFileMenu) {
             fileMenuButtons
+        }
+        .onChange(of: showFileMenu) { isShowing in
+            print("🔍 ChatInputView: showFileMenu 변경됨 - \(isShowing)")
+        }
+        .onChange(of: showDocumentPicker) { isShowing in
+            print("🔍 ChatInputView: showDocumentPicker 변경됨 - \(isShowing)")
         }
         .onChange(of: selectedImages) { newImages in
             if !newImages.isEmpty {
@@ -97,7 +111,7 @@ struct ChatInputView: View {
     }
     
     private func uploadedFileCard(file: (String, String), index: Int) -> some View {
-        VStack(spacing: 8) {
+        return VStack(spacing: 8) {
             ZStack(alignment: .topTrailing) {
                 // 파일 타입별 미리보기
                 if isImageFile(file.0) {
@@ -151,6 +165,7 @@ struct ChatInputView: View {
     
     private var attachmentButton: some View {
         Button {
+            print("🔍 ChatInputView: 첨부 버튼 탭됨")
             showFileMenu = true
         } label: {
             Image(systemName: "plus")
@@ -162,26 +177,31 @@ struct ChatInputView: View {
         .disabled(isUploading)
     }
     
-    // ✅ 파일 첨부 메뉴 (전체 용량 5MB로 수정)
+    // ✅ 파일 첨부 메뉴
     private var fileMenuButtons: some View {
         Group {
             if uploadedFiles.isEmpty {
                 Button("사진 선택 (최대 5개, 전체 5MB)") {
+                    print("🔍 ChatInputView: 사진 선택 버튼 탭됨")
                     showImagePicker = true
                 }
                 Button("PDF 문서 선택 (최대 5개, 전체 5MB)") {
+                    print("🔍 ChatInputView: PDF 선택 버튼 탭됨")
                     showDocumentPicker = true
                 }
             } else {
                 let hasImages = uploadedFiles.contains { isImageFile($0.0) }
                 let hasPDF = uploadedFiles.contains { isPDFFile($0.0) }
+        
                 
                 if hasImages && uploadedFiles.count < 5 {
                     Button("사진 추가 (현재 \(uploadedFiles.count)/5개)") {
+                        print("🔍 ChatInputView: 사진 추가 버튼 탭됨")
                         showImagePicker = true
                     }
                 } else if hasPDF && uploadedFiles.count < 5 {
                     Button("PDF 추가 (현재 \(uploadedFiles.count)/5개)") {
+                        print("🔍 ChatInputView: PDF 추가 버튼 탭됨")
                         showDocumentPicker = true
                     }
                 } else if uploadedFiles.count >= 5 {
@@ -196,7 +216,7 @@ struct ChatInputView: View {
         }
     }
     
-    // MARK: - ✅ 개선된 텍스트 입력 영역 (가로 늘어남 방지)
+    // MARK: - 텍스트 입력 영역
     
     private var textInputArea: some View {
         ZStack(alignment: .leading) {
@@ -263,32 +283,23 @@ struct ChatInputView: View {
         guard canSendMessage else { return }
         
         let content = getActualMessageText()
-        let files = uploadedFiles.map { $0.0 } // filePath들 추출
-        
-        // ✅ 디버깅: 전송할 파일 경로들 로깅
-        print("🔍 ChatInputView sendMessage:")
-        print("   - content: '\(content)'")
-        print("   - uploadedFiles: \(uploadedFiles)")
-        print("   - 추출한 files (filePaths): \(files)")
+        let files = uploadedFiles.map { $0.0 }
         
         guard !content.isEmpty || !files.isEmpty else { return }
         
         // 메시지 전송
         onSendMessage(content, files)
         
-        // ✅ 입력 필드 완전 초기화
         messageText = ""
         textHeight = minTextHeight
         isShowingPlaceholder = true
-        
-        // ✅ 포커스 해제 후 다시 설정하여 플레이스홀더 강제 적용
+    
         isTextFieldFocused = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             isTextFieldFocused = true
         }
     }
-    
-    // ✅ 실제 메시지 텍스트 가져오기 (플레이스홀더 제외)
+
     private func getActualMessageText() -> String {
         if isShowingPlaceholder || messageText == placeholderText {
             return ""
@@ -296,7 +307,7 @@ struct ChatInputView: View {
         return messageText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    // MARK: - ✅ 파일 처리 (서버 응답 경로 사용)
+    // MARK: - ✅ 파일 처리
     
     private func handleImageSelection(_ images: [PhotosPickerItem]) {
         guard !images.isEmpty else { return }
@@ -324,10 +335,8 @@ struct ChatInputView: View {
             
             for (index, item) in imagesToProcess.enumerated() {
                 if let data = try? await item.loadTransferable(type: Data.self) {
-                    // ✅ 전체 용량 5MB 체크
                     if totalSize + data.count <= (5 * 1024 * 1024) {
                         imageDataArray.append(data)
-                        // ✅ 서버가 인식할 수 있는 임시 파일명 (업로드 후 실제 경로로 교체됨)
                         let fileName = "upload_image_\(Date().timeIntervalSince1970)_\(index + 1).jpg"
                         imageNames.append(fileName)
                         totalSize += data.count
@@ -351,19 +360,27 @@ struct ChatInputView: View {
     }
     
     private func handleDocumentSelection(_ result: Result<[URL], Error>) {
+        print("🔍 ChatInputView handleDocumentSelection 시작")
+        
         switch result {
         case .success(let urls):
+            print("✅ 문서 선택 성공 - URL 개수: \(urls.count)")
+            for (index, url) in urls.enumerated() {
+                print("   - URL[\(index)]: \(url.lastPathComponent) (\(url.pathExtension))")
+            }
+            
             // ✅ 이미지가 이미 있으면 PDF 선택 차단
             let hasImages = uploadedFiles.contains { isImageFile($0.0) }
             if hasImages {
                 print("❌ ChatInputView: 이미지가 있어서 PDF 선택 불가")
+                showFileSizeError(message: "이미지와 PDF를 동시에 첨부할 수 없습니다.")
                 return
             }
             
-            // ✅ 5개 제한 확인
             let remainingSlots = 5 - uploadedFiles.count
             if remainingSlots <= 0 {
                 print("❌ ChatInputView: 이미 5개 파일이 첨부됨")
+                showFileSizeError(message: "최대 5개까지만 첨부 가능합니다.")
                 return
             }
             
@@ -374,38 +391,69 @@ struct ChatInputView: View {
             
             // ✅ PDF만 필터링하고 남은 슬롯만큼 처리
             let pdfUrls = urls.filter { $0.pathExtension.lowercased() == "pdf" }
-            let urlsToProcess = Array(pdfUrls.prefix(remainingSlots))
+            print("🔍 PDF 파일 필터링 결과: \(pdfUrls.count)개")
             
-            for url in urlsToProcess {
-                if let data = try? Data(contentsOf: url) {
-                    // ✅ 전체 용량 5MB 체크 (각 파일이 아닌 전체 용량)
-                    if totalSize + data.count <= (5 * 1024 * 1024) {
+            let urlsToProcess = Array(pdfUrls.prefix(remainingSlots))
+            print("🔍 처리할 PDF 파일: \(urlsToProcess.count)개")
+            
+            for (index, url) in urlsToProcess.enumerated() {
+                print("🔍 PDF 파일 [\(index)] 처리 시작: \(url.lastPathComponent)")
+                
+                let hasAccess = url.startAccessingSecurityScopedResource()
+                print("   - 보안 접근 권한: \(hasAccess)")
+                
+                defer {
+                    url.stopAccessingSecurityScopedResource()
+                }
+                
+                do {
+                    let data = try Data(contentsOf: url)
+                    let fileSize = data.count
+                    let fileSizeMB = Double(fileSize) / (1024 * 1024)
+                    print("   ✅ 파일 데이터 읽기 성공")
+                    print("   - 파일 크기: \(fileSize) bytes (\(String(format: "%.2f", fileSizeMB)) MB)")
+                    print("   - 현재 총 크기: \(totalSize) bytes")
+                    print("   - 추가 후 총 크기: \(totalSize + fileSize) bytes")
+                    
+                    // ✅ 전체 용량 5MB 체크
+                    if totalSize + fileSize <= (5 * 1024 * 1024) {
                         documentDataArray.append(data)
                         documentNames.append(url.lastPathComponent)
-                        totalSize += data.count
+                        totalSize += fileSize
+                        print("   ✅ 파일 추가 성공")
                     } else {
                         oversizedFiles.append(url.lastPathComponent)
+                        print("   ❌ 용량 초과로 제외")
                     }
+                } catch {
+                    print("   ❌ 파일 데이터 읽기 실패: \(error)")
                 }
             }
             
             if !documentDataArray.isEmpty {
+                print("📤 onUploadFiles 호출")
                 onUploadFiles(documentDataArray, documentNames)
+            } else {
+                print("❌ 업로드할 파일 없음")
+                if oversizedFiles.isEmpty {
+                    showFileSizeError(message: "선택한 PDF 파일을 처리할 수 없습니다.")
+                }
             }
             
             // 용량 초과 파일 알림
             if !oversizedFiles.isEmpty {
-                showFileSizeError(count: oversizedFiles.count)
+                let message = "\(oversizedFiles.count)개 파일이 전체 용량 제한(5MB)을 초과합니다."
+                showFileSizeError(message: message)
             }
             
         case .failure(let error):
             print("❌ ChatInputView: 문서 선택 실패 - \(error)")
+            showFileSizeError(message: "문서 선택에 실패했습니다: \(error.localizedDescription)")
         }
     }
     
     // MARK: - 유틸리티
     
-    // ✅ 개선된 canSendMessage 로직
     private var canSendMessage: Bool {
         let hasActualText = !getActualMessageText().isEmpty
         let hasFiles = !uploadedFiles.isEmpty
@@ -418,16 +466,16 @@ struct ChatInputView: View {
         return imageExtensions.contains(fileExtension)
     }
     
-    // ✅ PDF 파일 체크 함수 추가
     private func isPDFFile(_ filePath: String) -> Bool {
         let fileExtension = filePath.components(separatedBy: ".").last?.lowercased() ?? ""
-        return fileExtension == "pdf"
+        let isPDF = fileExtension == "pdf"
+        return isPDF
     }
     
-    // ✅ 파일 크기 초과 알림 (전체 용량 기준으로 수정)
-    private func showFileSizeError(count: Int) {
-        print("❌ ChatInputView: \(count)개 파일이 전체 용량 5MB를 초과함")
-        // TODO: 실제 앱에서는 Alert나 Toast 메시지로 사용자에게 알림
+    private func showFileSizeError(message: String) {
+        fileSizeAlertMessage = message
+        showFileSizeAlert = true
+        print("❌ ChatInputView: \(message)")
     }
     
     private func fileIcon(for filePath: String) -> String {
@@ -454,7 +502,6 @@ struct ChatInputView: View {
     }
 }
 
-// MARK: - ✅ 개선된 CustomTextView (가로 늘어남 방지)
 
 struct CustomTextView: UIViewRepresentable {
     @Binding var text: String
@@ -474,7 +521,6 @@ struct CustomTextView: UIViewRepresentable {
     var placeholder: String? = nil
     var placeholderColor: UIColor = .systemGray
     
-    // ✅ 플레이스홀더 상태 바인딩 추가
     @Binding var isShowingPlaceholder: Bool
     
     func makeUIView(context: Context) -> UITextView {
