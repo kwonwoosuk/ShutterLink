@@ -401,32 +401,47 @@ final class ChatViewModel: ObservableObject {
         }
     }
     
+  
     private func uploadFiles(data: [Data], names: [String]) {
-        Task { @MainActor in
-            print("📎 ChatViewModel: 파일 업로드 시작")
-            
-            isUploading = true
-            errorMessage = nil
-            
-            do {
-                let filePaths = try await chatUseCase.uploadFiles(roomId: roomId, files: data, fileNames: names)
+            Task { @MainActor in
+                print("📎 ChatViewModel: 파일 업로드 시작")
+                print("   - 임시 파일명들: \(names)")
                 
-                for (index, filePath) in filePaths.enumerated() {
-                    let fileName = index < names.count ? names[index] : "파일\(index + 1)"
-                    uploadedFiles.append((fileName, filePath))
+                isUploading = true
+                errorMessage = nil
+                
+                do {
+                    let filePaths = try await chatUseCase.uploadFiles(roomId: roomId, files: data, fileNames: names)
+                    
+                    print("🔍 ChatViewModel: 서버 응답 확인")
+                    print("   - 서버 반환 filePaths: \(filePaths)")
+                    print("   - filePaths 개수: \(filePaths.count)")
+                    
+                    for (index, filePath) in filePaths.enumerated() {
+                        let fileName = index < names.count ? names[index] : "파일\(index + 1)"
+                        
+                        // ✅ 올바른 순서: (filePath, fileName)
+                        uploadedFiles.append((filePath, fileName))
+                        
+                        print("🔍 ChatViewModel: 파일 저장")
+                        print("   - index: \(index)")
+                        print("   - 서버 filePath: '\(filePath)'")
+                        print("   - 클라이언트 fileName: '\(fileName)'")
+                        print("   - uploadedFiles에 저장됨: ('\(filePath)', '\(fileName)')")
+                    }
+                    
+                    print("✅ ChatViewModel: 파일 업로드 완료 - \(filePaths.count)개")
+                    print("   - 최종 uploadedFiles: \(uploadedFiles)")
+                    
+                } catch {
+                    print("❌ ChatViewModel: 파일 업로드 실패 - \(error)")
+                    errorMessage = error.localizedDescription
+                    showError = true
                 }
                 
-                print("✅ ChatViewModel: 파일 업로드 완료 - \(filePaths.count)개")
-                
-            } catch {
-                print("❌ ChatViewModel: 파일 업로드 실패 - \(error)")
-                errorMessage = error.localizedDescription
-                showError = true
+                isUploading = false
             }
-            
-            isUploading = false
         }
-    }
     
     // MARK: - 유틸리티 메서드
     
