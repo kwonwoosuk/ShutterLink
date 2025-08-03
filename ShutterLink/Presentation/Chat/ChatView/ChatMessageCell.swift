@@ -49,33 +49,56 @@ struct ChatMessageCell: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
-        // ✅ 미리보기 모달들 (필요시에만)
         .fullScreenCover(isPresented: $showPhotoPreview) {
-            PhotoPreviewModal(
-                photos: photoPreviewList,
-                initialIndex: photoPreviewIndex,
+            let _ = photoPreviewList
+            let _ = photoPreviewIndex
+            let _ = showPhotoPreview
+
+            let currentPhotos = photoPreviewList
+            let currentIndex = photoPreviewIndex
+            
+            return PhotoPreviewModal(
+                photos: currentPhotos.isEmpty ? photoPreviewList : currentPhotos,
+                initialIndex: currentPhotos.isEmpty ? photoPreviewIndex : currentIndex,
                 isPresented: $showPhotoPreview
             )
         }
         .fullScreenCover(isPresented: $showPDFPreview) {
-            let _ = self.pdfPreviewList
-            let _ = self.pdfPreviewIndex
-            let _ = self.showPDFPreview
+            let _ = pdfPreviewList
+            let _ = pdfPreviewIndex
+            let _ = showPDFPreview
+            
+            let currentPDFs = pdfPreviewList
+            let currentIndex = pdfPreviewIndex
             
             return PDFPreviewModal(
-                pdfPaths: self.pdfPreviewList,
-                initialIndex: self.pdfPreviewIndex,
-                isPresented: self.$showPDFPreview
+                pdfPaths: currentPDFs.isEmpty ? pdfPreviewList : currentPDFs,
+                initialIndex: currentPDFs.isEmpty ? pdfPreviewIndex : currentIndex,
+                isPresented: $showPDFPreview
             )
+        }
+        .onAppear {
+            preloadImages()
         }
     }
     
-    init(message: ChatMessage, isMyMessage: Bool) {
-        self.message = message
-        self.isMyMessage = isMyMessage
-        print("📂 ChatMessageCell init:")
-        print("   - message.files: \(message.files)")
-        print("   - isMyMessage: \(isMyMessage)")
+    private func preloadImages() {
+        let imageFiles = message.files.filter { isImageFile($0) }
+        guard !imageFiles.isEmpty else { return }
+        
+        print("🔄 이미지 프리로딩 시작: \(imageFiles.count)개")
+        
+        Task {
+            for (index, imagePath) in imageFiles.prefix(3).enumerated() {
+                do {
+                    let _ = try await ImageLoader.shared.loadImage(from: imagePath)
+                    print("✅ 프리로딩 성공 [\(index + 1)/\(min(3, imageFiles.count))]: \(imagePath)")
+                } catch {
+                    print("❌ 프리로딩 실패 [\(index + 1)]: \(error)")
+                }
+            }
+            print("🎯 이미지 프리로딩 완료")
+        }
     }
     
     // MARK: - 프로필 이미지
@@ -130,14 +153,6 @@ struct ChatMessageCell: View {
             Text(formattedTime)
                 .font(.pretendard(size: 10, weight: .regular))
                 .foregroundColor(.gray)
-            
-            // 내 메시지일 때만 읽음 표시 (필요 시)
-            if isMyMessage {
-                // TODO: 읽음 상태 구현 시 추가
-                // Text("읽음")
-                //     .font(.pretendard(size: 9, weight: .regular))
-                //     .foregroundColor(.yellow)
-            }
         }
     }
     
@@ -150,7 +165,6 @@ struct ChatMessageCell: View {
                 textBubble
             }
             
-            // ✅ 첨부 파일들 (원본 기반 + 분기 처리)
             if !message.files.isEmpty {
                 filesView
             }
@@ -170,34 +184,34 @@ struct ChatMessageCell: View {
             .frame(maxWidth: maxBubbleWidth, alignment: isMyMessage ? .trailing : .leading)
     }
     
-    // MARK: - ✅ 첨부 파일 표시 (디버깅 추가)
+    // MARK: - ✅ 첨부 파일 표시 (PDF/일반파일 분기 처리)
     
     @ViewBuilder
     private var filesView: some View {
         if !message.files.isEmpty {
             let imageFiles = message.files.filter { isImageFile($0) }
             let pdfFiles = message.files.filter { isPDFFile($0) }
+            let otherFiles = message.files.filter { !isImageFile($0) && !isPDFFile($0) }
             
-            // ✅ 디버깅: 파일 필터링 결과
-            let _ = print("🔍 ChatMessageCell filesView:")
-            let _ = print("   - 전체 파일: \(message.files)")
-            let _ = print("   - 이미지 파일: \(imageFiles)")
-            let _ = print("   - PDF 파일: \(pdfFiles)")
-            
+          
             VStack(alignment: isMyMessage ? .trailing : .leading, spacing: 8) {
-                // ✅ 이미지 파일들 - 개수별 레이아웃
                 if !imageFiles.isEmpty {
+                    let _ = print("📸 이미지 파일 표시: \(imageFiles.count)개")
                     imageFilesView(images: imageFiles)
                 }
                 
-                // ✅ PDF 파일들 - 개별 표시
                 if !pdfFiles.isEmpty {
+                    let _ = print("📄 PDF 파일 표시: \(pdfFiles.count)개 (하얀색 배경)")
                     ForEach(Array(pdfFiles.enumerated()), id: \.offset) { index, file in
                         pdfFileView(file: file, allPDFs: pdfFiles, index: index)
                     }
-                } else {
-                    // ✅ 디버깅: PDF 파일이 없는 경우
-                    let _ = print("⚠️ ChatMessageCell: PDF 파일이 필터링되지 않음")
+                }
+                
+                if !otherFiles.isEmpty {
+                    let _ = print("📁 기타 파일 표시: \(otherFiles.count)개 (기존 색상)")
+                    ForEach(Array(otherFiles.enumerated()), id: \.offset) { index, file in
+                        generalFileView(file: file, index: index)
+                    }
                 }
             }
         }
@@ -262,7 +276,7 @@ struct ChatMessageCell: View {
         }
     }
     
-    // MARK: - ✅ 단일 이미지 뷰 (원본 크기 기반)
+    // MARK: - ✅ 단일 이미지 뷰
     
     private func singleImageView(image: String, allImages: [String], index: Int) -> some View {
         AuthenticatedImageView(
@@ -285,11 +299,11 @@ struct ChatMessageCell: View {
                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
         )
         .onTapGesture {
-            openPhotoPreview(photos: allImages, index: index)
+            handleImageTap(allImages: allImages, index: index)
         }
     }
     
-    // MARK: - ✅ 개별 이미지 아이템 뷰 (원본 구조 기반)
+    // MARK: - ✅ 개별 이미지 아이템 뷰
     
     private func imageItemView(image: String, width: CGFloat, height: CGFloat, allImages: [String], index: Int) -> some View {
         AuthenticatedImageView(
@@ -312,15 +326,14 @@ struct ChatMessageCell: View {
                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
         )
         .onTapGesture {
-            openPhotoPreview(photos: allImages, index: index)
+            handleImageTap(allImages: allImages, index: index)
         }
     }
     
-    // MARK: - ✅ PDF 파일 뷰 (디버깅 추가)
+    // MARK: - ✅ PDF 파일 뷰
     
     private func pdfFileView(file: String, allPDFs: [String], index: Int) -> some View {
-        // ✅ 디버깅: PDF 뷰 생성 시점
-        let _ = print("🔍 ChatMessageCell pdfFileView:")
+        let _ = print("🔍 pdfFileView 렌더링:")
         let _ = print("   - file: '\(file)'")
         let _ = print("   - allPDFs: \(allPDFs)")
         let _ = print("   - index: \(index)")
@@ -334,10 +347,121 @@ struct ChatMessageCell: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(fileName(from: file))
                     .font(.pretendard(size: 14, weight: .medium))
-                    .foregroundColor(isMyMessage ? .black : .white)
+                    .foregroundColor(.black)
                     .lineLimit(1)
                 
                 Text("PDF 문서")
+                    .font(.pretendard(size: 12, weight: .regular))
+                    .foregroundColor(.black.opacity(0.7))
+            }
+            
+            Spacer()
+            
+            Image(systemName: "eye")
+                .font(.title3)
+                .foregroundColor(.black.opacity(0.7))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+        )
+        .frame(maxWidth: maxBubbleWidth)
+        .onTapGesture {
+            handlePDFTap(allPDFs: allPDFs, index: index)
+        }
+    }
+    
+    private func handleImageTap(allImages: [String], index: Int) {
+        
+        // 검증
+        guard !allImages.isEmpty else {
+            print("❌ allImages가 비어있음!")
+            return
+        }
+        
+        guard allImages.indices.contains(index) else {
+            print("❌ 인덱스 범위 초과! 인덱스: \(index), 배열 크기: \(allImages.count)")
+            return
+        }
+        openPhotoPreview(photos: allImages, index: index)
+    }
+    
+    private func handlePDFTap(allPDFs: [String], index: Int) {
+        guard !allPDFs.isEmpty else {
+            print("❌ PDF 배열이 비어있음!")
+            return
+        }
+        
+        guard allPDFs.indices.contains(index) else {
+            print("❌ PDF 인덱스 범위 초과!")
+            return
+        }
+        
+        print("✅ PDF 탭 검증 통과 - openPDFPreview 호출")
+        openPDFPreview(pdfs: allPDFs, index: index)
+    }
+    // 미리보기 열기 액션
+    
+    private func openPhotoPreview(photos: [String], index: Int) {
+        photoPreviewList = photos
+        photoPreviewIndex = index
+        showPhotoPreview = true
+        
+    }
+    
+    private func openPDFPreview(pdfs: [String], index: Int) {
+        pdfPreviewList = pdfs
+        pdfPreviewIndex = index
+        showPDFPreview = true
+    }
+    
+    // MARK: - 시간 포맷팅
+    
+    private var formattedTime: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: message.createdAt)
+    }
+    
+    private func isImageFile(_ filePath: String) -> Bool {
+        let imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "heic", "bmp", "tiff"]
+        let fileExtension = filePath.components(separatedBy: ".").last?.lowercased() ?? ""
+        let result = imageExtensions.contains(fileExtension)
+        
+        print("🔍 isImageFile('\(filePath)') -> \(result) (확장자: '\(fileExtension)')")
+        return result
+    }
+    
+    private func isPDFFile(_ filePath: String) -> Bool {
+        let fileExtension = filePath.components(separatedBy: ".").last?.lowercased() ?? ""
+        let result = fileExtension == "pdf"
+        
+        print("🔍 isPDFFile('\(filePath)') -> \(result) (확장자: '\(fileExtension)')")
+        return result
+    }
+    // pdf 아닌경우
+    private func generalFileView(file: String, index: Int) -> some View {
+        print("🔍 generalFileView 렌더링: '\(file)'")
+        
+        return HStack(spacing: 12) {
+            Image(systemName: fileIcon(for: file))
+                .font(.title2)
+                .foregroundColor(.blue)
+                .frame(width: 32, height: 32)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(fileName(from: file))
+                    .font(.pretendard(size: 14, weight: .medium))
+                    .foregroundColor(isMyMessage ? .black : .white)
+                    .lineLimit(1)
+                
+                Text(fileType(from: file))
                     .font(.pretendard(size: 12, weight: .regular))
                     .foregroundColor(isMyMessage ? .black.opacity(0.7) : .white.opacity(0.7))
             }
@@ -352,86 +476,36 @@ struct ChatMessageCell: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isMyMessage ? Color.yellow.opacity(0.8) : Color.gray.opacity(0.6))
+                .fill(isMyMessage ? Color.yellow.opacity(0.8) : Color.gray.opacity(0.6))  // ✅ 기존 색상 유지
         )
         .frame(maxWidth: maxBubbleWidth)
-        .onTapGesture {
-            // ✅ 디버깅: 탭 제스처 실행
-            print("🖱️ ChatMessageCell: PDF 탭 제스처 실행됨")
-            print("   - 탭한 파일: '\(file)'")
-            print("   - 전체 PDF 목록: \(allPDFs)")
-            print("   - 탭한 인덱스: \(index)")
-            
-            openPDFPreview(pdfs: allPDFs, index: index)
-        }
     }
     
-    // MARK: - ✅ 미리보기 열기 액션들 (디버깅 추가)
-    
-    private func openPhotoPreview(photos: [String], index: Int) {
-        photoPreviewList = photos
-        photoPreviewIndex = index
-        showPhotoPreview = true
-        
-        print("🖼 사진 미리보기 열기: \(photos[index]) (인덱스: \(index))")
-    }
-    
-    private func openPDFPreview(pdfs: [String], index: Int) {
-        guard !pdfs.isEmpty else {
-            print("❌ ChatMessageCell: pdfs 배열이 비어있음!")
-            return
-        }
-        
-        guard pdfs.indices.contains(index) else {
-            print("❌ ChatMessageCell: 잘못된 인덱스 \(index), pdfs 개수: \(pdfs.count)")
-            return
-        }
-        
-        pdfPreviewList = pdfs
-        pdfPreviewIndex = index
-        DispatchQueue.main.async {
-            self.showPDFPreview = true // 메인 스레드에서 상태 업데이트
-            print("✅ ChatMessageCell: PDF 미리보기 상태 설정 완료")
-            print("   - pdfPreviewList: \(self.pdfPreviewList)")
-            print("   - pdfPreviewIndex: \(self.pdfPreviewIndex)")
-            print("   - showPDFPreview: \(self.showPDFPreview)")
-        }
-    }
-    
-    // MARK: - 시간 포맷팅
-    
-    private var formattedTime: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: message.createdAt)
-    }
-    
-    // MARK: - ✅ 파일 유틸리티 (디버깅 추가)
-    
-    private func isImageFile(_ filePath: String) -> Bool {
-        let imageExtensions = ["jpg", "jpeg", "png", "gif", "webp"]
+    private func fileType(from filePath: String) -> String {
         let fileExtension = filePath.components(separatedBy: ".").last?.lowercased() ?? ""
-        let result = imageExtensions.contains(fileExtension)
         
-        // ✅ 디버깅: 이미지 파일 체크
-        print("🔍 isImageFile('\(filePath)') -> \(result) (확장자: '\(fileExtension)')")
-        
-        return result
-    }
-    
-    private func isPDFFile(_ filePath: String) -> Bool {
-        let fileExtension = filePath.components(separatedBy: ".").last?.lowercased() ?? ""
-        let result = fileExtension == "pdf"
-        
-        // ✅ 디버깅: PDF 파일 체크
-        print("🔍 isPDFFile('\(filePath)') -> \(result) (확장자: '\(fileExtension)')")
-        
-        return result
+        switch fileExtension {
+        case "jpg", "jpeg", "png", "gif", "webp", "heic", "bmp", "tiff":
+            return "이미지 파일"
+        case "pdf":
+            return "PDF 문서"
+        case "mp4", "mov", "avi", "mkv":
+            return "비디오 파일"
+        case "mp3", "wav", "m4a", "aac":
+            return "오디오 파일"
+        case "doc", "docx":
+            return "Word 문서"
+        case "xls", "xlsx":
+            return "Excel 파일"
+        case "txt":
+            return "텍스트 파일"
+        default:
+            return "파일"
+        }
     }
     
     private func fileName(from filePath: String) -> String {
         let result = filePath.components(separatedBy: "/").last ?? filePath
-        print("🔍 fileName('\(filePath)') -> '\(result)'")
         return result
     }
     

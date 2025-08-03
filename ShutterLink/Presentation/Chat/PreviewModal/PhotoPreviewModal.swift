@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct PhotoPreviewModal: View {
     let photos: [String]
@@ -13,12 +14,9 @@ struct PhotoPreviewModal: View {
     @Binding var isPresented: Bool
     
     @State private var currentIndex: Int
-    @State private var scale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    
-    // 스와이프 닫기를 위한 상태
     @State private var verticalDragOffset: CGFloat = 0
     @State private var backgroundOpacity: Double = 1.0
+    @State private var hasAppeared = false
     
     init(photos: [String], initialIndex: Int, isPresented: Binding<Bool>) {
         self.photos = photos
@@ -29,233 +27,589 @@ struct PhotoPreviewModal: View {
     
     var body: some View {
         ZStack {
-            // 배경 (투명도 변화)
+            // 배경
             Color.black
                 .opacity(backgroundOpacity)
                 .ignoresSafeArea()
                 .onTapGesture {
+                    print("🖱️ 배경 탭됨 - 모달 닫기")
                     dismissModal()
                 }
             
-            VStack {
-                // 상단 닫기 버튼
-                HStack {
-                    Button("닫기") {
-                        dismissModal()
-                    }
-                    .foregroundColor(.white)
-                    .padding()
+            if hasAppeared {
+                VStack {
+                    // 상단 UI
+                    topBar
                     
                     Spacer()
                     
-                    // 페이지 인디케이터
-                    if photos.count > 1 {
-                        Text("\(currentIndex + 1) / \(photos.count)")
-                            .foregroundColor(.white)
-                            .padding()
-                    }
+                    // ✅ 메인 이미지 영역
+                    mainImageArea
+                    
+                    Spacer()
                 }
-                
-                Spacer()
-                
-                // 메인 이미지 영역
-                TabView(selection: $currentIndex) {
-                    ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
-                        ZoomableImageView(
-                            imagePath: photo,
-                            scale: $scale,
-                            offset: $offset,
-                            onDismiss: dismissModal,
-                            onVerticalDrag: { translation in
-                                // ✅ ZoomableImageView에서 세로 드래그 처리
-                                if scale <= 1.0 {
-                                    verticalDragOffset = max(0, translation.height)
-                                    let progress = min(verticalDragOffset / 200, 1.0)
-                                    backgroundOpacity = 1.0 - progress * 0.7
-                                }
-                            },
-                            onVerticalDragEnd: { translation, velocity in
-                                // ✅ ZoomableImageView에서 세로 드래그 종료 처리
-                                if scale <= 1.0 {
-                                    if verticalDragOffset > 150 || velocity.height > 300 {
-                                        dismissModal()
-                                    } else {
-                                        withAnimation(.spring()) {
-                                            verticalDragOffset = 0
-                                            backgroundOpacity = 1.0
-                                        }
-                                    }
-                                }
-                            }
-                        )
-                        .tag(index)
-                    }
+                .transition(.opacity)
+            } else {
+                // 로딩 상태
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.5)
+                    
+                    Text("이미지 로딩 중...")
+                        .foregroundColor(.white)
+                        .font(.pretendard(size: 16, weight: .medium))
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-                .offset(y: verticalDragOffset)
-                
-                Spacer()
             }
         }
         .onAppear {
-            // 상태 초기화
-            scale = 1.0
-            offset = .zero
-            verticalDragOffset = 0
-            backgroundOpacity = 1.0
+            print("📱 PhotoPreviewModal onAppear")
+            print("   - currentIndex: \(currentIndex)")
+            print("   - photos.count: \(photos.count)")
+            
+            // 짧은 지연 후 실제 콘텐츠 표시
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    hasAppeared = true
+                }
+                print("✅ PhotoPreviewModal 콘텐츠 표시됨")
+            }
+        }
+        .onDisappear {
+            print("👋 PhotoPreviewModal onDisappear")
+            hasAppeared = false
+        }
+        .statusBarHidden()
+    }
+    
+    // MARK: - UI Components
+    
+    private var topBar: some View {
+        HStack {
+            Button("닫기") {
+                print("🖱️ 닫기 버튼 탭됨")
+                dismissModal()
+            }
+            .foregroundColor(.white)
+            .font(.pretendard(size: 16, weight: .medium))
+            .padding()
+            
+            Spacer()
+            
+            if photos.count > 1 {
+                Text("\(currentIndex + 1) / \(photos.count)")
+                    .foregroundColor(.white)
+                    .font(.pretendard(size: 16, weight: .medium))
+                    .padding()
+            }
+        }
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [Color.black.opacity(0.8), Color.clear]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 100)
+        )
+    }
+    
+    private var mainImageArea: some View {
+        ZStack {
+            if photos.count == 1 {
+                // 단일 이미지 - UIScrollView 사용
+                ScrollableImageView(
+                    imagePath: photos[0],
+                    onDismiss: dismissModal,
+                    onVerticalDrag: { translation in
+                        verticalDragOffset = max(0, translation.height)
+                        let progress = min(verticalDragOffset / 200, 1.0)
+                        backgroundOpacity = 1.0 - progress * 0.7
+                    },
+                    onVerticalDragEnd: { translation, velocity in
+                        if verticalDragOffset > 150 || velocity.height > 300 {
+                            dismissModal()
+                        } else {
+                            withAnimation(.spring()) {
+                                verticalDragOffset = 0
+                                backgroundOpacity = 1.0
+                            }
+                        }
+                    }
+                )
+                .offset(y: verticalDragOffset)
+            } else {
+                // 여러 이미지 - 개선된 PageView 사용
+                PhotoPageView(
+                    photos: photos,
+                    currentIndex: $currentIndex,
+                    onDismiss: dismissModal,
+                    onVerticalDrag: { translation in
+                        verticalDragOffset = max(0, translation.height)
+                        let progress = min(verticalDragOffset / 200, 1.0)
+                        backgroundOpacity = 1.0 - progress * 0.7
+                    },
+                    onVerticalDragEnd: { translation, velocity in
+                        if verticalDragOffset > 150 || velocity.height > 300 {
+                            dismissModal()
+                        } else {
+                            withAnimation(.spring()) {
+                                verticalDragOffset = 0
+                                backgroundOpacity = 1.0
+                            }
+                        }
+                    }
+                )
+                .offset(y: verticalDragOffset)
+            }
         }
     }
     
     private func dismissModal() {
+        print("🔚 모달 닫기 시작")
+        
         withAnimation(.easeOut(duration: 0.3)) {
             backgroundOpacity = 0
             verticalDragOffset = 200
+            hasAppeared = false
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             isPresented = false
+            print("✅ 모달 닫기 완료")
         }
     }
 }
 
-// MARK: - ✅ 줌 가능한 이미지 뷰 (핀치줌 1.0~4.0배 + 방향별 드래그 감지)
-
-struct ZoomableImageView: View {
+struct ScrollableImageView: UIViewControllerRepresentable {
     let imagePath: String
-    @Binding var scale: CGFloat
-    @Binding var offset: CGSize
     let onDismiss: () -> Void
     let onVerticalDrag: ((CGSize) -> Void)?
     let onVerticalDragEnd: ((CGSize, CGSize) -> Void)?
     
-    @State private var lastScale: CGFloat = 1.0
-    @State private var lastOffset: CGSize = .zero
-    @State private var isDragging = false
-    @State private var dragStartPosition: CGPoint = .zero
-    
-    // ✅ onVerticalDrag 파라미터들을 옵셔널로 만들어 기존 호환성 유지
     init(
         imagePath: String,
-        scale: Binding<CGFloat>,
-        offset: Binding<CGSize>,
         onDismiss: @escaping () -> Void,
         onVerticalDrag: ((CGSize) -> Void)? = nil,
         onVerticalDragEnd: ((CGSize, CGSize) -> Void)? = nil
     ) {
         self.imagePath = imagePath
-        self._scale = scale
-        self._offset = offset
         self.onDismiss = onDismiss
         self.onVerticalDrag = onVerticalDrag
         self.onVerticalDragEnd = onVerticalDragEnd
     }
     
-    var body: some View {
-        AuthenticatedImageView(
-            imagePath: imagePath,
-            contentMode: .fit
-        ) {
-            Rectangle()
-                .fill(Color.gray.opacity(0.3))
-                .overlay(
-                    Image(systemName: "photo")
-                        .foregroundColor(.gray)
-                        .font(.largeTitle)
-                )
+    func makeUIViewController(context: Context) -> ScrollableImageViewController {
+        let controller = ScrollableImageViewController()
+        controller.imagePath = imagePath
+        controller.onDismiss = onDismiss
+        controller.onVerticalDrag = onVerticalDrag
+        controller.onVerticalDragEnd = onVerticalDragEnd
+        
+        print("🏗️ ScrollableImageViewController 생성: \(imagePath)")
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: ScrollableImageViewController, context: Context) {
+        if uiViewController.imagePath != imagePath {
+            print("🔄 ScrollableImageViewController 업데이트: \(imagePath)")
+            uiViewController.imagePath = imagePath
         }
-        .scaleEffect(scale)
-        .offset(offset)
-        .gesture(
-            SimultaneousGesture(
-                // 핀치 줌 제스처 (1.0 ~ 4.0배)
-                MagnificationGesture()
-                    .onChanged { value in
-                        let newScale = lastScale * value
-                        scale = max(1.0, min(newScale, 4.0)) // ✅ 1.0 ~ 4.0 제한
-                    }
-                    .onEnded { _ in
-                        lastScale = scale
-                        
-                        // 스케일이 1.0에 가까우면 자동으로 1.0으로 스냅
-                        if scale < 1.2 {
-                            withAnimation(.spring()) {
-                                scale = 1.0
-                                offset = .zero
-                            }
-                            lastScale = 1.0
-                            lastOffset = .zero
-                        }
-                    },
-                
-                // ✅ 개선된 드래그 제스처 (방향 감지)
-                DragGesture()
-                    .onChanged { value in
-                        if !isDragging {
-                            // 드래그 시작 - 방향 결정
-                            isDragging = true
-                            dragStartPosition = value.startLocation
-                        }
-                        
-                        let translation = value.translation
-                        let isVerticalDrag = abs(translation.height) > abs(translation.width)
-                        
-                        if scale > 1.0 {
-                            // ✅ 줌 상태: 이미지 팬 (가로/세로 모두)
-                            let newOffset = CGSize(
-                                width: lastOffset.width + translation.width,
-                                height: lastOffset.height + translation.height
-                            )
-                            
-                            // 이동 범위 제한
-                            let maxOffsetX = (scale - 1) * 100
-                            let maxOffsetY = (scale - 1) * 100
-                            
-                            offset = CGSize(
-                                width: max(-maxOffsetX, min(maxOffsetX, newOffset.width)),
-                                height: max(-maxOffsetY, min(maxOffsetY, newOffset.height))
-                            )
-                        } else if isVerticalDrag && translation.height > 0 {
-                            // ✅ 줌 안 된 상태 + 세로 아래 드래그: 모달 닫기 제스처
-                            onVerticalDrag?(translation)
-                        }
-                        // ✅ 가로 드래그는 TabView가 처리하도록 아무것도 안 함
-                    }
-                    .onEnded { value in
-                        isDragging = false
-                        
-                        let translation = value.translation
-                        let velocity = value.predictedEndTranslation
-                        let isVerticalDrag = abs(translation.height) > abs(translation.width)
-                        
-                        if scale > 1.0 {
-                            // ✅ 줌 상태: 오프셋 저장
-                            lastOffset = offset
-                        } else if isVerticalDrag && translation.height > 0 {
-                            // ✅ 세로 드래그 종료: 모달 닫기 처리
-                            onVerticalDragEnd?(translation, velocity)
-                        }
-                    }
-            )
+    }
+}
+
+// MARK: - ✅ UIScrollView 기반 이미지 뷰 컨트롤러
+
+class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
+    var imagePath: String = ""
+    var onDismiss: (() -> Void)?
+    var onVerticalDrag: ((CGSize) -> Void)?
+    var onVerticalDragEnd: ((CGSize, CGSize) -> Void)?
+    
+    private let scrollView = UIScrollView()
+    private var hostedView: UIView?
+    private var hostingController: UIHostingController<AnyView>?
+    
+    private var hostedViewCenterXConstraint: NSLayoutConstraint?
+    private var hostedViewCenterYConstraint: NSLayoutConstraint?
+    private var hostedViewWidthConstraint: NSLayoutConstraint?
+    private var hostedViewHeightConstraint: NSLayoutConstraint?
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        print("🏗️ ScrollableImageViewController viewDidLoad")
+        setupScrollView()
+        setupImageView()
+        setupGestures()
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        print("📱 ScrollableImageViewController viewDidAppear")
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.checkAndAdjustLayout()
+        }
+    }
+    
+    private func checkAndAdjustLayout() {
+        guard let hostedView = hostedView else { return }
+        
+        let hostedViewSize = hostedView.bounds.size
+        print("📐 checkAndAdjustLayout - hostedView 크기: \(hostedViewSize)")
+        
+        if hostedViewSize.width > 0 && hostedViewSize.height > 0 {
+            // 이미지가 로드된 경우
+            print("✅ 이미지 로드 완료 - 레이아웃 조정 시작")
+            alignImageToCenter()
+            recenterImage()
+        } else {
+            // 이미지가 아직 로드되지 않은 경우 - 기본 크기로 설정
+            print("⚠️ 이미지 아직 로드 안됨 - 기본 크기로 설정")
+            setDefaultLayout()
+        }
+        
+        self.view.alpha = 1.0
+        print("✅ 레이아웃 조정 완료")
+    }
+    
+    private func setDefaultLayout() {
+        let screenSize = scrollView.bounds.size
+        
+        hostedViewWidthConstraint?.constant = screenSize.width
+        hostedViewHeightConstraint?.constant = screenSize.height
+        
+    // 중앙정렬
+        hostedViewCenterXConstraint?.constant = 0
+        hostedViewCenterYConstraint?.constant = 0
+        
+        view.setNeedsUpdateConstraints()
+        view.updateConstraintsIfNeeded()
+        view.setNeedsLayout()
+        view.layoutIfNeeded()
+        
+        scrollView.contentSize = screenSize
+        
+        scrollView.contentInset = UIEdgeInsets.zero
+        scrollView.contentOffset = CGPoint.zero
+        
+        print("📐 기본 레이아웃 설정 완료: \(screenSize)")
+    }
+    
+    private func setupScrollView() {
+        view.addSubview(scrollView)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        
+        scrollView.delegate = self
+        scrollView.maximumZoomScale = 3.0
+        scrollView.minimumZoomScale = 0.8
+        scrollView.bouncesZoom = true
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.backgroundColor = .clear
+        scrollView.decelerationRate = .fast
+        scrollView.contentInsetAdjustmentBehavior = .never
+        
+        scrollView.bounces = true
+        scrollView.alwaysBounceVertical = false
+        scrollView.alwaysBounceHorizontal = false
+        
+        view.alpha = 0.0
+    }
+    
+    private func setupImageView() {
+        let screenSize = UIScreen.main.bounds.size
+        
+        let swiftUIView = AnyView(
+            AuthenticatedImageView(
+                imagePath: imagePath,
+                contentMode: .fit
+            ) {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: screenSize.width, height: screenSize.height)
+                    .overlay(
+                        Image(systemName: "photo")
+                            .foregroundColor(.gray)
+                            .font(.largeTitle)
+                    )
+            }
+            .frame(maxWidth: screenSize.width, maxHeight: screenSize.height)
         )
-        .onTapGesture(count: 2) {
-            // 더블 탭으로 줌 토글
-            withAnimation(.spring()) {
-                if scale == 1.0 {
-                    scale = 2.0
-                    lastScale = 2.0
-                } else {
-                    scale = 1.0
-                    offset = .zero
-                    lastScale = 1.0
-                    lastOffset = .zero
-                }
+        
+        let controller = UIHostingController(rootView: swiftUIView)
+        hostingController = controller
+        hostedView = controller.view
+        
+        guard let hostedView = hostedView else { return }
+        
+        scrollView.addSubview(hostedView)
+        hostedView.translatesAutoresizingMaskIntoConstraints = false
+        hostedView.backgroundColor = .clear
+        
+        hostedViewCenterXConstraint = hostedView.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor, constant: 0)
+        hostedViewCenterYConstraint = hostedView.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor, constant: 0)
+        hostedViewWidthConstraint = hostedView.widthAnchor.constraint(equalToConstant: screenSize.width)
+        hostedViewHeightConstraint = hostedView.heightAnchor.constraint(equalToConstant: screenSize.height)
+        
+        NSLayoutConstraint.activate([
+            hostedViewCenterXConstraint!,
+            hostedViewCenterYConstraint!,
+            hostedViewWidthConstraint!,
+            hostedViewHeightConstraint!
+        ])
+        
+    
+        scrollView.contentSize = screenSize
+        
+        print("🖼️ 이미지 뷰 설정 완료: \(imagePath)")
+        print("📐 초기 설정 크기: \(screenSize)")
+        print("📐 중앙 정렬 constraint 설정 완료")
+    }
+    
+    private func setupGestures() {
+        // 단일 탭 제스처
+        let singleTap = UITapGestureRecognizer(target: self, action: #selector(handleSingleTap))
+        scrollView.addGestureRecognizer(singleTap)
+        
+        // 더블 탭 제스처
+        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
+        doubleTap.numberOfTapsRequired = 2
+        scrollView.addGestureRecognizer(doubleTap)
+        
+        // 단일 탭이 더블 탭을 기다리도록 설정
+        singleTap.require(toFail: doubleTap)
+        
+        // 팬 제스처 (모달 닫기용)
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
+        panGesture.delegate = self
+        view.addGestureRecognizer(panGesture)
+    }
+    
+
+    private func alignImageToCenter() {
+        guard let hostedView = hostedView else { return }
+        
+        let scrollViewSize = scrollView.bounds.size
+        let hostedViewSize = hostedView.bounds.size
+    
+        guard hostedViewSize.width > 0 && hostedViewSize.height > 0 else {
+            setDefaultLayout()
+            return
+        }
+        
+        let imageAspectRatio = hostedViewSize.width / hostedViewSize.height
+        let screenAspectRatio = scrollViewSize.width / scrollViewSize.height
+        
+        var finalWidth: CGFloat
+        var finalHeight: CGFloat
+        //여기가 개선이 필요할 것 같다.
+        if imageAspectRatio > screenAspectRatio {
+            finalWidth = scrollViewSize.width
+            finalHeight = finalWidth / imageAspectRatio
+        } else {
+            finalHeight = scrollViewSize.height
+            finalWidth = finalHeight * imageAspectRatio
+        }
+        
+        finalWidth = max(100, min(finalWidth, scrollViewSize.width))
+        finalHeight = max(100, min(finalHeight, scrollViewSize.height))
+        
+        print("📐 계산된 최종 크기: \(finalWidth) x \(finalHeight)")
+        
+        hostedViewWidthConstraint?.constant = finalWidth
+        hostedViewHeightConstraint?.constant = finalHeight
+        
+        hostedViewCenterXConstraint?.constant = 0
+        hostedViewCenterYConstraint?.constant = 0
+        
+        view.setNeedsUpdateConstraints()
+        view.updateConstraintsIfNeeded()
+        view.setNeedsLayout()
+        view.layoutIfNeeded()
+        
+        scrollView.contentSize = CGSize(width: finalWidth, height: finalHeight)
+        
+        print("✅ 이미지 중앙 정렬 완료 - contentSize: \(scrollView.contentSize)")
+    }
+    
+    private func recenterImage() {
+        let scrollViewSize = scrollView.bounds.size
+        let contentSize = scrollView.contentSize
+        let zoomScale = scrollView.zoomScale
+    
+        
+        let zoomedContentWidth = contentSize.width * zoomScale
+        let zoomedContentHeight = contentSize.height * zoomScale
+        
+        var horizontalInset: CGFloat = 0
+        var verticalInset: CGFloat = 0
+        
+        if zoomedContentWidth < scrollViewSize.width {
+            horizontalInset = (scrollViewSize.width - zoomedContentWidth) / 2.0
+        }
+        
+        if zoomedContentHeight < scrollViewSize.height {
+            verticalInset = (scrollViewSize.height - zoomedContentHeight) / 2.0
+        }
+        
+        // 음수 방지
+        horizontalInset = max(0, horizontalInset)
+        verticalInset = max(0, verticalInset)
+        
+        let newInset = UIEdgeInsets(
+            top: verticalInset,
+            left: horizontalInset,
+            bottom: verticalInset,
+            right: horizontalInset
+        )
+        
+        if scrollView.contentInset != newInset {
+            UIView.animate(withDuration: 0.1) {
+                self.scrollView.contentInset = newInset
             }
         }
-        .onTapGesture {
-            // 단일 탭으로 닫기 (줌 상태가 아닐 때만)
-            if scale == 1.0 {
-                onDismiss()
+    }
+    
+    // MARK: - UIScrollViewDelegate
+    
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+        return hostedView
+    }
+    
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        recenterImage()
+    }
+    
+    func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+        // ✅ 줌 종료 후 중앙 정렬
+        recenterImage()
+        print("🔍 줌 종료 - scale: \(scale)")
+    }
+    
+    // MARK: - 제스처 처리
+    
+    @objc private func handleSingleTap() {
+        // 줌 상태가 아닐 때만 닫기
+        if scrollView.zoomScale <= scrollView.minimumZoomScale + 0.1 {
+            print("🖱️ 단일 탭 - 모달 닫기")
+            onDismiss?()
+        } else {
+            print("🖱️ 단일 탭 - 줌 상태이므로 무시")
+        }
+    }
+    
+    @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+        print("🖱️ 더블 탭 - 줌 토글")
+        
+        if scrollView.zoomScale <= scrollView.minimumZoomScale + 0.1 {
+            // ✅ 줌 인 - 탭한 위치를 중심으로
+            let location = gesture.location(in: hostedView)
+            let zoomScale = scrollView.maximumZoomScale
+            
+            // 줌할 영역 계산
+            let zoomWidth = scrollView.bounds.width / zoomScale
+            let zoomHeight = scrollView.bounds.height / zoomScale
+            let zoomRect = CGRect(
+                x: location.x - zoomWidth / 2,
+                y: location.y - zoomHeight / 2,
+                width: zoomWidth,
+                height: zoomHeight
+            )
+            
+            scrollView.zoom(to: zoomRect, animated: true)
+            print("🔍 줌 인 - 위치: \(location), 스케일: \(zoomScale)")
+        } else {
+            // ✅ 줌 아웃
+            scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
+            print("🔍 줌 아웃")
+        }
+    }
+    
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        let translation = gesture.translation(in: view)
+        let velocity = gesture.velocity(in: view)
+        
+        guard scrollView.zoomScale <= scrollView.minimumZoomScale + 0.1 else { return }
+        
+        switch gesture.state {
+        case .began:
+            print("🖱️ 팬 제스처 시작")
+            
+        case .changed:
+            // 세로 방향 드래그만 처리 (아래쪽으로만)
+            if translation.y > 0 && abs(translation.y) > abs(translation.x) {
+                let translationSize = CGSize(width: translation.x, height: translation.y)
+                onVerticalDrag?(translationSize)
             }
+            
+        case .ended, .cancelled:
+            if translation.y > 0 && abs(translation.y) > abs(translation.x) {
+                let translationSize = CGSize(width: translation.x, height: translation.y)
+                let velocitySize = CGSize(width: velocity.x, height: velocity.y)
+                onVerticalDragEnd?(translationSize, velocitySize)
+            }
+            print("🖱️ 팬 제스처 종료")
+            
+        default:
+            break
+        }
+    }
+}
+
+
+// MARK: - UIGestureRecognizerDelegate
+
+extension ScrollableImageViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return false
+    }
+    // 아래로 내려서 미리보기 닫기인데 작동 안한다. 디버깅 요망
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if let panGesture = gestureRecognizer as? UIPanGestureRecognizer {
+            let translation = panGesture.translation(in: view)
+            let velocity = panGesture.velocity(in: view)
+            
+            let isNotZoomed = scrollView.zoomScale <= scrollView.minimumZoomScale + 0.1
+            let isVerticalDownward = velocity.y > 0 && abs(velocity.y) > abs(velocity.x)
+            
+            return isNotZoomed && isVerticalDownward
+        }
+        return true
+    }
+}
+
+struct PhotoPageView: View {
+    let photos: [String]
+    @Binding var currentIndex: Int
+    let onDismiss: () -> Void
+    let onVerticalDrag: (CGSize) -> Void
+    let onVerticalDragEnd: (CGSize, CGSize) -> Void
+    
+    var body: some View {
+        TabView(selection: $currentIndex) {
+            ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
+                ScrollableImageView(
+                    imagePath: photo,
+                    onDismiss: onDismiss,
+                    onVerticalDrag: onVerticalDrag,
+                    onVerticalDragEnd: onVerticalDragEnd
+                )
+                .tag(index)
+            }
+        }
+        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+        .onAppear {
+            print("🔄 PhotoPageView appeared - currentIndex: \(currentIndex)")
+        }
+        .onChange(of: currentIndex) { newIndex in
+            print("📄 페이지 변경됨: \(newIndex)")
         }
     }
 }
