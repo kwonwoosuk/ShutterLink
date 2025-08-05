@@ -16,7 +16,7 @@ struct PhotoPreviewModal: View {
     @State private var currentIndex: Int
     @State private var verticalDragOffset: CGFloat = 0
     @State private var backgroundOpacity: Double = 1.0
-    @State private var hasAppeared = false
+    @State private var hasAppeared = true
     
     init(photos: [String], initialIndex: Int, isPresented: Binding<Bool>) {
         self.photos = photos
@@ -63,21 +63,10 @@ struct PhotoPreviewModal: View {
             }
         }
         .onAppear {
-            print("📱 PhotoPreviewModal onAppear")
-            print("   - currentIndex: \(currentIndex)")
-            print("   - photos.count: \(photos.count)")
-            
-            // 짧은 지연 후 실제 콘텐츠 표시
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    hasAppeared = true
-                }
-                print("✅ PhotoPreviewModal 콘텐츠 표시됨")
-            }
+       
         }
         .onDisappear {
             print("👋 PhotoPreviewModal onDisappear")
-            hasAppeared = false
         }
         .statusBarHidden()
     }
@@ -169,7 +158,6 @@ struct PhotoPreviewModal: View {
         withAnimation(.easeOut(duration: 0.3)) {
             backgroundOpacity = 0
             verticalDragOffset = 200
-            hasAppeared = false
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -329,7 +317,7 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
         scrollView.contentInsetAdjustmentBehavior = .never
         
         scrollView.bounces = true
-        scrollView.alwaysBounceVertical = false
+        scrollView.alwaysBounceVertical = true
         scrollView.alwaysBounceHorizontal = false
         
         scrollView.contentInset = UIEdgeInsets.zero
@@ -401,7 +389,7 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
         // 단일 탭이 더블 탭을 기다리도록 설정
         singleTap.require(toFail: doubleTap)
         
-        // 팬 제스처 (모달 닫기용)
+        // 팬 제스처 (모달 닫기용) - view에 추가하여 UIScrollView 제스처와 충돌 방지
         let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
         panGesture.delegate = self
         view.addGestureRecognizer(panGesture)
@@ -528,26 +516,42 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
         let translation = gesture.translation(in: view)
         let velocity = gesture.velocity(in: view)
         
-        guard scrollView.zoomScale <= scrollView.minimumZoomScale + 0.1 else { return }
+        // 줌 상태에서는 팬 제스처 무시
+        guard scrollView.zoomScale <= scrollView.minimumZoomScale + 0.1 else { 
+            print("🚫 줌 상태에서 팬 제스처 무시 - zoomScale: \(scrollView.zoomScale)")
+            return 
+        }
         
         switch gesture.state {
         case .began:
-            print("🖱️ 팬 제스처 시작")
+            print("🖱️ 팬 제스처 시작 - translation: \(translation)")
             
         case .changed:
-            // 세로 방향 드래그만 처리 (아래쪽으로만)
-            if translation.y > 0 && abs(translation.y) > abs(translation.x) {
+            // 아래로 드래그 + 세로 방향이 우세한 경우만 처리
+            let isDownward = translation.y > 5  // 최소 5px 아래로
+            let isVerticalDominant = abs(translation.y) > abs(translation.x) * 1.5  // 세로가 가로보다 1.5배 이상
+            
+            if isDownward && (isVerticalDominant || abs(translation.y) > 20) {
                 let translationSize = CGSize(width: translation.x, height: translation.y)
                 onVerticalDrag?(translationSize)
+                print("📱 드래그 중 - y: \(translation.y), x: \(translation.x), 세로우세: \(isVerticalDominant)")
+            } else {
+                print("🔄 드래그 무시 - y: \(translation.y), x: \(translation.x), 아래로: \(isDownward), 세로우세: \(isVerticalDominant)")
             }
             
         case .ended, .cancelled:
-            if translation.y > 0 && abs(translation.y) > abs(translation.x) {
+            // 아래로 드래그한 경우만 처리 (더 관대한 조건)
+            let isDownward = translation.y > 5
+            let isVerticalDominant = abs(translation.y) > abs(translation.x) * 1.2  // 종료 시에는 더 관대하게
+            
+            if isDownward && (isVerticalDominant || abs(translation.y) > 15) {
                 let translationSize = CGSize(width: translation.x, height: translation.y)
                 let velocitySize = CGSize(width: velocity.x, height: velocity.y)
                 onVerticalDragEnd?(translationSize, velocitySize)
+                print("🖱️ 팬 제스처 종료 - y: \(translation.y), velocity.y: \(velocity.y)")
+            } else {
+                print("🚫 종료 시 드래그 무시 - y: \(translation.y), x: \(translation.x)")
             }
-            print("🖱️ 팬 제스처 종료")
             
         default:
             break
@@ -560,17 +564,29 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
 
 extension ScrollableImageViewController: UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // 커스텀 팬 제스처인 경우
+        if gestureRecognizer is UIPanGestureRecognizer && gestureRecognizer.view == view {
+            // 줌되지 않은 상태에서만 동시 인식 허용
+            let isNotZoomed = scrollView.zoomScale <= scrollView.minimumZoomScale + 0.1
+            print("🤝 shouldRecognizeSimultaneouslyWith - isNotZoomed: \(isNotZoomed)")
+            return isNotZoomed
+        }
         return false
     }
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        if let panGesture = gestureRecognizer as? UIPanGestureRecognizer {
-            let translation = panGesture.translation(in: view)
-            let velocity = panGesture.velocity(in: view)
-            
+        if gestureRecognizer is UIPanGestureRecognizer {
             let isNotZoomed = scrollView.zoomScale <= scrollView.minimumZoomScale + 0.1
-            let isVerticalDownward = velocity.y > 0 && abs(velocity.y) > abs(velocity.x)
             
-            return isNotZoomed && isVerticalDownward
+            print("🔍 gestureRecognizerShouldBegin - isNotZoomed: \(isNotZoomed), zoomScale: \(scrollView.zoomScale)")
+            
+            // 줌되지 않은 상태에서만 커스텀 팬 제스처 허용
+            if isNotZoomed {
+                print("✅ 팬 제스처 허용 - 줌 안됨")
+                return true
+            } else {
+                print("🚫 팬 제스처 거부 - 줌 상태")
+                return false
+            }
         }
         return true
     }

@@ -18,7 +18,7 @@ struct PDFPreviewModal: View {
     @State private var pdfDocuments: [PDFDocument?] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
-    @State private var hasAppeared = false
+    @State private var hasAppeared = true
     
     init(pdfPaths: [String], initialIndex: Int = 0, isPresented: Binding<Bool>) {
         self.pdfPaths = pdfPaths
@@ -82,15 +82,11 @@ struct PDFPreviewModal: View {
             }
         }
         .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                hasAppeared = true
-                loadPDFs()
-                print("✅ PDFPreviewModal 로딩 시작")
-            }
+            loadPDFs()
+            print("✅ PDFPreviewModal 즉시 로딩 시작")
         }
         .onDisappear {
             print("👋 PDFPreviewModal onDisappear")
-            hasAppeared = false
         }
     }
     
