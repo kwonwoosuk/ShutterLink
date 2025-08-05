@@ -48,7 +48,7 @@ final class ImageLoader {
         memoryCache.totalCostLimit = 25 * 1024 * 1024
     }
     
-    func loadImage(from imagePath: String, targetSize: CGSize? = CGSize(width: 500, height: 500),) async throws -> Data {
+    func loadImage(from imagePath: String, targetSize: CGSize? = CGSize(width: 500, height: 500)) async throws -> Data {
         // 빈 경로 체크
         guard !imagePath.isEmpty else {
             throw URLError(.badURL)
@@ -75,6 +75,29 @@ final class ImageLoader {
         print("🔄 이미지 로딩 시작: \(imagePath)")
         let data = try await performImageRequest(imagePath: imagePath, targetSize: targetSize, cacheKey: cacheKey)
         print("✅ 이미지 로딩 성공: \(imagePath)")
+        return data
+    }
+    
+    // MARK: - 채팅용 원본 이미지 로드 메서드
+    func loadOriginalImage(from imagePath: String) async throws -> Data {
+        // 빈 경로 체크
+        guard !imagePath.isEmpty else {
+            throw URLError(.badURL)
+        }
+        
+        // 원본 이미지용 캐시 키 (별도 관리)
+        let originalCacheKey = NSString(string: imagePath + "_original")
+        
+        // 1. 원본 이미지 캐시 확인
+        if let cachedData = cache.object(forKey: originalCacheKey) {
+            print("✅ 원본 이미지 캐시 히트: \(imagePath)")
+            return cachedData as Data
+        }
+        
+        // 2. 네트워크 요청 (원본 이미지)
+        print("🔄 원본 이미지 로딩 시작: \(imagePath)")
+        let data = try await performImageRequest(imagePath: imagePath, targetSize: nil, cacheKey: originalCacheKey)
+        print("✅ 원본 이미지 로딩 성공: \(imagePath)")
         return data
     }
     

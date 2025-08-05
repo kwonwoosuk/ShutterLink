@@ -91,7 +91,7 @@ struct ChatMessageCell: View {
         Task {
             for (index, imagePath) in imageFiles.prefix(3).enumerated() {
                 do {
-                    let _ = try await ImageLoader.shared.loadImage(from: imagePath)
+                    let _ = try await ImageLoader.shared.loadOriginalImage(from: imagePath)
                     print("✅ 프리로딩 성공 [\(index + 1)/\(min(3, imageFiles.count))]: \(imagePath)")
                 } catch {
                     print("❌ 프리로딩 실패 [\(index + 1)]: \(error)")
@@ -109,7 +109,8 @@ struct ChatMessageCell: View {
             if let profileImagePath = message.sender.profileImage {
                 AuthenticatedImageView(
                     imagePath: profileImagePath,
-                    contentMode: .fill
+                    contentMode: .fill,
+                    useOriginalImage: true
                 ) {
                     Circle()
                         .fill(Color.gray.opacity(0.3))
@@ -281,7 +282,8 @@ struct ChatMessageCell: View {
     private func singleImageView(image: String, allImages: [String], index: Int) -> some View {
         AuthenticatedImageView(
             imagePath: image,
-            contentMode: .fill
+            contentMode: .fill,
+            useOriginalImage: true
         ) {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.gray.opacity(0.3))
@@ -308,7 +310,8 @@ struct ChatMessageCell: View {
     private func imageItemView(image: String, width: CGFloat, height: CGFloat, allImages: [String], index: Int) -> some View {
         AuthenticatedImageView(
             imagePath: image,
-            contentMode: .fill
+            contentMode: .fill,
+            useOriginalImage: true
         ) {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.gray.opacity(0.3))

@@ -458,7 +458,81 @@ struct MakeEditView: View {
     }
     
     private func completeEditing() {
-        onComplete(viewModel.filteredImage, viewModel.editingState)
+        guard let filteredImage = viewModel.filteredImage else {
+            onComplete(nil, viewModel.editingState)
+            return
+        }
+        
+        // 5MB 제한 내에서 최적화된 이미지 생성
+        Task {
+            viewModel.isLoading = true
+            
+            let optimizedImage = await optimizeImageForUpload(filteredImage)
+            
+            await MainActor.run {
+                viewModel.isLoading = false
+                onComplete(optimizedImage, viewModel.editingState)
+            }
+        }
+    }
+    
+    // MARK: - 이미지 업로드 최적화
+    private func optimizeImageForUpload(_ image: UIImage) async -> UIImage {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let maxFileSize: Int = 5 * 1024 * 1024 // 5MB
+                
+                // 1단계: 원본 이미지에서 시작
+                var currentImage = image
+                var compressionQuality: CGFloat = 0.9
+                
+                // 2단계: 압축률 조정으로 5MB 이하로 만들기
+                while compressionQuality > 0.1 {
+                    if let imageData = currentImage.jpegData(compressionQuality: compressionQuality),
+                       imageData.count <= maxFileSize {
+                        print("✅ 압축 완료 - 품질: \(Int(compressionQuality * 100))%, 크기: \(imageData.count / 1024)KB")
+                        continuation.resume(returning: currentImage)
+                        return
+                    }
+                    compressionQuality -= 0.1
+                }
+                
+                // 3단계: 압축률로도 안되면 이미지 크기 축소
+                let maxDimension: CGFloat = 2048
+                if max(currentImage.size.width, currentImage.size.height) > maxDimension {
+                    let scale = maxDimension / max(currentImage.size.width, currentImage.size.height)
+                    let newSize = CGSize(
+                        width: currentImage.size.width * scale,
+                        height: currentImage.size.height * scale
+                    )
+                    
+                    UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+                    currentImage.draw(in: CGRect(origin: .zero, size: newSize))
+                    if let resizedImage = UIGraphicsGetImageFromCurrentImageContext() {
+                        currentImage = resizedImage
+                    }
+                    UIGraphicsEndImageContext()
+                    
+                    // 4단계: 리사이즈된 이미지로 다시 압축 시도
+                    compressionQuality = 0.8
+                    while compressionQuality > 0.1 {
+                        if let imageData = currentImage.jpegData(compressionQuality: compressionQuality),
+                           imageData.count <= maxFileSize {
+                            print("✅ 리사이즈 후 압축 완료 - 품질: \(Int(compressionQuality * 100))%, 크기: \(imageData.count / 1024)KB")
+                            continuation.resume(returning: currentImage)
+                            return
+                        }
+                        compressionQuality -= 0.1
+                    }
+                }
+                
+                // 최종: 최소 품질로라도 반환
+                if let finalData = currentImage.jpegData(compressionQuality: 0.1) {
+                    print("⚠️ 최소 품질로 압축 - 크기: \(finalData.count / 1024)KB")
+                }
+                continuation.resume(returning: currentImage)
+            }
+        }
     }
 }
 

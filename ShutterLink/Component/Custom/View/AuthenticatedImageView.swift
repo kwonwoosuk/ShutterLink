@@ -12,6 +12,7 @@ struct AuthenticatedImageView: View {
     let contentMode: ContentMode
     let placeholder: AnyView?
     let targetSize: CGSize?
+    let useOriginalImage: Bool
     
     @State private var imageData: Data?
     @State private var isLoading = false
@@ -24,6 +25,7 @@ struct AuthenticatedImageView: View {
         imagePath: String,
         contentMode: ContentMode = .fill,
         targetSize: CGSize? = CGSize(width: 250, height: 250),
+        useOriginalImage: Bool = false,
         @ViewBuilder placeholder: @escaping () -> some View = {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -33,6 +35,7 @@ struct AuthenticatedImageView: View {
         self.contentMode = contentMode
         self.placeholder = AnyView(placeholder())
         self.targetSize = targetSize
+        self.useOriginalImage = useOriginalImage
     }
     
     var body: some View {
@@ -102,10 +105,15 @@ struct AuthenticatedImageView: View {
         
         loadingTask = Task {
             do {
-                let data = try await ImageLoader.shared.loadImage(
-                    from: imagePath,
-                    targetSize: targetSize
-                )
+                let data: Data
+                if useOriginalImage {
+                    data = try await ImageLoader.shared.loadOriginalImage(from: imagePath)
+                } else {
+                    data = try await ImageLoader.shared.loadImage(
+                        from: imagePath,
+                        targetSize: targetSize
+                    )
+                }
                 
                 await MainActor.run {
                     self.imageData = data

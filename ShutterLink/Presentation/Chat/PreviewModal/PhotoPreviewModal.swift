@@ -343,7 +343,8 @@ class ScrollableImageViewController: UIViewController, UIScrollViewDelegate {
         let swiftUIView = AnyView(
             AuthenticatedImageView(
                 imagePath: imagePath,
-                contentMode: .fit
+                contentMode: .fit,
+                useOriginalImage: true
             ) {
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
