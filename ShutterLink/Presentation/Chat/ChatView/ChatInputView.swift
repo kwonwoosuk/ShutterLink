@@ -182,11 +182,11 @@ struct ChatInputView: View {
     private var fileMenuButtons: some View {
         Group {
             if uploadedFiles.isEmpty {
-                Button("사진 선택 (최대 5개, 전체 5MB)") {
+                Button("사진 선택 (최대 5개, 각 파일 5MB)") {
                     print("🔍 ChatInputView: 사진 선택 버튼 탭됨")
                     showImagePicker = true
                 }
-                Button("PDF 문서 선택 (최대 5개, 전체 5MB)") {
+                Button("PDF 문서 선택 (최대 5개, 각 파일 5MB)") {
                     print("🔍 ChatInputView: PDF 선택 버튼 탭됨")
                     showDocumentPicker = true
                 }
@@ -246,6 +246,7 @@ struct ChatInputView: View {
             .background(Color.clear)
             .focused($isTextFieldFocused)
         }
+        .frame(maxWidth: 280) // ✅ 텍스트 입력 영역 최대 너비 제한
         .animation(.easeInOut(duration: 0.2), value: textHeight)
     }
     
@@ -336,15 +337,19 @@ struct ChatInputView: View {
             
             for (index, item) in imagesToProcess.enumerated() {
                 if let data = try? await item.loadTransferable(type: Data.self) {
-                    if totalSize + data.count <= (5 * 1024 * 1024) {
+                    // ✅ 각 파일당 5MB 제한 체크
+                    if data.count <= (5 * 1024 * 1024) {
                         imageDataArray.append(data)
                         let fileName = "upload_image_\(Date().timeIntervalSince1970)_\(index + 1).jpg"
                         imageNames.append(fileName)
-                        totalSize += data.count
                         
                         print("🔍 ChatInputView: 이미지 추가 - \(fileName), 크기: \(data.count)")
                     } else {
-                        print("❌ ChatInputView: 용량 초과 - 총 \(totalSize + data.count) bytes")
+                        let fileSizeMB = Double(data.count) / (1024 * 1024)
+                        print("❌ ChatInputView: 개별 파일 용량 초과 - \(String(format: "%.2f", fileSizeMB)) MB")
+                        await MainActor.run {
+                            showFileSizeError(message: "이미지 파일은 5MB 이하만 첨부할 수 있습니다.")
+                        }
                     }
                 }
             }
@@ -413,18 +418,15 @@ struct ChatInputView: View {
                     let fileSizeMB = Double(fileSize) / (1024 * 1024)
                     print("   ✅ 파일 데이터 읽기 성공")
                     print("   - 파일 크기: \(fileSize) bytes (\(String(format: "%.2f", fileSizeMB)) MB)")
-                    print("   - 현재 총 크기: \(totalSize) bytes")
-                    print("   - 추가 후 총 크기: \(totalSize + fileSize) bytes")
                     
-                    // ✅ 전체 용량 5MB 체크
-                    if totalSize + fileSize <= (5 * 1024 * 1024) {
+                    // ✅ 각 파일당 5MB 제한 체크
+                    if fileSize <= (5 * 1024 * 1024) {
                         documentDataArray.append(data)
                         documentNames.append(url.lastPathComponent)
-                        totalSize += fileSize
                         print("   ✅ 파일 추가 성공")
                     } else {
                         oversizedFiles.append(url.lastPathComponent)
-                        print("   ❌ 용량 초과로 제외")
+                        print("   ❌ 개별 파일 용량 초과로 제외 - \(String(format: "%.2f", fileSizeMB)) MB")
                     }
                 } catch {
                     print("   ❌ 파일 데이터 읽기 실패: \(error)")
@@ -443,7 +445,7 @@ struct ChatInputView: View {
             
             // 용량 초과 파일 알림
             if !oversizedFiles.isEmpty {
-                let message = "\(oversizedFiles.count)개 파일이 전체 용량 제한(5MB)을 초과합니다."
+                let message = "\(oversizedFiles.count)개 파일이 개별 파일 용량 제한(5MB)을 초과합니다."
                 showFileSizeError(message: message)
             }
             

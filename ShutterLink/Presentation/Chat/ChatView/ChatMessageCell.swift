@@ -47,6 +47,7 @@ struct ChatMessageCell: View {
                 Spacer(minLength: 60)
             }
         }
+        .frame(maxWidth: .infinity) // ✅ HStack 전체 최대 너비를 화면 너비로 제한
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
         .fullScreenCover(isPresented: $showPhotoPreview) {
